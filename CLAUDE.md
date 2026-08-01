@@ -8,4 +8,5 @@
 
 - UI / デザイン作業時は `DESIGN.md`、コミット / PR レビュー時は `REVIEW.md`、テスト作成時は `TESTING.md` を参照してください。
 - サブディレクトリ作業時は近接の `AGENTS.md`（`src/AGENTS.md` / `prisma/AGENTS.md`）も参照してください。
+- スキルは `.claude/skills/<name>/SKILL.md`（`/update-todo` など）。中身は `docs/skills/<name>.md` を読ませる薄い入口であり、手順の正本は `docs/skills/` 側です。
 - （Claude 固有の注意が出たらここに追記）

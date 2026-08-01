@@ -12,8 +12,10 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 | `src/` | アプリ本体（`app/` ルーティング → `modules/<機能>` 縦割り → `shared/` 横断）。規約は `@src/AGENTS.md` |
 | `prisma/` | スキーマ・マイグレーション・seed。規約は `@prisma/AGENTS.md` |
 | `docker/` | Dockerfile（app/worker 共用）+ docker-compose（ローカル開発用 DB） |
-| `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md` |
-| `.github/` | Copilot 指示（`copilot-instructions.md`）+ CI ワークフロー（`workflows/ci.yml`） |
+| `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/` |
+| `.github/` | Copilot 指示（`copilot-instructions.md`）+ Copilot プロンプト（`prompts/`）+ CI ワークフロー（`workflows/ci.yml`） |
+| `.agents/` | Codex が読むリポジトリ内スキル（`skills/<name>/SKILL.md`） |
+| `.claude/` | Claude Code が読むスキル（`skills/<name>/SKILL.md`）+ 権限設定（`settings.json`） |
 
 ## ポイント
 
@@ -29,6 +31,7 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 - ブランチ: `main` 保護 + feature ブランチ → PR。PR は**機能（モジュール）単位**で分割する。
 - コミット / PR のレビュー観点は `REVIEW.md`、UI / デザインは `DESIGN.md`（shadcn/ui + Tailwind v4）、テスト作成は `TESTING.md` に従う。
 - コミット/PR には「何を・なぜ・どう検証したか」を記載する。
+- `docs/TODO_20260722.md` と `README.md` / `README_SIMPLE.md` の更新は、`@docs/skills/update-todo.md` の手順に従う。
 
 ## 主要コマンド
 
@@ -54,3 +57,16 @@ pnpm prisma:seed    # 初期データ投入（初期 ADMIN）
 - テスト方針（単体）: `TESTING.md`
 - アーキテクチャ規約: `@src/AGENTS.md`
 - DB 規約: `@prisma/AGENTS.md`
+- TODO / README の更新手順（スキル）: `@docs/skills/update-todo.md`
+
+## スキル（作業手順）
+
+繰り返す作業の手順は `docs/skills/<name>.md` に**正本を 1 つだけ**置き、各ツールの入口はそれを読ませるだけの薄いラッパーにする（`AGENTS.md` ↔ `CLAUDE.md` ↔ `copilot-instructions.md` と同じ方式）。
+
+| ツール | 入口 | 起動方法 |
+|---|---|---|
+| Claude Code | `.claude/skills/<name>/SKILL.md` | `/<name>` または説明文による自動起動 |
+| GitHub Copilot | `.github/prompts/<name>.prompt.md` | Copilot Chat で `/<name>` |
+| Codex | `.agents/skills/<name>/SKILL.md` | 説明文による自動起動 |
+
+手順を変更するときは `docs/skills/<name>.md` だけを編集する。入口ファイルに手順を複製しない。

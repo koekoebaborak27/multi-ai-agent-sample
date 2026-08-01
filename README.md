@@ -331,14 +331,16 @@ Docker で起動している場合は、`docker compose -f docker/docker-compose
 
 1. `pnpm lint`（ESLint）
 2. `pnpm format:check`（Prettier）
-3. `pnpm typecheck`（tsc）
-4. `prisma validate`（スキーマ検証）
-5. `prisma generate`（Prisma Client 生成）
+3. `prisma validate`（スキーマ検証）
+4. `prisma generate`（Prisma Client 生成）
+5. `pnpm typecheck`（tsc）
 6. `prisma migrate deploy`（**0からスキーマを再現できることの検証**）
 7. `pnpm test`（Vitest）
 8. `pnpm build`（本番ビルド）
 
 PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグレーションを適用して検証します。デプロイ自体は Cloud Build に任せるため、GitHub Actions からは行いません。
+
+> **`prisma generate` が `typecheck` より前にある理由**: Prisma Client（`@prisma/client` の型）は`prisma/schema.prisma`から生成されるコードであり、`node_modules`配下に作られるため Git では管理していません。生成前に`tsc`を走らせると`Module '"@prisma/client"' has no exported member 'Party'`のように型が見つからず失敗します。ローカルで同じエラーが出たときも`pnpm prisma:generate`で解決します。
 
 ## 本番デプロイ（Google Cloud Run + Supabase）
 
@@ -380,9 +382,26 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | コミット / PR レビュー | [`REVIEW.md`](REVIEW.md) |
 | テスト作成 | [`TESTING.md`](TESTING.md) |
 
+### スキル（定型作業の手順）
+
+繰り返し行う作業は「スキル」として手順化しており、**手順の正本も [`docs/skills/`](docs/skills/) の1ファイルだけ**です。各ツールの入口ファイルは、その正本を読ませるだけの薄いラッパーです。
+
+| スキル | 内容 | 正本 |
+|---|---|---|
+| `update-todo` | [`docs/TODO_20260722.md`](docs/TODO_20260722.md) を更新し、影響があれば `README.md` / `README_SIMPLE.md` も更新する | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) |
+
+| エージェント | 入口ファイル | 起動方法 |
+|---|---|---|
+| Claude Code | `.claude/skills/<name>/SKILL.md` | `/update-todo` と入力、または内容に応じて自動起動 |
+| GitHub Copilot | `.github/prompts/<name>.prompt.md` | Copilot Chat で `/update-todo` |
+| Codex | `.agents/skills/<name>/SKILL.md` | 内容に応じて自動起動 |
+
+スラッシュコマンドを使わず「TODO を更新して」と伝えるだけでも、[`AGENTS.md`](AGENTS.md) からの参照を通じて同じ手順が適用されます。
+
 ### 方針を追加・変更するとき
 
 - **全エージェントに共通する内容**は、`AGENTS.md`（またはサブディレクトリの `AGENTS.md`）へ書きます。
+- **定型作業の手順**は、`docs/skills/<name>.md`（正本）へ書きます。入口ファイルへ手順を複製しないでください。
 - **特定のエージェントにだけ必要な補足**は、そのツールのファイルの「◯◯ 固有」セクションへ書きます。
 - どのエージェントを使っても、成果物は同じ規約・同じ CI（`pnpm lint` / `format:check` / `typecheck` / `test` / `build`）で検証されます。
 
@@ -398,6 +417,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
 | [`docs/TODO_20260722.md`](docs/TODO_20260722.md) | 残タスク一覧 |
+| [`docs/skills/update-todo.md`](docs/skills/update-todo.md) | TODO / README の更新手順（スキルの正本・全エージェント共通） |
 | [`AI_Webアプリ開発_設計メモ.md`](AI_Webアプリ開発_設計メモ.md) | 無料枠運用・段階的拡張方針の技術メモ |
 | [`src/AGENTS.md`](src/AGENTS.md) | アーキテクチャ規約（feature-modular） |
 | [`prisma/AGENTS.md`](prisma/AGENTS.md) | DB 規約 |

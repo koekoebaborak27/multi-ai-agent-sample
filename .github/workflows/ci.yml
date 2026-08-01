@@ -47,14 +47,17 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      - name: Typecheck
-        run: pnpm typecheck
-
+      # Prisma Client は生成物のため、型を参照する Typecheck / Test / Build より前に生成する。
+      # （pnpm ストアがキャッシュヒットすると @prisma/client の postinstall が走らず、
+      #   生成前に tsc すると型解決に失敗する）
       - name: Prisma validate
         run: pnpm exec prisma validate
 
       - name: Prisma generate
         run: pnpm exec prisma generate
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Apply migrations（0からスキーマを再現できることの検証）
         run: pnpm exec prisma migrate deploy
