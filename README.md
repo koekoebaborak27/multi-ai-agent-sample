@@ -298,6 +298,8 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset
 
 呼び出し側は`storage`クライアント経由で操作するため、切り替えによるアプリケーションコードの変更は不要です。
 
+> **`getPublicUrl`だけは例外です。** 本番のSupabaseバケットは非公開（private）で運用するため、このメソッドが返す公開URLではファイルを取得できません（HTTP 400で拒否されます）。ローカル（`STORAGE_TYPE=local`）では動くため気づきにくい点に注意してください。ファイル配信を実装する際は、署名URLの発行に置き換える必要があります。
+
 ## よく使うコマンド
 
 ```text
