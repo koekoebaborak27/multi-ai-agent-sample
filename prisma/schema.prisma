@@ -1,0 +1,85 @@
+// 汎用契約管理システムテンプレート — 基盤スキーマ
+//
+// 命名規約（prisma/AGENTS.md）:
+//  - Prisma 標準の命名慣習（camelCase）に従う。@@map / @map は基本使わない。
+//  - 既存の物理DBに合わせる必要がある案件のみ、個別に @@map / @map を使う。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// ユーザー（認証・RBAC の最小モデル）。
+/// id はログインID（Credentials認証の userId）を兼ねる。
+model User {
+  id                 String    @id
+  role               String    @default("VIEWER") // ADMIN / OPERATOR / VIEWER
+  passwordHash       String? // Credentials用 Argon2id ハッシュ（Entraのみのユーザはnull）
+  failedAttempts     Int       @default(0) // ログイン連続失敗回数
+  lockedAt           DateTime? // ロック日時（null=未ロック）
+  mustChangePassword Boolean   @default(false) // 次回ログイン時にPW変更を強制
+  externalId         String?   @unique // Entra の oid(sub)。突合キー
+  email              String?
+  displayName        String?
+  deleted            Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+/// ダッシュボード用お知らせ（任意機能）。
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  published Boolean  @default(true)
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// 契約先（汎用契約管理ドメインの最小雛形）。
+model Party {
+  id          String   @id @default(cuid())
+  name        String
+  kind        String? // 分類（法人/個人 等。案件に応じて enum 化を検討）
+  contactInfo String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contracts Contract[]
+}
+
+/// 契約。
+model Contract {
+  id        String    @id @default(cuid())
+  partyId   String
+  party     Party     @relation(fields: [partyId], references: [id])
+  title     String
+  startDate DateTime?
+  endDate   DateTime?
+  status    String    @default("DRAFT") // DRAFT / ACTIVE / TERMINATED 等（案件に応じて拡張）
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  items ContractItem[]
+
+  @@index([partyId])
+}
+
+/// 契約条項・構成要素（金額計算の対象）。
+model ContractItem {
+  id              String   @id @default(cuid())
+  contractId      String
+  contract        Contract @relation(fields: [contractId], references: [id])
+  label           String
+  calculationRule String? // 金額計算ルール（雛形。案件に応じて構造化を検討）
+  amount          Decimal? @db.Decimal(14, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([contractId])
+}
