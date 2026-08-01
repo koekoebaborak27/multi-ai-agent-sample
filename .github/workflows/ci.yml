@@ -1,9 +1,19 @@
 name: CI
 
+# paths-ignore: ドキュメントだけの変更では CI を起動しない。
+# 変更ファイルが「すべて」パターンに一致する場合にのみスキップされるため、
+# 1 ファイルでもコードが混ざれば通常どおり全ステップが実行される。
+# （このファイル自体は対象外なので、ci.yml の変更は必ず CI で検証される）
 on:
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
 
 env:
   DATABASE_URL: postgresql://app:password@localhost:5432/app_db

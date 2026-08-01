@@ -428,15 +428,112 @@ git branch -D docs/update-readme
 
 > **手順5が必要になる理由**: `git branch -d`は「そのブランチの内容が`main`に入っているか」を確認してから削除します。ところがsquashマージは元のコミットをそのまま`main`へ載せず、**新しい1つのコミットを作り直す**ため、Gitからは別物に見えて「まだマージされていない」と判定されます。Pull Requestがマージ済みであることを確認したうえで`-D`を使えば問題ありません。
 
+### ドキュメントだけの変更でCIを実行しない（`main`へ直接push）
+
+[`docs/TODO_20260722.md`](docs/TODO_20260722.md)や`README.md`のように、**アプリの動作に一切影響しないファイルだけを変更した場合**は、lint・型チェック・ビルドを実行する意味がありません。この場合に限り、**作業用ブランチもPull Requestも作らず**、`main`上で直接コミットしてpushし、CIをスキップできます。
+
+つまり、上で説明した通常のフローを丸ごと省略します。
+
+| | 通常のフロー | この方法 |
+|---|---|---|
+| 作業用ブランチ | 作る | **作らない**（`main`上で直接コミットする） |
+| Pull Request | 作る | **作らない** |
+| CI | Pull Request作成時に動く | 動かない |
+| ブランチの後片付け | 必要 | **不要**（削除するブランチがないため） |
+
+> `main`にブランチ保護は設定していないため、直接pushは技術的に可能です（[補足](#補足)参照）。**この方法を使ってよいのは下表の「CI不要」に該当する変更だけ**です。迷ったら通常どおりPull Requestを出してください。
+
+| 変更したファイル | 判断 | CIの止め方 |
+|---|---|---|
+| `README.md` / `README_SIMPLE.md` / `AGENTS.md` / `CLAUDE.md` / `docs/**` / その他すべての `*.md` | CI不要 | **自動でスキップ**（`paths-ignore`） |
+| `.claude/**` / `.agents/**` のうち `*.md` 以外（`settings.json` など） | CI不要 | 手動でスキップ（`[skip ci]`） |
+| `src/**` / `prisma/**` / `package.json` / `pnpm-lock.yaml` / `*.ts` / `*.json` などの設定ファイル | **CI必須** | 止めない |
+| `.github/workflows/ci.yml` | **CI必須** | 止めない（CI自体の変更は、動かさないと検証できないため） |
+| `docker/**` | **CI必須** | 止めない |
+
+#### 仕組み1: `paths-ignore` による自動スキップ（設定済み）
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)に、CIを起動しないパスを登録してあります。
+
+```yaml
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+```
+
+- `"**.md"`はリポジトリ内のすべての`.md`ファイル（`README.md`・`AGENTS.md`・`docs/`配下など）に、`"docs/**"`は`docs/`配下のすべてのファイルに一致します。
+- **判定は「そのpush（またはPull Request）で変更されたファイルが1つ残らず一致した場合にのみスキップ」です。** 1ファイルでもコードが混ざっていれば、通常どおり全ステップが実行されます。安全側に倒れているため、うっかりコードの検証を飛ばしてしまうことはありません。
+- `ci.yml`自身はどちらのパターンにも一致しないため、**CIの設定変更は必ずCIで検証されます**。
+
+この仕組みがあるので、ドキュメントだけを変更する場合は**特別なことをせず、そのままコミットしてpushするだけ**でCIは動きません。
+
+```powershell
+# 1. main へ移動する（新しくブランチを作るのではありません。すでに main にいれば何も起きません）
+git checkout main
+
+# 2. リモートの最新を取り込む（先に他の変更が入っていると push が弾かれるため）
+git pull
+
+# 3. 変更をステージする
+git add docs/TODO_20260722.md README.md
+
+# 4. ステージした内容が上表の「CI不要」だけであることを目視確認する
+git status --short
+
+# 5. コミットする（[skip ci] は不要。paths-ignore が自動で判定します）
+git commit -m "docs: TODOの進捗を更新する"
+
+# 6. main へ直接 push する（Pull Request は作りません）
+git push
+
+# 7. CI が実行されていないことを確認する（今回の push に対応する行が増えていなければ成功）
+gh run list --limit 3
+```
+
+手順7の`gh run list`は、CIの実行履歴を新しい順に表示するコマンドです。スキップに成功していれば、**今回のコミットに対応する行は現れません**（成功でも失敗でもなく、そもそも実行されないためです）。ブラウザで確認する場合は、リポジトリの`Actions`タブと、コミット一覧に🟢や🔴のマークが付いていないことを見ます。
+
+#### 仕組み2: `[skip ci]`（`paths-ignore`で拾えないファイル向け）
+
+`.claude/settings.json`のように、`**.md`にも`docs/**`にも当てはまらないけれどCIでの検証が不要なファイルもあります。この場合は、コミットメッセージに決められた文字列を含めることで、そのpushで起動するはずのワークフローを個別に止められます。
+
+```powershell
+git commit -m "chore: エージェントの権限設定を追加する [skip ci]"
+```
+
+使える文字列は次の5つです。どれを使っても効果は同じで、**角かっこも含めて**記述します。複数行のコミットメッセージにする場合も、1行目（件名）の末尾に付けると確認しやすくなります。
+
+```text
+[skip ci]  [ci skip]  [no ci]  [skip actions]  [actions skip]
+```
+
+- **こちらは人が判断する方式です。** `paths-ignore`と違い、コードを含む変更に付けてしまうと検証が丸ごと飛びます。基本は`paths-ignore`に任せ、これは例外的に使ってください。
+- **pushに含まれるコミットのうち1つでもこの文字列を含んでいれば、そのpush全体のCIがスキップされます。** コードの変更を含むコミットを同じpushに混ぜないでください。
+- Pull Requestの場合は、**HEAD（最新）コミットのメッセージだけ**が判定対象です。
+
+#### 共通の注意点
+
+- **スキップされた場合、Actionsタブに実行履歴そのものが残りません。** 「失敗」ではなく「最初から実行されない」状態になり、コミット一覧にもチェックマークが付きません。
+- **作業用ブランチを経由しないため、誤った内容もそのまま`main`に載ります。** Pull Requestのように、マージ前に内容を見直す機会がありません。取り消すには`git revert`が必要になるので、手順4の`git status --short`でステージした内容を必ず確認してください。
+- すでに作業用ブランチを作ってしまった場合でも、コミット前であれば手順1の`git checkout main`で変更がそのまま`main`側へ引き継がれるため、手順3から続けられます。
+- **`paths-ignore`が効くのはGitHub Actionsだけです。** 本番デプロイを担うCloud Buildは別の仕組みのため、ドキュメントだけの変更でもデプロイが走ります。止めたい場合はCloud Build側のトリガー設定で除外するか、コミットメッセージに`[skip ci]` / `[ci skip]`を付けます（Cloud Buildも同じ文字列に対応しています）。Cloud Runは未構築のため、本プロジェクトでは未検証です。
+- 将来`main`にブランチ保護を設定し`verify`を必須チェックにした場合、**ドキュメントだけのPull Requestは「チェックが未実行」のままマージできなくなります**（`paths-ignore`・`[skip ci]`のどちらでも同じです）。その時点で、ドキュメント変更は`main`へ直接pushする運用にするか、必須チェックの扱いを見直す必要があります。
+
 ### 補足
 
-- **作業用ブランチへpushしただけではCIは動きません。** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)は`main`へのpushとPull Requestのみを対象にしているためです。CIはPull Requestを作成した時点で初めて実行されます。
+- **作業用ブランチへpushしただけではCIは動きません。** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)は`main`へのpushとPull Requestのみを対象にしているためです。CIはPull Requestを作成した時点で初めて実行されます（ただし変更が`*.md`と`docs/`だけの場合は、`paths-ignore`により実行されません）。
 - **`main`にブランチ保護は設定していません。** privateリポジトリでこの機能を使うにはGitHub Proまたはpublic化が必要なためです。したがって**CIが赤くてもマージボタンは押せてしまいます**。上記の流れは仕組みによる強制ではなく、運用ルールとして守るものです（[`docs/TODO_20260722.md`](docs/TODO_20260722.md)の「積み残し・確認事項」参照）。
 - 日本語の複数行コミットメッセージをPowerShellから渡すときは、上記のヒアストリング（`@'` 〜 `'@`）を使います。**閉じる`'@`は行頭**に置いてください。インデントすると構文エラーになります。
 
 ## CI（GitHub Actions）
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) が、`main`への push と全 Pull Request で単一の`verify`ジョブを実行します。
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) が、`main`への push と Pull Request で単一の`verify`ジョブを実行します。ただし変更が`**.md`と`docs/**`だけの場合は`paths-ignore`により起動しません。
 
 1. `pnpm lint`（ESLint）
 2. `pnpm format:check`（Prettier）
@@ -448,6 +545,8 @@ git branch -D docs/update-readme
 8. `pnpm build`（本番ビルド）
 
 PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグレーションを適用して検証します。デプロイ自体は Cloud Build に任せるため、GitHub Actions からは行いません。
+
+ドキュメントだけを変更した場合など、この検証が不要なときの進め方は「[ドキュメントだけの変更でCIを実行しない（`main`へ直接push）](#ドキュメントだけの変更でciを実行しないmainへ直接push)」を参照してください。
 
 > **`prisma generate` が `typecheck` より前にある理由**: Prisma Client（`@prisma/client` の型）は`prisma/schema.prisma`から生成されるコードであり、`node_modules`配下に作られるため Git では管理していません。生成前に`tsc`を走らせると`Module '"@prisma/client"' has no exported member 'Party'`のように型が見つからず失敗します。ローカルで同じエラーが出たときも`pnpm prisma:generate`で解決します。
 
