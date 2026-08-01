@@ -331,14 +331,16 @@ Docker で起動している場合は、`docker compose -f docker/docker-compose
 
 1. `pnpm lint`（ESLint）
 2. `pnpm format:check`（Prettier）
-3. `pnpm typecheck`（tsc）
-4. `prisma validate`（スキーマ検証）
-5. `prisma generate`（Prisma Client 生成）
+3. `prisma validate`（スキーマ検証）
+4. `prisma generate`（Prisma Client 生成）
+5. `pnpm typecheck`（tsc）
 6. `prisma migrate deploy`（**0からスキーマを再現できることの検証**）
 7. `pnpm test`（Vitest）
 8. `pnpm build`（本番ビルド）
 
 PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグレーションを適用して検証します。デプロイ自体は Cloud Build に任せるため、GitHub Actions からは行いません。
+
+> **`prisma generate` が `typecheck` より前にある理由**: Prisma Client（`@prisma/client` の型）は`prisma/schema.prisma`から生成されるコードであり、`node_modules`配下に作られるため Git では管理していません。生成前に`tsc`を走らせると`Module '"@prisma/client"' has no exported member 'Party'`のように型が見つからず失敗します。ローカルで同じエラーが出たときも`pnpm prisma:generate`で解決します。
 
 ## 本番デプロイ（Google Cloud Run + Supabase）
 
