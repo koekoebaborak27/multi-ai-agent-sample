@@ -325,6 +325,115 @@ Docker で起動している場合は、`docker compose -f docker/docker-compose
 - **単体テスト**: 関数やクラスなどの小さな単位が、想定どおりに動作するか自動確認します。
 - **本番ビルド**: 開発用のソースコードを、本番環境で実行できる形式へ変換・最適化します。
 
+## 変更をGitに反映する（開発フロー）
+
+`main`ブランチへ直接コミットせず、**作業用ブランチを作る → Pull Requestを出す → CIの成功を確認する → マージする**という流れで進めます。
+
+> **Pull Request（プルリクエスト、PR）**とは、「このブランチの変更を`main`へ取り込みたい」という提案です。提案の段階でCIが自動実行されるため、問題のある変更が`main`へ入る前に気づけます。
+
+```text
+main から作業用ブランチを作る
+        ↓
+変更してコミット
+        ↓
+ブランチを push        ← この時点ではまだCIは動きません
+        ↓
+Pull Request を作成    ← ここでCIが動きます
+        ↓
+CI がグリーンになるのを待つ
+        ↓
+マージする
+        ↓
+不要になったブランチを削除する（リモート・ローカルの両方）
+```
+
+以下、**コマンドで実行する場合**と**GitHubのサイト上で手作業する場合**の両方を記載します。どちらでも結果は同じです。
+
+### コマンドで実行する場合
+
+GitHub CLI（`gh`）を使います。ブラウザを開かずに完結します。
+
+```powershell
+# 1. 作業用ブランチを作る（変更前でも変更後でもよい。未コミットの変更は引き継がれます）
+git checkout -b docs/update-readme
+
+# 2. 変更をステージして内容を確認する
+git add docs/TODO_20260722.md
+git status --short
+
+# 3. コミットする（何を・なぜ・どう検証したかを書く。閉じる '@ は行頭に置きます）
+git commit -m @'
+docs: 変更内容の要約
+
+## 何を
+- 変更した内容
+
+## なぜ
+- 変更した理由
+
+## どう検証したか
+- 実行したコマンドと結果
+'@
+
+# 4. リモートへ push する
+git push -u origin docs/update-readme
+
+# 5. Pull Request を作成する（ここでCIが動き出します）
+gh pr create --base main --title "docs: 変更内容の要約" --body "変更の説明"
+
+# 6. CI の結果を確認する（verify pass と表示されれば成功）
+gh pr checks
+
+# 7. マージする。あわせてブランチの後片付けまで行われます
+gh pr merge --squash --delete-branch
+```
+
+`gh pr merge --delete-branch`は、**リモートブランチの削除・ローカルブランチの削除・`main`への切り替え・`git pull`までをまとめて実行します**。そのため、この方法では後片付けが不要です。
+
+### GitHubのサイト上で手作業する場合
+
+コミットとpush（上記の1〜4）はコマンドで行い、そこから先をブラウザで操作します。
+
+1. push後に表示されるURL、またはリポジトリ画面上部の`Compare & pull request`ボタンからPull Request作成画面を開きます。
+2. タイトルと説明を入力し、`Create pull request`を押します。
+3. Pull Requestページの下部にあるチェック欄で、CIの結果を確認します。
+
+   | 表示 | 意味 |
+   | --- | --- |
+   | 🟡 Some checks haven't completed yet | 実行中。待ちます |
+   | 🟢 All checks have passed | 成功。マージしてよい状態です |
+   | 🔴 Some checks were not successful | 失敗。`Details`リンクからログを確認して修正します |
+
+4. 緑になったら`Merge pull request`→`Confirm merge`を押します。ボタン右側の`▼`から`Squash and merge`を選ぶと、ブランチ上の複数のコミットが1つにまとまって`main`へ入ります。
+5. マージ後に表示される**`Delete branch`ボタンを押します**。これでリモートのブランチが削除されます（押すまで残り続けます。誤って消しても`Restore branch`から復元できます）。
+
+**サイト上の操作はリモートしか変更しません。** ローカルには古いブランチと古い`main`が残るため、手作業でマージした場合は次の後片付けが必要です。
+
+```powershell
+# 1. main へ戻る（作業中のブランチは削除できないため）
+git checkout main
+
+# 2. マージ結果を取り込む
+git pull
+
+# 3. 削除済みリモートブランチの参照を掃除する
+git fetch --prune
+
+# 4. ローカルブランチを削除する
+git branch -d docs/update-readme
+
+# 5. 4 が "not fully merged" で失敗した場合のみ、強制削除する
+git branch -D docs/update-readme
+```
+
+> **手順5が必要になる理由**: `git branch -d`は「そのブランチの内容が`main`に入っているか」を確認してから削除します。ところがsquashマージは元のコミットをそのまま`main`へ載せず、**新しい1つのコミットを作り直す**ため、Gitからは別物に見えて「まだマージされていない」と判定されます。Pull Requestがマージ済みであることを確認したうえで`-D`を使えば問題ありません。
+
+### 補足
+
+- **作業用ブランチへpushしただけではCIは動きません。** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)は`main`へのpushとPull Requestのみを対象にしているためです。CIはPull Requestを作成した時点で初めて実行されます。
+- **`main`にブランチ保護は設定していません。** privateリポジトリでこの機能を使うにはGitHub Proまたはpublic化が必要なためです。したがって**CIが赤くてもマージボタンは押せてしまいます**。上記の流れは仕組みによる強制ではなく、運用ルールとして守るものです（[`docs/TODO_20260722.md`](docs/TODO_20260722.md)の「積み残し・確認事項」参照）。
+- 日本語の複数行コミットメッセージをPowerShellから渡すときは、上記のヒアストリング（`@'` 〜 `'@`）を使います。**閉じる`'@`は行頭**に置いてください。インデントすると構文エラーになります。
+
 ## CI（GitHub Actions）
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) が、`main`への push と全 Pull Request で単一の`verify`ジョブを実行します。
