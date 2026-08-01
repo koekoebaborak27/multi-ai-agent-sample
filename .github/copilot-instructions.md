@@ -18,4 +18,5 @@
 ## Copilot 固有
 
 - UI / デザイン規約は `DESIGN.md`、コミット / PR レビュー観点は `REVIEW.md` を参照。
+- 定型作業は `.github/prompts/<name>.prompt.md` に用意しています（Copilot Chat で `/update-todo` など）。中身は `docs/skills/<name>.md` を読ませる薄い入口であり、手順の正本は `docs/skills/` 側です。
 - （Copilot 固有の補足が出たらここに追記）

@@ -155,6 +155,12 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset        # DB�
 
 開発方針の内容そのものは[`AGENTS.md`](AGENTS.md)の1つにまとめてあり、他の2つはそれを読み込む入口です。**方針を書き足すときは`AGENTS.md`を編集すれば、3つのツールすべてに反映されます。**
 
+よく行う作業は「スキル」として手順化してあり、こちらも内容は1ファイルにまとめてあります。
+
+| スキル | 内容 | 使い方 |
+|---|---|---|
+| `update-todo` | 残タスク一覧（[`docs/TODO_20260722.md`](docs/TODO_20260722.md)）を更新し、必要に応じてREADMEも更新する | 「TODO を更新して」と伝える。Claude Code と GitHub Copilot では`/update-todo`とも入力できます |
+
 詳しくは[`README.md`の「AIエージェントによる開発」](README.md#aiエージェントによる開発マルチaiエージェント構成)を参照してください。
 
 ## うまく動かないときは
