@@ -160,6 +160,7 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset        # DB�
 | スキル | 内容 | 使い方 |
 |---|---|---|
 | `update-todo` | 残タスク一覧（[`docs/TODO_20260722.md`](docs/TODO_20260722.md)）を更新し、必要に応じてREADMEも更新する | 「TODO を更新して」と伝える。Claude Code と GitHub Copilot では`/update-todo`とも入力できます |
+| `push-skip-ci` | CI（自動チェック）を実行せずに変更をGitHubへ反映する。実行前に必ず確認されます | 「CIスキップでプッシュして」と伝える。Claude Code と GitHub Copilot では`/push-skip-ci`とも入力できます |
 
 詳しくは[`README.md`の「AIエージェントによる開発」](README.md#aiエージェントによる開発マルチaiエージェント構成)を参照してください。
 

@@ -29,6 +29,8 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 ## 最小規約
 
 - ブランチ: `main` 保護 + feature ブランチ → PR。PR は**機能（モジュール）単位**で分割する。
+- **例外**: `*.md` / `docs/` 配下だけの変更は CI（`paths-ignore`）が起動しないため、`main` へ直接 push してよい。コードが 1 ファイルでも混ざる場合は PR に戻す。
+- CI を意図的に飛ばして push する場合（コードを含む場合も可）は `@docs/skills/push-skip-ci.md` に従う。**エージェントは実行前に必ずユーザーの承認を取り、得るまでコミットも push もしない。**
 - コミット / PR のレビュー観点は `REVIEW.md`、UI / デザインは `DESIGN.md`（shadcn/ui + Tailwind v4）、テスト作成は `TESTING.md` に従う。
 - コミット/PR には「何を・なぜ・どう検証したか」を記載する。
 - `docs/TODO_20260722.md` と `README.md` / `README_SIMPLE.md` の更新は、`@docs/skills/update-todo.md` の手順に従う。
@@ -58,6 +60,7 @@ pnpm prisma:seed    # 初期データ投入（初期 ADMIN）
 - アーキテクチャ規約: `@src/AGENTS.md`
 - DB 規約: `@prisma/AGENTS.md`
 - TODO / README の更新手順（スキル）: `@docs/skills/update-todo.md`
+- CI をスキップして push する手順（スキル）: `@docs/skills/push-skip-ci.md`
 
 ## スキル（作業手順）
 

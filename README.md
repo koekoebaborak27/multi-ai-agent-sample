@@ -597,14 +597,15 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | スキル | 内容 | 正本 |
 |---|---|---|
 | `update-todo` | [`docs/TODO_20260722.md`](docs/TODO_20260722.md) を更新し、影響があれば `README.md` / `README_SIMPLE.md` も更新する | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) |
+| `push-skip-ci` | CIを起動させずに変更をpushする。ドキュメントに限らずソースコードでも使えるが、**実行前に必ず確認を求める** | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) |
 
 | エージェント | 入口ファイル | 起動方法 |
 |---|---|---|
-| Claude Code | `.claude/skills/<name>/SKILL.md` | `/update-todo` と入力、または内容に応じて自動起動 |
-| GitHub Copilot | `.github/prompts/<name>.prompt.md` | Copilot Chat で `/update-todo` |
+| Claude Code | `.claude/skills/<name>/SKILL.md` | `/update-todo` のように入力、または内容に応じて自動起動 |
+| GitHub Copilot | `.github/prompts/<name>.prompt.md` | Copilot Chat で `/update-todo` のように入力 |
 | Codex | `.agents/skills/<name>/SKILL.md` | 内容に応じて自動起動 |
 
-スラッシュコマンドを使わず「TODO を更新して」と伝えるだけでも、[`AGENTS.md`](AGENTS.md) からの参照を通じて同じ手順が適用されます。
+スラッシュコマンドを使わず「TODO を更新して」「CIスキップでプッシュして」と伝えるだけでも、[`AGENTS.md`](AGENTS.md) からの参照を通じて同じ手順が適用されます。
 
 ### 方針を追加・変更するとき
 
@@ -626,6 +627,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
 | [`docs/TODO_20260722.md`](docs/TODO_20260722.md) | 残タスク一覧 |
 | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) | TODO / README の更新手順（スキルの正本・全エージェント共通） |
+| [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) | CI をスキップして push する手順（スキルの正本・全エージェント共通） |
 | [`AI_Webアプリ開発_設計メモ.md`](AI_Webアプリ開発_設計メモ.md) | 無料枠運用・段階的拡張方針の技術メモ |
 | [`src/AGENTS.md`](src/AGENTS.md) | アーキテクチャ規約（feature-modular） |
 | [`prisma/AGENTS.md`](prisma/AGENTS.md) | DB 規約 |
