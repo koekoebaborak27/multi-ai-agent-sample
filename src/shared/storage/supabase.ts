@@ -11,6 +11,16 @@ function requireConfig() {
   return { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
 }
 
+/**
+ * 認証ヘッダ。`Authorization` と `apikey` の両方を送る。
+ * 新形式の API キー（`sb_secret_...`）は JWT ではないため、`Authorization` だけを送ると
+ * Supabase 側が JWT としてパースに失敗し `Invalid Compact JWS`（HTTP 400）で全操作が拒否される。
+ * `apikey` を併送すればキーが解決される。旧 `service_role`（JWT 形式）でも併送で問題なく動作する。
+ */
+function authHeaders(key: string): Record<string, string> {
+  return { Authorization: `Bearer ${key}`, apikey: key };
+}
+
 function objectUrl(path: string): string {
   const { url } = requireConfig();
   return `${url}/storage/v1/object/${env.SUPABASE_STORAGE_BUCKET}/${path}`;
@@ -22,7 +32,7 @@ export const supabaseStorage: StorageClient = {
     const res = await fetch(objectUrl(path), {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
+        ...authHeaders(key),
         "Content-Type": contentType ?? "application/octet-stream",
         "x-upsert": "true",
       },
@@ -38,7 +48,7 @@ export const supabaseStorage: StorageClient = {
   async download(path) {
     const { key } = requireConfig();
     const res = await fetch(objectUrl(path), {
-      headers: { Authorization: `Bearer ${key}` },
+      headers: authHeaders(key),
     });
     if (!res.ok) {
       throw new AppError("STORAGE_DOWNLOAD_FAILED", 502, "ファイルの取得に失敗しました", {
@@ -52,7 +62,7 @@ export const supabaseStorage: StorageClient = {
     const { key } = requireConfig();
     const res = await fetch(objectUrl(path), {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${key}` },
+      headers: authHeaders(key),
     });
     if (!res.ok) {
       throw new AppError("STORAGE_DELETE_FAILED", 502, "ファイルの削除に失敗しました", {
