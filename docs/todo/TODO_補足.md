@@ -5,7 +5,7 @@
 
 本編（`TODO.md`）は**残タスクの一覧と進捗**に専念し、詳細はこちらへ置く。
 
-**並び順は作業の時系列**（Supabase プロジェクト作成 → 本番 DB / ストレージ → Cloud Run）。上から順に読めば、構築を最初からなぞれる。
+**並び順は作業の時系列**（Supabase プロジェクト作成 → 本番 DB / ストレージ → 署名 URL 化 → standalone 化 → Cloud Run）。上から順に読めば、構築を最初からなぞれる。
 
 ## 目次
 
@@ -17,6 +17,8 @@
 | 2026-08-02 | [本番 DB への適用手順](#本番-db-への適用手順) | PowerShell でのマイグレーション / seed 実行 |
 | 2026-08-02 | [Supabase の API キー形式](#supabase-の-api-キー形式) | 新形式キーは `apikey` ヘッダが要る |
 | 2026-08-02 | [ローカルの .env に本番の値を置いてよいか](#ローカルの-env-に本番の値を置いてよいか) | 変数ごとの判断基準と切り替え方 |
+| 未実施 | [署名 URL への差し替え方針](#署名-url-への差し替え方針) | Supabase の API 仕様、影響範囲、有効期限の決め方 |
+| 未実施 | [standalone 化の設計上の論点](#standalone-化の設計上の論点) | worker との衝突、5 つの落とし穴、ローカル検証手順 |
 | 未実施 | [本番の環境変数](#本番の環境変数) | Cloud Run に設定する値 |
 | 未実施 | [本番で動かさないもの](#本番で動かさないもの) | ワーカー / ローカル用 DB |
 
@@ -184,6 +186,87 @@ SUPABASE_STORAGE_BUCKET=uploads
 **Cloud Run 上の本番は `.env` を読まない。** [`.dockerignore`](../../.dockerignore) に `.env` があるためイメージに含まれず、環境変数は Cloud Run のサービス設定から渡る（→ [本番の環境変数](#本番の環境変数)）。上の切り替えはあくまで**ローカルから本番ストレージを触るため**のもので、本番デプロイとは無関係。同様に、ローカルを Docker Compose で動かす場合も `docker-compose.yml` の `environment` が `.env` より優先される。
 
 `secret` キーが漏れた場合は、Supabase ダッシュボードで当該キーを revoke して再発行し、**`.env` と Cloud Run の両方**を更新する。
+
+## 未実施 署名 URL 化とイメージの軽量化
+
+> **この節の内容は 2026-08-02 時点で実機未確認**（方針を決めただけで着手していない）。実装時は必ず手元で確認しながら進め、判明した事実でこの節を上書きすること。
+
+### 署名 URL への差し替え方針
+
+private バケットに対して [`getPublicUrl`](../../src/shared/storage/supabase.ts#L74-L77) が返す公開 URL（`/object/public/...`）が HTTP 400 で拒否されることは、2026-08-02 の疎通確認で実測済み（→ [履歴](TODO_履歴.md#2026-08-02-本番-db-の構築と-storage-の疎通確認) の 3 番目の項目）。**バケットを public にする案は、契約書類を扱う以上採らない。**
+
+**Supabase の署名 URL API**（`@supabase/supabase-js` に依存しない REST 直叩き）:
+
+| 項目 | 内容 |
+|---|---|
+| エンドポイント | `POST {SUPABASE_URL}/storage/v1/object/sign/{bucket}/{path}` |
+| リクエストボディ | `{"expiresIn": <秒>}`（JSON） |
+| 認証 | 既存実装と同じく `Authorization` + **`apikey` の併送**（→ [Supabase の API キー形式](#supabase-の-api-キー形式)） |
+| 応答 | `{"signedURL":"/object/sign/{bucket}/{path}?token=..."}`。**`/storage/v1` を含まない相対パス**が返るため、`{SUPABASE_URL}/storage/v1` を前置して完全な URL にする |
+
+**先に curl 相当で叩いて応答形を確かめる**のが安全。JSON ボディを渡すため、クォートの扱いが素直な `Invoke-RestMethod` を使う（`curl.exe` は PowerShell のバージョンによって `"` のエスケープ規則が変わる）。事前に `uploads/` バケットへ何かファイルを置いておくこと。
+
+```powershell
+$headers = @{ Authorization = "Bearer $env:SUPABASE_SERVICE_ROLE_KEY"; apikey = $env:SUPABASE_SERVICE_ROLE_KEY }
+$body = @{ expiresIn = 60 } | ConvertTo-Json
+Invoke-RestMethod -Method Post -ContentType "application/json" -Headers $headers -Body $body `
+  -Uri "$env:SUPABASE_URL/storage/v1/object/sign/uploads/<オブジェクトのパス>"
+```
+
+**影響範囲は 4 ファイルで閉じている**（2026-08-02 に `grep` で確認済み。`src/app/` と `src/modules/` からの呼び出しは**ゼロ**）。
+
+| ファイル | 変更内容 |
+|---|---|
+| [`types.ts`](../../src/shared/storage/types.ts) | `getPublicUrl(path): string` → 署名 URL を返す**非同期**メソッドへ。同期のままでは API 呼び出しの結果を返せない |
+| [`supabase.ts`](../../src/shared/storage/supabase.ts) | 上表のエンドポイントを叩く実装へ差し替え |
+| [`local.ts`](../../src/shared/storage/local.ts) | ローカルに署名の概念はないため、従来どおり `/uploads/{path}` を返すだけ（`async` にする） |
+| [`supabase.test.ts`](../../src/shared/storage/supabase.test.ts) | 既存の `getPublicUrl` のテスト（`148` 行目付近）を差し替え |
+
+**有効期限は短くする。** 署名 URL は「発行したら URL を知る誰でも開ける」ため、画面表示のたびに発行し直す前提で数十秒〜数分に収める。長くすると、リンクが共有・ログ記録された場合の露出時間がそのまま延びる。
+
+**呼び出し元がゼロの今がいちばん安い。** ファイル配信画面を作った後にインターフェースを変えると、呼び出し元すべてを追うことになる（この理由で Cloud Run より前に置いた → [作業の順序](TODO.md#作業の順序)）。
+
+実装後の実機確認は、[Supabase の API キー形式](#supabase-の-api-キー形式) にある tsx 直接実行（`--conditions=react-server --env-file=.env`）と `$env:STORAGE_TYPE='supabase'` の組み合わせで行う。**発行した URL をブラウザで開いてファイルが取得できることまで**確認する（HTTP 200 を返すだけでは、期限切れ時の挙動が分からない）。
+
+### standalone 化の設計上の論点
+
+`output: "standalone"` は「**Next.js サーバの実行に必要な依存だけ**」をトレースして `.next/standalone/` に出力する機能。イメージから `node_modules` 丸ごとを追放できるが、**現行 [`Dockerfile`](../../docker/Dockerfile) の設計と正面衝突する**。
+
+**最大の論点は worker の扱い。** [`runner` ステージ](../../docker/Dockerfile#L38-L62)は「1 つのイメージでアプリ（`pnpm start`）と worker（`pnpm worker` = tsx 直接実行）の両方を動かす」設計だが、**worker は Next.js のトレース対象外なので standalone 出力には含まれない**（`src/worker/`・pg-boss・tsx がすべて落ちる）。取り得る道は 2 つ。
+
+| 案 | 内容 | 評価 |
+|---|---|---|
+| **A. worker を本番イメージから外す** | `runner` はアプリ専用にする | 単純。[本番で動かさないもの](#本番で動かさないもの) の「本番では worker を起動しない」方針と整合する。実ジョブを追加する段階で作り直しになる |
+| B. ステージを分ける | `runner`（standalone）と `worker-runner`（従来どおり）を併存させる | 将来に強いが、Dockerfile が複雑になり、当面使わないイメージのビルド時間を払い続ける |
+
+**現時点では A が素直**（本番で worker を動かさないことは既に決めてある）。ただし採用は着手時に再確認すること。
+
+**踏みやすい落とし穴**（いずれも実装時に手元で確認する）:
+
+1. **起動コマンドが変わる。** standalone は `next start` と併用できず、`node server.js`（`.next/standalone/server.js`）で起動する。`CMD ["pnpm", "start"]` と [`next.config.ts`](../../next.config.ts) の既存コメントを併せて直す
+2. **`public/` と `.next/static/` は自動で入らない。** standalone 出力に含まれないため、Dockerfile 側で明示的にコピーする。忘れると CSS / JS / 画像が 404 になり、**画面は表示されるがスタイルが当たらない**という分かりにくい壊れ方をする
+3. **`HOSTNAME=0.0.0.0` を設定する。** 既定でループバックに束縛されると、Cloud Run のヘルスチェックがコンテナ外から到達できずデプロイが失敗する。`PORT` は Cloud Run が `8080` を注入する（→ [本番の環境変数](#本番の環境変数)）
+4. **Prisma の query engine がトレースから漏れることがある。** ネイティブバイナリはトレースで拾えない場合があるため、`.prisma/client` 配下を明示コピーする必要が出る可能性がある。DB へ接続した瞬間に落ちるので、ローカル検証では**必ず DB 接続を伴う画面まで開く**こと
+5. **`serverExternalPackages` の扱い。** [`next.config.ts`](../../next.config.ts#L8) で `pino` / `pg-boss` / `@node-rs/argon2` を外部化しているが、外部化したパッケージはバンドルされないぶんトレースに依存する。`@node-rs/argon2` はネイティブバインディングのため、**ログイン（パスワード照合）まで実際に通す**こと
+
+**ローカルでの検証手順**（この順序を選んだ前提条件。PR に含める）:
+
+```powershell
+docker build -f docker/Dockerfile --target runner -t contract-app:standalone .
+docker run --rm -p 3000:3000 `
+  -e DATABASE_URL='postgresql://app:password@host.docker.internal:5432/app_db' `
+  -e AUTH_SECRET='<ローカル検証用の適当な長い文字列>' `
+  -e AUTH_TRUST_HOST=true `
+  contract-app:standalone
+```
+
+事前に `docker compose -f docker/docker-compose.yml up -d db` で DB を起動しておく。`host.docker.internal` は、コンテナから**ホスト側**（＝ポート公開された Compose の PostgreSQL）を指すための名前。上の値は [`docker-compose.yml`](../../docker/docker-compose.yml#L5-L7) の `app` / `password` / `app_db` に対応している。確認する項目は 3 つ。
+
+| 確認 | 落とし穴との対応 |
+|---|---|
+| `http://localhost:3000` でスタイルが当たった画面が出る | 2 |
+| ログインできる | 4・5 |
+| イメージサイズが縮んでいる（`docker images` で before/after を比較） | そもそもの目的 |
 
 ## 未実施 Cloud Run 構築時に使う
 
