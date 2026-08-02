@@ -61,7 +61,9 @@ services:
       db:
         condition: service_healthy
     # tsx watch でソース変更のたびに worker を自動再起動する（開発用）
-    command: sh -c "pnpm prisma generate && pnpm exec tsx watch --env-file=.env src/worker/index.ts"
+    # 接続情報は上の environment が渡すため .env は不要。--env-file-if-exists にして
+    # .env 未作成のクローン直後でも起動できるようにする（.env があればそちらも読む）
+    command: sh -c "pnpm prisma generate && pnpm exec tsx watch --env-file-if-exists=.env src/worker/index.ts"
 
 volumes:
   db-data:

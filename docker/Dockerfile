@@ -74,6 +74,8 @@ USER node
 EXPOSE 3000
 # 実行ファイルを直接起動する。`pnpm start` 経由だと corepack → pnpm → next CLI と
 # 3 段プロセスを挟むぶん起動が遅く、pnpm 実体をイメージに抱える必要も出るため。
-# worker は同じ要領で `./node_modules/.bin/tsx src/worker/index.ts` に差し替える
-# （`pnpm worker` は --env-file=.env を渡すため、.env を持たない本番では使えない）。
+# worker は同じ要領で `./node_modules/.bin/tsx src/worker/index.ts` に差し替える。
+# package.json の `worker` スクリプトは --env-file-if-exists なので .env 不在でも動くが、
+# このイメージには pnpm 実体が無く `pnpm worker` は corepack のダウンロードを誘発するため、
+# コンテナ内では上記のとおり実行ファイルを直接叩くこと。
 CMD ["./node_modules/.bin/next", "start"]
