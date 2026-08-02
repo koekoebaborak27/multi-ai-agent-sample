@@ -9,7 +9,7 @@
 
 これを「**無料枠で運用でき、様々な案件に流用できる汎用契約管理システムのテンプレート**」として作成し、認証・DB接続・観測性などの土台は可能なかぎり再現しつつ、本番構成をGoogle Cloud Run + Supabase、CI/CDをGitHub Actions + Cloud Buildにすることで、無料で利用できる構成とした。
 
-> **2026-07-28 変更**: 当初は Railway を本番ホスティング先としていたが、Railway の無料枠が実質廃止されている（$5 のトライアルクレジットは 30 日で失効し、以後の Free plan は $1/月クレジットのみ。継続運用には Hobby $5/月が必要）ことが判明したため、Google Cloud Run へ変更した。選定の経緯は [`docs/TODO_20260722.md`](TODO_20260722.md) の「ホスティング先変更の経緯」を参照。
+> **2026-07-28 変更**: 当初は Railway を本番ホスティング先としていたが、Railway の無料枠が実質廃止されている（$5 のトライアルクレジットは 30 日で失効し、以後の Free plan は $1/月クレジットのみ。継続運用には Hobby $5/月が必要）ことが判明したため、Google Cloud Run へ変更した。選定の経緯は [`docs/todo/TODO.md`](todo/TODO.md#ホスティング先の選定経緯) を参照。
 また業務ドメインは「契約先/契約/契約条項」という汎用モデルの最小雛形にする。
 
 ## 1. アーキテクチャ方針（フィーチャーモジュラー / lite-DDD）
@@ -79,7 +79,7 @@ Prisma の標準的な命名規約に従う（テーブル名・カラム名と�
 - **ポート**: Cloud Run が `PORT=8080` を注入し `next start` がそれを読む。`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されない。
 - **シークレット**: `AUTH_SECRET` / `SUPABASE_SERVICE_ROLE_KEY` 等は Cloud Run のサービス環境変数（または Secret Manager）として設定し、リポジトリにはコミットしない。
 - **`AUTH_URL`**: Cloud Run の URL はデプロイ前に確定しないため、初回デプロイ後に発行された URL を設定して再デプロイする 2 段階になる。`AUTH_TRUST_HOST=true` はリバースプロキシ背後のため必須（`env.ts` の既定は `false`）。
-- **無料枠の制約**: DB容量・ストレージ容量・稼働時間・スリープ等の制限があるため、利用開始時・本番公開前に各サービスの最新の無料枠条件を確認する（詳細は [`AI_Webアプリ開発_設計メモ.md`](../AI_Webアプリ開発_設計メモ.md) §15）。
+- **無料枠の制約**: DB容量・ストレージ容量・稼働時間・スリープ等の制限があるため、利用開始時・本番公開前に各サービスの最新の無料枠条件を確認する。
 
 ## 7. CI/CD（GitHub Actions + Cloud Build）
 
@@ -121,6 +121,6 @@ LOG_PRETTY=true
 ## 参照
 
 - Prisma マイグレーション運用: [`docs/prisma_operations.md`](prisma_operations.md)
-- 個人開発／無料枠運用の技術メモ: [`AI_Webアプリ開発_設計メモ.md`](../AI_Webアプリ開発_設計メモ.md)
+- 残タスクと進捗: [`docs/todo/TODO.md`](todo/TODO.md)
 - アーキテクチャ規約: [`src/AGENTS.md`](../src/AGENTS.md)
 - DB 規約: [`prisma/AGENTS.md`](../prisma/AGENTS.md)

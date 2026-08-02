@@ -360,7 +360,7 @@ GitHub CLI（`gh`）を使います。ブラウザを開かずに完結します
 git checkout -b docs/update-readme
 
 # 2. 変更をステージして内容を確認する
-git add docs/TODO_20260722.md
+git add docs/todo/TODO.md
 git status --short
 
 # 3. コミットする（何を・なぜ・どう検証したかを書く。閉じる '@ は行頭に置きます）
@@ -432,7 +432,7 @@ git branch -D docs/update-readme
 
 ### ドキュメントだけの変更でCIを実行しない（`main`へ直接push）
 
-[`docs/TODO_20260722.md`](docs/TODO_20260722.md)や`README.md`のように、**アプリの動作に一切影響しないファイルだけを変更した場合**は、lint・型チェック・ビルドを実行する意味がありません。この場合に限り、**作業用ブランチもPull Requestも作らず**、`main`上で直接コミットしてpushし、CIをスキップできます。
+[`docs/todo/TODO.md`](docs/todo/TODO.md)や`README.md`のように、**アプリの動作に一切影響しないファイルだけを変更した場合**は、lint・型チェック・ビルドを実行する意味がありません。この場合に限り、**作業用ブランチもPull Requestも作らず**、`main`上で直接コミットしてpushし、CIをスキップできます。
 
 つまり、上で説明した通常のフローを丸ごと省略します。
 
@@ -484,7 +484,7 @@ git checkout main
 git pull
 
 # 3. 変更をステージする
-git add docs/TODO_20260722.md README.md
+git add docs/todo/TODO.md README.md
 
 # 4. ステージした内容が上表の「CI不要」だけであることを目視確認する
 git status --short
@@ -530,7 +530,7 @@ git commit -m "chore: エージェントの権限設定を追加する [skip ci]
 ### 補足
 
 - **作業用ブランチへpushしただけではCIは動きません。** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)は`main`へのpushとPull Requestのみを対象にしているためです。CIはPull Requestを作成した時点で初めて実行されます（ただし変更が`*.md`と`docs/`だけの場合は、`paths-ignore`により実行されません）。
-- **`main`にブランチ保護は設定していません。** privateリポジトリでこの機能を使うにはGitHub Proまたはpublic化が必要なためです。したがって**CIが赤くてもマージボタンは押せてしまいます**。上記の流れは仕組みによる強制ではなく、運用ルールとして守るものです（[`docs/TODO_20260722.md`](docs/TODO_20260722.md)の「積み残し・確認事項」参照）。
+- **`main`にブランチ保護は設定していません。** privateリポジトリでこの機能を使うにはGitHub Proまたはpublic化が必要なためです。したがって**CIが赤くてもマージボタンは押せてしまいます**。上記の流れは仕組みによる強制ではなく、運用ルールとして守るものです（[`docs/todo/TODO.md`](docs/todo/TODO.md)の「積み残しと検討事項」参照）。
 - 日本語の複数行コミットメッセージをPowerShellから渡すときは、上記のヒアストリング（`@'` 〜 `'@`）を使います。**閉じる`'@`は行頭**に置いてください。インデントすると構文エラーになります。
 
 ## CI（GitHub Actions）
@@ -561,9 +561,9 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 - **マイグレーション**: Cloud Run にはデプロイ前フックがないため、**ローカルから本番 DB に対して `prisma migrate deploy` を手動実行**する。
 - **初期データ**: `prisma migrate deploy` は seed を実行しないため、初回のみローカルから `pnpm prisma:seed` を本番 DB に対して実行する（`SEED_ADMIN_PASSWORD` を必ず指定する）。
 
-> ポートは Cloud Run が `PORT=8080` を注入し `next start` がそれを読むため、設定は不要です（`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されません）。手順の詳細は [`docs/TODO_20260722.md`](docs/TODO_20260722.md) を参照してください。
+> ポートは Cloud Run が `PORT=8080` を注入し `next start` がそれを読むため、設定は不要です（`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されません）。進捗と残タスクは [`docs/todo/TODO.md`](docs/todo/TODO.md)、コマンド単位の手順（接続文字列の選び方・`migrate deploy` / seed の実行・本番の環境変数一覧）は [`docs/todo/TODO_補足.md`](docs/todo/TODO_補足.md) を参照してください。
 
-技術選定の背景・段階的な拡張方針は [`AI_Webアプリ開発_設計メモ.md`](AI_Webアプリ開発_設計メモ.md) を参照。
+技術選定の背景・段階的な拡張方針は [`docs/foundation_plan.md`](docs/foundation_plan.md) を参照。
 
 ## AIエージェントによる開発（マルチAIエージェント構成）
 
@@ -598,7 +598,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 
 | スキル | 内容 | 正本 |
 |---|---|---|
-| `update-todo` | [`docs/TODO_20260722.md`](docs/TODO_20260722.md) を更新し、影響があれば `README.md` / `README_SIMPLE.md` も更新する | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) |
+| `update-todo` | [`docs/todo/TODO.md`](docs/todo/TODO.md) を更新し、影響があれば `README.md` / `README_SIMPLE.md` も更新する | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) |
 | `push-skip-ci` | CIを起動させずに変更をpushする。ドキュメントに限らずソースコードでも使えるが、**実行前に必ず確認を求める** | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) |
 
 | エージェント | 入口ファイル | 起動方法 |
@@ -627,10 +627,11 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/foundation_plan.md`](docs/foundation_plan.md) | 設計・確定方針（設計の正本） |
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
-| [`docs/TODO_20260722.md`](docs/TODO_20260722.md) | 残タスク一覧 |
+| [`docs/todo/TODO.md`](docs/todo/TODO.md) | 残タスク一覧・進捗・現在の状態 |
+| [`docs/todo/TODO_補足.md`](docs/todo/TODO_補足.md) | 残タスクの補足（Supabase / Cloud Run の設定値・手順・落とし穴） |
+| [`docs/todo/TODO_履歴.md`](docs/todo/TODO_履歴.md) | セッションごとの作業記録（引き継ぎメモ） |
 | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) | TODO / README の更新手順（スキルの正本・全エージェント共通） |
 | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) | CI をスキップして push する手順（スキルの正本・全エージェント共通） |
-| [`AI_Webアプリ開発_設計メモ.md`](AI_Webアプリ開発_設計メモ.md) | 無料枠運用・段階的拡張方針の技術メモ |
 | [`src/AGENTS.md`](src/AGENTS.md) | アーキテクチャ規約（feature-modular） |
 | [`prisma/AGENTS.md`](prisma/AGENTS.md) | DB 規約 |
 | [`DESIGN.md`](DESIGN.md) | UI / デザイン規約（shadcn/ui + Tailwind v4） |

@@ -12,7 +12,7 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 | `src/` | アプリ本体（`app/` ルーティング → `modules/<機能>` 縦割り → `shared/` 横断）。規約は `@src/AGENTS.md` |
 | `prisma/` | スキーマ・マイグレーション・seed。規約は `@prisma/AGENTS.md` |
 | `docker/` | Dockerfile（app/worker 共用）+ docker-compose（ローカル開発用 DB） |
-| `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/` |
+| `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/`、残タスク一式は `docs/todo/`（本編 `TODO.md` + 補足 + 履歴） |
 | `.github/` | Copilot 指示（`copilot-instructions.md`）+ Copilot プロンプト（`prompts/`）+ CI ワークフロー（`workflows/ci.yml`） |
 | `.agents/` | Codex が読むリポジトリ内スキル（`skills/<name>/SKILL.md`） |
 | `.claude/` | Claude Code が読むスキル（`skills/<name>/SKILL.md`）+ 権限設定（`settings.json`） |
@@ -33,7 +33,7 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 - CI を意図的に飛ばして push する場合（コードを含む場合も可）は `@docs/skills/push-skip-ci.md` に従う。**エージェントは実行前に必ずユーザーの承認を取り、得るまでコミットも push もしない。**
 - コミット / PR のレビュー観点は `REVIEW.md`、UI / デザインは `DESIGN.md`（shadcn/ui + Tailwind v4）、テスト作成は `TESTING.md` に従う。
 - コミット/PR には「何を・なぜ・どう検証したか」を記載する。
-- `docs/TODO_20260722.md` と `README.md` / `README_SIMPLE.md` の更新は、`@docs/skills/update-todo.md` の手順に従う。
+- `docs/todo/TODO.md` と `README.md` / `README_SIMPLE.md` の更新は、`@docs/skills/update-todo.md` の手順に従う。
 
 ## 主要コマンド
 
@@ -53,7 +53,6 @@ pnpm prisma:seed    # 初期データ投入（初期 ADMIN）
 
 - 設計・確定方針: `@docs/foundation_plan.md`
 - Prisma マイグレーション運用: `@docs/prisma_operations.md`
-- 個人開発／無料枠運用の技術メモ: `@AI_Webアプリ開発_設計メモ.md`
 - UI / デザイン規約: `DESIGN.md`
 - コミット / PR レビュー観点: `REVIEW.md`
 - テスト方針（単体）: `TESTING.md`
