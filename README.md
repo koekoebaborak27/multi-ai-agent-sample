@@ -94,7 +94,7 @@ macOSまたはLinuxの場合:
 cp .env.example .env
 ```
 
-**ローカルをDockerで動かす場合、`.env`は初期値のままで構いません。** `app`と`worker`の接続情報は[`docker/docker-compose.yml`](docker/docker-compose.yml)が注入し、その値が`.env`より優先されます。ただしファイル自体は`worker`の起動（`tsx --env-file=.env`）に必要なため、必ず作成してください。
+**ローカルをDockerで動かす場合、`.env`は初期値のままで構いません。** `app`と`worker`の接続情報は[`docker/docker-compose.yml`](docker/docker-compose.yml)が注入し、その値が`.env`より優先されます。`worker`は`--env-file-if-exists`で起動するため、`.env`が無くても`docker compose`は動きます（ホスト上で`pnpm dev`を実行する場合は`.env`が必要です）。
 
 ホスト上で直接`pnpm dev`を実行する場合は、`.env`の`AUTH_SECRET`を推測されにくい長いランダム文字列へ変更してください。`AUTH_SECRET`は、ログイン情報の改ざんを防ぐ署名に使用する秘密鍵です。`.env`には秘密情報が含まれるため、Gitへコミットしないでください。
 
