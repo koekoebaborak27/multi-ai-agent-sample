@@ -20,6 +20,7 @@
 | [2026-08-02 本番 DB の構築と Storage の疎通確認](#2026-08-02-本番-db-の構築と-storage-の疎通確認) | migrate / seed の実行、`apikey` ヘッダ不足のバグ発見と PR #6 |
 | [2026-08-02 残作業の順序を確定する](#2026-08-02-残作業の順序を確定する) | 署名 URL → standalone → Cloud Run に決定。コード変更なし |
 | [2026-08-02 署名 URL 化](#2026-08-02-署名-url-化) | `getPublicUrl` → `getSignedUrl` へ差し替え。PR #7、本番バケットで実機確認 |
+| [2026-08-02 Docker イメージの軽量化と worker の .env 依存解消](#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消) | standalone 化を差し替え。PR #8 / #9、1.73GB → 1.31GB、既存バグ 2 件を発見 |
 
 ## 2026-07-28 Git の初期化とコミット前チェック
 
@@ -375,7 +376,9 @@ standalone 化を Cloud Run の**前**に置いたのは、**本番へ触る回�
 
 これは「**standalone 化は Cloud Run 上でしか検証できない**」という誤った前提に立っていた。実際には [`docker/Dockerfile`](../../docker/Dockerfile) の `runner` ステージを**手元でビルドして起動すれば検証できる**。手元で動くところまで確認しておけば、Cloud Run で問題が出ても原因は Cloud Run 固有のもの（環境変数・ポート・権限）に絞れるため、基準点は不要だった。
 
-**ただしこれは条件付きの結論**なので、[`TODO.md`](TODO.md#残作業2-standalone-化) のチェックリストに「**ローカルで `runner` イメージをビルドして起動確認する**」を必須項目として明記した。ここを飛ばすと未検証の構成をいきなり本番へ出すことになり、順序を入れ替えたメリットが消える。検証コマンドは [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) に置いた。
+**ただしこれは条件付きの結論**なので、`TODO.md` の `残作業2` のチェックリストに「**ローカルで `runner` イメージをビルドして起動確認する**」を必須項目として明記した。ここを飛ばすと未検証の構成をいきなり本番へ出すことになり、順序を入れ替えたメリットが消える。検証コマンドは [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) に置いた。
+
+> **後日の補足**（2026-08-02）: `残作業2` はその後「Docker イメージの軽量化」へ差し替えられ、この見出しは [完了済みの作業](TODO.md#完了済みの作業) へ移動した。上記の「ローカルで起動確認する」という必須項目自体は差し替え後も引き継がれ、実際に本番イメージを起動して確認している（→ [2026-08-02 Docker イメージの軽量化と worker の .env 依存解消](#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)）。
 
 **4. standalone 化が worker と衝突することが分かった（着手前の発見）**
 
@@ -455,3 +458,98 @@ git checkout main; git pull --ff-only; git remote prune origin
 **5. README を更新した**
 
 「ファイルストレージ」節にあった `getPublicUrl` の但し書き（HTTP 400 で拒否される旨の警告）を、`getSignedUrl` の使い方・保存先ごとの挙動・有効期限を短く保つ理由へ書き換えた。**警告を消すのではなく、使い方の説明へ置き換えている**（private バケットで公開 URL が使えないという事実自体は残しておく必要があるため）。`README_SIMPLE.md` はストレージに触れていないため変更なし。
+
+## 2026-08-02 Docker イメージの軽量化と worker の .env 依存解消
+
+**`残作業2` を「standalone 化」から「Docker イメージの軽量化」へ差し替えて実施した。** PR #8 / #9 をマージ済み（**`main` = `d6e18f3`**）。**1.73GB → 1.31GB（-24%）**。作業の過程で**既存バグを 2 件発見して修正**した。
+
+**1. なぜ standalone 化をやめたか（ユーザーからの問いが起点）**
+
+ユーザーから「worker の影響が大きいように見えるが、この残作業は本当に必要か。コールドスタートが十数秒程度なら一旦いいのでは」という問いがあり、前提を検証したところ **`残作業2` の根拠が弱いことが判明した**。
+
+| 論点 | 検証結果 |
+|---|---|
+| コールドスタートへの効果 | `output: "standalone"` が縮めるのは**イメージ取得時間だけ**。起動する Next サーバのコードは同じなので、**Node 起動 → Next 初期化 → Prisma 初期化という起動処理そのものは縮まない**。「十数秒なら許容」という前提なら、やっても十数秒のまま |
+| 順序のリスク | standalone を先にやると、Cloud Run 初回デプロイで「Cloud Run の設定ミス」と「standalone の 5 つの落とし穴」が**同時に初見**になる。逆順なら動くベースラインを先に確保でき、Cloud Run のリビジョン切り戻しは 1 クリック |
+| 代替の有無 | **worker と一切衝突しない施策**（devDependencies 除去・musl バイナリ除去・起動コマンド直結）だけで同等の削減が取れる |
+
+**当初エージェント側が「`.next/cache` に数百 MB の無駄がある」と見積もったのは誤りだった。** ローカルの `.next` が 403MB あったのを根拠にしたが、これは**開発サーバのキャッシュを含む値**。Docker ビルド内で生成される `.next/cache` は **340KB** しかなかった。**見積もりは実測で潰すこと。**
+
+代わりに、想定していなかった無駄が見つかった。ベースイメージは `node:22-bookworm-slim`（**glibc**）なのに、pnpm が optionalDependencies として **musl 版のネイティブバイナリ**（`@next/swc-linux-x64-musl` 125MB ほか）も配置していた。**絶対に読み込まれないファイルで、削減の大半はこちら**（-約270MB）。
+
+`pnpm prune --prod` も期待ほど効かなかった（-146MB）。**トップレベルのシンボリックリンクは消えるが `.pnpm` ストアの実体は peer 依存の参照で残る**（`typescript` 23MB / `prisma` 67MB は `@prisma/client` から peer 参照されている）。実測値は [本番イメージから落としたもの](TODO_補足.md#本番イメージから落としたもの) に集約した。
+
+**2. 発見したバグ その1: `pino-pretty` が `devDependencies` にあった（PR #8）**
+
+prune を入れた本番イメージを起動したところ、**全リクエストが 500** になった。
+
+```
+⨯ Error: unable to determine transport target for "pino-pretty"
+```
+
+[`logger.ts`](../../src/shared/observability/logger.ts) は `LOG_PRETTY=true` のとき `pino-pretty` を transport target として**実行時に**解決するため、実体はランタイム依存。従来は本番イメージが devDependencies を丸ごと抱えていたため露見していなかった。本番は `LOG_PRETTY=false` の想定なので普段は踏まないが、**デバッグのため有効化した瞬間にアプリ全体が落ちる地雷**だったため `dependencies` へ移した。
+
+**軽量化は「使っていないものを消す」作業なので、隠れたランタイム依存を炙り出す。** 同種の作業をするときは、消した後に必ず実際の起動・ログイン・DB アクセスまで通すこと。
+
+**3. 発見したバグ その2: `pnpm worker` が本番で起動できない（PR #9）**
+
+ユーザーから「`pnpm worker` は本番では使えない、の意味が分からない」という問いを受けて実機で確認したところ、**2 つの独立した理由**があった。
+
+| 理由 | 実測 | 対処 |
+|---|---|---|
+| `.env` が本番イメージに無い | `node: .env: not found` / exit 9 で**起動前に落ちる** | `--env-file` → `--env-file-if-exists` へ変更（PR #9） |
+| イメージに pnpm 実体が無い | `Corepack is about to download https://registry.npmjs.org/pnpm/...` | 本番コンテナ内では `./node_modules/.bin/tsx src/worker/index.ts` を使う（仕様として Dockerfile にコメント） |
+
+**副次的に、クローン直後の `docker compose up worker` も直った。** [`README.md`](../../README.md) は「`.env` はファイル自体が `worker` の起動に必要なため必ず作成してください」と書いて回避していたが、compose は接続情報を `environment:` で注入しており**本来 `.env` は不要**だった。compose 側も `--env-file-if-exists` にして制約自体を外した。
+
+`worker` / `worker:prod` の 2 本に分ける案（ユーザー承認済み）から**方針を変えた**。`--env-file-if-exists` なら 1 本で両対応でき、使い分けを覚える必要がなくなるため。着手前に使えるか実測してから採用している（Node v22.23.2 / v24.15.0 の双方で利用可）。
+
+**4. 実機確認（本番 runner イメージ）**
+
+[standalone 化の落とし穴](TODO_補足.md#standalone-化の設計上の論点) として挙げていた項目を、軽量化版で先に潰した。
+
+| # | 確認内容 | 実測 |
+|---|---|---|
+| 1 | `/api/health` | `{"status":"ok"}` |
+| 2 | `/api/health?check=db` | `{"status":"ok","db":"up"}`（Prisma のクエリエンジンが prune 後も残っている） |
+| 3 | `/login` と参照する CSS | ともに 200 |
+| 4 | Credentials ログイン | 成功（`authjs.session-token` 発行）／誤パスワードは拒否（`@node-rs/argon2` が動作） |
+| 5 | 認証後の `/` `/parties` `/contracts` | いずれも 200 |
+| 6 | 同イメージからの worker 起動 | pg-boss 待受まで到達 |
+
+4 番目は Auth.js のログインが Server Action（[`actions.ts`](../../src/modules/auth/actions.ts) の `loginWithCredentials`）のため HTTP で直接叩けない。**`/api/auth/csrf` で CSRF トークンを取り、`/api/auth/callback/credentials` へ POST する**方法で確認した。検証用ユーザーは `uploads/`（`.gitignore` 済み）の使い捨てスクリプトで作成し、終了後に削除している。
+
+**開発フローの非回帰も確認した。** `docker compose up --build app worker` で `dev` ステージが従来どおり起動する（app は `/api/health` と `/login` が 200、worker は pg-boss 待受）。`dev` ステージは `deps`（devDependencies 込み）から分岐しており、変更は `build` / `runner` に閉じている。
+
+**5. worker の将来像が確定した**
+
+ユーザーから「worker は CSV アップロード / ダウンロードの実装を想定している」「Docker コンテナも分けているはず」という情報があり、方針が定まった。
+
+**コンテナは既に分かれているが、イメージは共用**である点を実測で確認した（`app` / `worker` の両コンテナで `ls /app/src` が完全に一致）。[`docker-compose.yml`](../../docker/docker-compose.yml) の 2 サービスは同じ `target: dev` から作られ、違うのは `command:` だけ。
+
+これを受けて [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) の結論を **A（worker を本番イメージから外す）から B（ステージを分ける）へ変更**した。worker に実ジョブを載せるならイメージ分離はどのみち必要で、分離すれば app 側は worker を気にせず standalone にできる。**standalone 化はその分離とセットで着手する**ことにし、[積み残しと検討事項](TODO.md#積み残しと検討事項) へ差し戻した。
+
+**6. 実行したコマンド**
+
+```powershell
+# PR #8
+git checkout -b chore/slim-docker-runner-image
+docker build -f docker/Dockerfile --target runner -t contract-app:before .   # 1.73GB
+# Dockerfile 修正 → 再ビルド → 1.31GB
+docker run -d --name app-slim-check -p 3100:3000 -e DATABASE_URL='...' ... contract-app:after
+pnpm lint; pnpm format:check; pnpm typecheck; pnpm test; pnpm build          # すべて成功
+gh pr create --base main --head chore/slim-docker-runner-image
+gh pr merge 8 --squash --delete-branch
+
+# PR #9
+git checkout -b chore/worker-env-file-if-exists
+gh pr merge 9 --squash --delete-branch
+```
+
+`package.json` を編集する際、**JSON にコメントを書こうとして 1 度失敗した**（`// ...` は構文エラー）。意図はコミットメッセージと PR 本文に書くこと。
+
+また、`.env` を一時退避して「クローン直後」を再現しようとしたが、**権限設定でブロックされた**（`.env` は保護対象）。代わりに**元から `.env` を持たない本番イメージ**で同じコマンド形（`tsx watch --env-file-if-exists=.env`）を実行して検証した。**保護されたファイルを動かさずに済む検証経路を探すこと。**
+
+**7. 更新したドキュメント**
+
+[`README.md`](../../README.md) は 2 か所。「環境変数ファイルを作成する」の `.env` 必須の但し書き（PR #9）と、「本番デプロイ」節のサービス構成（`pnpm start` → 実際の起動コマンド）。`README_SIMPLE.md` は本番手順を扱わず、`.env` を必須と書いてもいないため変更なし。

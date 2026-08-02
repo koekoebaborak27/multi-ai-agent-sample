@@ -2,19 +2,20 @@
 
 汎用契約管理システムテンプレートへの作り替え（[`foundation_plan.md`](../foundation_plan.md)）の残作業一覧。
 
-> **残るは 2 つ。「standalone 化 → Cloud Run 構築」の順で進める**（根拠は [作業の順序](#作業の順序)）。ローカル環境 / Git / GitHub / Supabase / 署名 URL 化は完了済み。
+> **残るは 1 つ。[Cloud Run 構築](#残作業3-google-cloud-run) だけ**（根拠は [作業の順序](#作業の順序)）。ローカル環境 / Git / GitHub / Supabase / 署名 URL 化 / Docker イメージの軽量化は完了済み。
 >
-> 番号（`残作業2` / `残作業3`）は順序を確定したときのまま据え置いている（履歴からのリンクを壊さないため）。`残作業1` は完了し [完了済みの作業](#完了済みの作業) へ移動した。
+> 番号（`残作業3`）は順序を確定したときのまま据え置いている（履歴からのリンクを壊さないため）。`残作業1`（署名 URL 化）と `残作業2` は完了し [完了済みの作業](#完了済みの作業) へ移動した。
+>
+> **`残作業2` は当初「standalone 化」だったが、2026-08-02 に「Docker イメージの軽量化」へ差し替えた。** standalone 化は [積み残しと検討事項](#積み残しと検討事項) へ降格し、worker 用イメージを分離する段階で再検討する（理由は [作業の順序](#作業の順序)）。
 
 ## 目次
 
 | 節 | 内容 |
 |---|---|
 | [進捗サマリ](#進捗サマリ) | 区分ごとの残数 |
-| [作業の順序](#作業の順序) | 3 つの残作業をこの順に並べた理由（1 は完了済み） |
+| [作業の順序](#作業の順序) | 残作業をこの順に並べた理由と、2026-08-02 の見直し |
 | [次にやること](#次にやること) | 次のセッションが最初に打つ手 |
-| [残作業2 standalone 化](#残作業2-standalone-化) | Docker イメージの軽量化（コールドスタート対策） |
-| [残作業3 Google Cloud Run](#残作業3-google-cloud-run) | 本番サーバの構築（ブラウザ作業） |
+| [残作業3 Google Cloud Run](#残作業3-google-cloud-run) | 本番サーバの構築（ブラウザ作業）。**唯一の残作業** |
 | [補足資料](#補足資料) | 設定値・手順・落とし穴（別ファイル） |
 | [積み残しと検討事項](#積み残しと検討事項) | 期限のない宿題 |
 | [完了済みの作業](#完了済みの作業) | 実施履歴（折りたたみ） |
@@ -37,48 +38,52 @@
 | Git と GitHub | 13 / 13 | 完了 |
 | Supabase（本番 DB / Storage） | 6 / 6 | 完了。実機で読み書きまで確認済み |
 | 1. 署名 URL 化 | 5 / 5 | 完了（PR #7）。本番バケットで実機確認済み |
-| **2. standalone 化** | **0 / 5** | **未着手。次はここから** |
-| 3. Google Cloud Run | 0 / 8 | 未着手。2 を終えてから |
-| 積み残しと検討事項 | 4 / 7 | 未対応 3 件（期限なし） |
+| 2. Docker イメージの軽量化 | 6 / 6 | 完了（PR #8 / #9）。1.73GB → 1.31GB。**standalone 化からの差し替え** |
+| **3. Google Cloud Run** | **0 / 8** | **未着手。次はここから** |
+| 積み残しと検討事項 | 4 / 8 | 未対応 4 件（期限なし。standalone 化を追加） |
 
 ## 作業の順序
 
-2026-08-02 に**「署名 URL 化 → standalone 化 → Cloud Run 構築」の順**で確定した。当初は「残るインフラ作業は Cloud Run だけ」として Cloud Run を最優先に置いていたが、次の 2 点から順序を見直した。
+2026-08-02 に**「署名 URL 化 → standalone 化 → Cloud Run 構築」の順**で確定したが、**同日中に 2 番目を「Docker イメージの軽量化」へ差し替えた**。経緯は [履歴](TODO_履歴.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)。
 
-| # | 作業 | 種別 | この順にした理由 |
+| # | 作業 | 種別 | 結果 |
 |---|---|---|---|
-| 1 | 署名 URL 化（**2026-08-02 完了** → [完了済みの作業](#完了済みの作業)） | コード | **いま安く、あとで高くなる**。`StorageClient` インターフェースの変更を伴うが、現時点で `getPublicUrl` の呼び出し元がゼロのため修正は 3 ファイルで済む。ファイル配信画面を作った後にやると呼び出し元すべてを追う羽目になる。**実際に変更は 5 ファイル（`src/shared/storage/` の 4 つ + `README.md`）で閉じ、この読みは当たった** |
-| 2 | [standalone 化](#残作業2-standalone-化) | コード + Docker | **いつやってもコストは変わらない**（`next.config.ts` と `docker/Dockerfile` で閉じている）。ただし Cloud Run より前に済ませておけば、本番へは最終形を 1 回デプロイするだけで済む |
-| 3 | [Cloud Run 構築](#残作業3-google-cloud-run) | ブラウザ | **人の手が要る作業をまとめて最後に置く**。コード側を先に固めておけば、一度立てた本番に後から手を入れずに済み、課金対象のプロジェクトを準備段階から放置することもない |
+| 1 | 署名 URL 化（**完了** → [完了済みの作業](#完了済みの作業)） | コード | **いま安く、あとで高くなる**。`getPublicUrl` の呼び出し元がゼロのうちに変えられた。実際に変更は 5 ファイルで閉じ、この読みは当たった |
+| 2 | Docker イメージの軽量化（**完了** → [完了済みの作業](#完了済みの作業)） | Docker | 当初は standalone 化を置いていたが、**より安く同等の効果が出る施策へ差し替えた**（下記） |
+| 3 | [Cloud Run 構築](#残作業3-google-cloud-run) | ブラウザ | **人の手が要る作業を最後に置く**。コード側を先に固めておけば、一度立てた本番に後から手を入れずに済む |
 
-**「standalone 化は Cloud Run の後でもよい」という判断も成り立つ**（GitHub 連携の自動デプロイなので、後から `main` に push すれば再デプロイされるだけ）。それでも前に置いたのは、**本番へ触る回数を 1 回に抑えるため**。ただしこの順序には条件があり、**standalone 化の PR ではローカルで `runner` イメージをビルドして起動確認まで行う**（→ [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点)）。これを飛ばすと未検証の構成をいきなり本番へ出すことになり、順序を入れ替えたメリットが消える。
+### なぜ standalone 化を差し替えたか
+
+当初 `残作業2` は「standalone 化」で、理由は「コールドスタート対策」だった。**この根拠が弱いことが分かったため差し替えた。**
+
+| 論点 | 分かったこと |
+|---|---|
+| コールドスタートへの効果 | `output: "standalone"` が縮めるのは**イメージ取得時間だけ**で、Node 起動 → Next 初期化 → Prisma 初期化という**起動処理そのものは 1 ミリ秒も縮まない**。「十数秒なら許容」という前提なら、やっても十数秒のまま |
+| コスト | worker が standalone 出力に含まれないため、**本番イメージの構成を決める設計判断とセット**になる。現時点で worker は登録ジョブがゼロで、決める材料が揃っていない |
+| 代替の存在 | **worker と一切衝突しない施策**（devDependencies 除去・musl バイナリ除去・起動コマンド直結）だけで 1.73GB → 1.31GB（-24%）を達成できた |
+| 順序のリスク | standalone を先にやると、Cloud Run 初回デプロイで「Cloud Run の設定ミス」と「standalone の落とし穴」が**同時に初見**になる。逆順なら動くベースラインを先に確保でき、リビジョン切り戻しも 1 クリック |
+
+**standalone 化は [積み残しと検討事項](#積み残しと検討事項) へ降格した。** 着手の適時は「worker に実ジョブ（CSV 取り込み等）を載せ、worker 用イメージを `runner` から分離するとき」。イメージを分ければ app 側は worker を気にせず standalone にでき、[案 B](TODO_補足.md#standalone-化の設計上の論点) がそのまま成立する。
 
 ## 次にやること
 
-**[残作業2 standalone 化](#残作業2-standalone-化) から着手する。** これもコードと Docker だけで完結し、Cloud Run の完成を待つ必要がない。
+**[残作業3 Cloud Run 構築](#残作業3-google-cloud-run) から着手する。** コード側の準備は完了しており、残るのはブラウザ作業のみ。
 
-**最初に読むのは [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点)**（worker と正面衝突するため、読まずに着手すると手戻りする）。実装は「worker を本番イメージから外すか」の決定 → [`next.config.ts`](../../next.config.ts) の `output: "standalone"` → [`docker/Dockerfile`](../../docker/Dockerfile) の `runner` ステージ、の順。
+**最初に読むのは [本番の環境変数](TODO_補足.md#本番の環境変数)**（Cloud Run のサービス設定に入れる値の一覧）。次いで [残作業3](#残作業3-google-cloud-run) の「進めるうえでの要点 3 つ」。
 
-最初に打つコマンド（DB 起動 + feature ブランチの作成。DB は最後のローカル起動確認で使う）:
+最初に打つ手は**ブラウザでの Google Cloud アカウント作成**（コマンドではない）。アカウント作成前に、手元の状態を確認しておく場合のコマンドは次のとおり。
 
 ```powershell
-docker compose -f docker/docker-compose.yml up -d db
-git checkout -b chore/next-standalone-output
+git log --oneline -1                                    # main = d6e18f3 であること
+docker build -f docker/Dockerfile --target runner -t contract-app:verify .   # 本番イメージが今も通ること
+docker images contract-app:verify --format "{{.Size}}"  # 1.3GB 前後
 ```
 
-**コード**を変更するので、`main` へ直接 push せず **feature ブランチ → PR → CI green → squash マージ**の流れに従う（コマンドは [`TODO_履歴.md`](TODO_履歴.md#2026-08-02-pr-運用の開始と-ci-の順序バグ修正) の「PR 運用の型が固まった」を参照）。一方、**`.md` / `docs/` 配下だけの変更**は `paths-ignore` により CI が動かないため、`main` へ直接コミットして push してよい（手順は [`README.md`](../../README.md) の「ドキュメントだけの変更でCIを実行しない」）。Supabase / Cloud Run の設定作業そのものはリポジトリ外の操作なので、どちらの対象でもない。
+Cloud Run の設定作業そのものはリポジトリ外の操作なので、**PR も直接 push も発生しない**。デプロイ後に `AUTH_URL` の設定で 1 度だけ再デプロイが要る。
+
+なお**コード**を変更する場合は `main` へ直接 push せず **feature ブランチ → PR → CI green → squash マージ**に従う（コマンドは [`TODO_履歴.md`](TODO_履歴.md#2026-08-02-pr-運用の開始と-ci-の順序バグ修正) の「PR 運用の型が固まった」）。**`.md` / `docs/` 配下だけの変更**は `paths-ignore` により CI が動かないため `main` へ直接 push してよい（手順は [`README.md`](../../README.md) の「ドキュメントだけの変更でCIを実行しない」）。
 
 各セッションの終わりには、エージェントに「TODO を更新して」（または `/update-todo`）と伝えてこのファイルを更新する。手順は [`docs/skills/update-todo.md`](../skills/update-todo.md)。
-
-## 残作業2 standalone 化
-
-現行イメージは `node_modules` を丸ごと持ち込むためサイズが大きく、**最小インスタンス 0 の Cloud Run ではコールドスタート時間に直結する**。Railway 前提だった頃より優先度は上がっている。**着手前に必ず [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) を読む**（worker と正面衝突する）。
-
-- [ ] **worker を本番イメージでどう扱うか決める**（イメージから外す / ステージを分ける）。`output: "standalone"` は Next.js サーバに必要な依存しかトレースしないため、[`src/worker/`](../../src/worker/) と pg-boss / tsx は含まれない
-- [ ] [`next.config.ts`](../../next.config.ts) に `output: "standalone"` を設定する（既存コメントの「`next start` と併用不可」も併せて解消する）
-- [ ] [`docker/Dockerfile`](../../docker/Dockerfile) の `runner` ステージを standalone 出力ベースへ差し替える（`build` / `dev` ステージは壊さない）
-- [ ] **ローカルで `runner` イメージをビルドして起動し、動作確認する**（この順序を選んだ前提条件。飛ばさないこと）
-- [ ] feature ブランチ → PR → CI green → squash マージ
 
 ## 残作業3 Google Cloud Run
 
@@ -118,7 +123,9 @@ git checkout -b chore/next-standalone-output
 | 2026-08-02 | [Supabase の API キー形式](TODO_補足.md#supabase-の-api-キー形式) | 新形式キーには `apikey` ヘッダが要る。疎通確認コマンド |
 | 2026-08-02 | [ローカルの .env に本番の値を置いてよいか](TODO_補足.md#ローカルの-env-に本番の値を置いてよいか) | 変数ごとの可否と、本番ストレージへの切り替え方 |
 | 2026-08-02 | [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針) | 確定した API 仕様・インターフェース・実機確認の結果と落とし穴 |
-| 未実施 | [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) | worker との衝突、ローカルでの検証コマンド |
+| 2026-08-02 | [本番イメージから落としたもの](TODO_補足.md#本番イメージから落としたもの) | 実測値つきの内訳。効いた施策と効かなかった施策 |
+| 2026-08-02 | [worker の起動コマンド](TODO_補足.md#worker-の起動コマンド) | 環境ごとの正しい起動方法。`pnpm worker` が本番で使えない 2 つの理由 |
+| 未実施 | [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) | worker との衝突、ローカルでの検証コマンド。**着手条件が変わった** |
 | 未実施 | [本番の環境変数](TODO_補足.md#本番の環境変数) | Cloud Run のサービス設定に入れる値の一覧 |
 | 未実施 | [本番で動かさないもの](TODO_補足.md#本番で動かさないもの) | pg-boss ワーカー / ローカル用 `db` サービス |
 
@@ -126,8 +133,12 @@ git checkout -b chore/next-standalone-output
 
 ### 未対応
 
-> **2026-08-02 に 2 件がここから昇格した。** 「`getPublicUrl` の署名 URL 化」（→ **完了**。[完了済みの作業](#完了済みの作業)）と「`output: "standalone"` 化」（→ [残作業2](#残作業2-standalone-化)）を、期限なしの宿題から**Cloud Run より前にやる作業**に格上げした（理由は [作業の順序](#作業の順序)）。
+> **2026-08-02 に 2 件がここから昇格し、うち 1 件が戻ってきた。** 「`getPublicUrl` の署名 URL 化」は昇格して**完了**（[完了済みの作業](#完了済みの作業)）。「`output: "standalone"` 化」は一度 `残作業2` へ昇格したが、**同日ここへ差し戻した**（理由は [なぜ standalone 化を差し替えたか](#なぜ-standalone-化を差し替えたか)）。
 
+- [ ] **`output: "standalone"` 化を検討する**（2026-08-02 に `残作業2` からここへ差し戻し）。**着手の適時は「worker 用イメージを `runner` から分離するとき」**。イメージを分ければ app 側は worker を気にせず standalone にでき、[案 B](TODO_補足.md#standalone-化の設計上の論点) が成立する
+  - 単独でやる価値は低い。コールドスタートの**起動処理そのものは縮まない**うえ、[軽量化 PR](#完了済みの作業) で 1.73GB → 1.31GB を worker と衝突せずに達成済み
+  - 着手する場合の論点・落とし穴 5 つ・ローカル検証コマンドは [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) に整理済み
+  - 併せて [`next.config.ts`](../../next.config.ts) の既存コメント（「`next start` と併用不可のため設定しない」）も解消する
 - [ ] `/update-todo` が GitHub Copilot Chat（`chat.promptFiles` が有効なこと）で実際に起動するか確認する。**Claude Code は 2026-08-02 のセッションで `/update-todo` の起動と正本（`docs/skills/update-todo.md`）の読み込みを確認済み**。Codex は `codex debug prompt-input` で検出済み
 - [ ] マイグレーションの自動化を検討する（当面はローカルからの手動 `prisma migrate deploy`。Cloud Run には Railway の Pre-Deploy Command に相当する仕組みがないため、自動化するなら Cloud Run Jobs か Cloud Build のデプロイ後ステップになる）
 - [ ] **`main` のブランチ保護をどうするか決める**（当面は「運用ルールとして守る」で保留）。private リポジトリのブランチ保護は **GitHub Pro（$4/月）か public 化が必要**で、2026-08-02 時点では未設定
@@ -223,9 +234,23 @@ private バケットでは `getPublicUrl` が返す公開 URL が HTTP 400 で�
 
 </details>
 
+<details>
+<summary><b>2. Docker イメージの軽量化</b> — 6 項目すべて完了（2026-08-02 / PR #8・#9）</summary>
+
+当初この枠は「standalone 化」だったが、**worker と衝突しない施策だけで同等の効果が出る**ことが分かったため差し替えた（→ [なぜ standalone 化を差し替えたか](#なぜ-standalone-化を差し替えたか)）。**1.73GB → 1.31GB（-24%）**。内訳は [本番イメージから落としたもの](TODO_補足.md#本番イメージから落としたもの)、経緯は [履歴](TODO_履歴.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)。
+
+- [x] `build` ステージで `pnpm prune --prod` を実行し、devDependencies（typescript / eslint / vitest / prettier / prisma CLI 等）を本番イメージから除去する（-146MB）
+- [x] glibc ベースなのに同梱されていた **musl 版ネイティブバイナリを削除**する（`@next/swc-linux-x64-musl` 125MB ほか。-約270MB）
+- [x] `runner` の起動を `pnpm start` → `./node_modules/.bin/next start` へ直結し、不要になった `corepack install` を削除する
+- [x] **`pino-pretty` が `devDependencies` にあるバグを修正する**（`LOG_PRETTY=true` で全リクエストが 500 になることを実機で確認 → `dependencies` へ移動）
+- [x] **ローカルで `runner` イメージをビルドして起動し、動作確認する**（`/api/health?check=db` / CSS / 実ログイン / worker 起動まで。→ [履歴](TODO_履歴.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)）
+- [x] **`worker` の `.env` 依存を解消する**（`--env-file` → `--env-file-if-exists`。PR #9）。本番イメージに `.env` が無く起動前に落ちていた問題と、クローン直後に `docker compose up worker` が失敗する問題を同時に解消（→ [worker の起動コマンド](TODO_補足.md#worker-の起動コマンド)）
+
+</details>
+
 ## 現在の状態
 
-- リポジトリ: `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `3e8487f`**（初回コミット + PR #1〜#7 + ドキュメントのみの直接 push）。PR は 7 本ともマージ済み・ブランチ削除済み
+- リポジトリ: `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `d6e18f3`**（初回コミット + PR #1〜#9 + ドキュメントのみの直接 push）。PR は 9 本ともマージ済み・ブランチ削除済み
 - コミット署名は個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変
 - `gh` CLI 認証済み。scope は `gist` / `read:org` / `repo` / **`workflow`**
 - CI（GitHub Actions）はグリーンで**警告 0 件**。ステップ順序のバグ（Typecheck が Prisma generate より前）とアクションの Node.js 20 非推奨は、どちらも修正済みで `main` に反映済み
@@ -234,9 +259,12 @@ private バケットでは `getPublicUrl` が返す公開 URL が HTTP 400 で�
 - **Supabase は使える状態**（2026-08-02 完了）。プロジェクト作成済み（East US (North Virginia)、Data API オフ）／Session pooler の接続文字列取得済み／**マイグレーション適用済み**（`20260723125616_init`）／**初期 ADMIN 投入済み**（`admin`・要パスワード変更）／**バケット `uploads` を private で作成済み**（`SUPABASE_URL` / `secret` キー取得済み・実装からの読み書きを実機確認済み）
 - ローカルの `.env` には**本番 Supabase の `SUPABASE_URL` / `secret` キーを設定済み**。`STORAGE_TYPE` は `local`、`DATABASE_URL` は `localhost` のまま（→ [ローカルの .env に本番の値を置いてよいか](TODO_補足.md#ローカルの-env-に本番の値を置いてよいか)）
 - **Google Cloud のアカウントは未作成**。残るインフラ作業は Cloud Run のみ
-- **2026-08-02 に残作業の順序を確定し**（署名 URL 化 → standalone 化 → Cloud Run）、**同日 1 番目まで完了した** → [作業の順序](#作業の順序)
+- **2026-08-02 に残作業の順序を確定し**（署名 URL 化 → standalone 化 → Cloud Run）、**同日 2 番目を「Docker イメージの軽量化」へ差し替えたうえで 1・2 番目とも完了した** → [作業の順序](#作業の順序)
 - **`getPublicUrl` は `getSignedUrl` へ差し替え済み**（2026-08-02・PR #7）。`StorageClient.getSignedUrl(path, expiresInSeconds?): Promise<string>`（既定 60 秒）。本番バケットに対して「ヘッダなしで開ける」「期限切れで 400 になる」ところまで実機確認済み。**存在しないオブジェクトへの発行は 400 → `AppError("STORAGE_SIGNED_URL_FAILED", 502)` になる**（→ [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針)）
-- [`next.config.ts`](../../next.config.ts) は `output: "standalone"` **未設定**。[`docker/Dockerfile`](../../docker/Dockerfile) の `runner` は `node_modules` を丸ごと持ち込む構成（[残作業2](#残作業2-standalone-化)）
+- **本番イメージは 1.31GB**（2026-08-02 に 1.73GB から軽量化。PR #8）。[`docker/Dockerfile`](../../docker/Dockerfile) の `runner` は devDependencies と musl バイナリを落とした `node_modules` を持ち込み、`CMD` は `./node_modules/.bin/next start`。**イメージに pnpm 実体は無い**（`corepack install` を削除したため）→ [本番イメージから落としたもの](TODO_補足.md#本番イメージから落としたもの)
+- [`next.config.ts`](../../next.config.ts) は `output: "standalone"` **未設定**（意図的。→ [積み残しと検討事項](#積み残しと検討事項)）
+- **`pino-pretty` は `dependencies`**（2026-08-02・PR #8）。[`logger.ts`](../../src/shared/observability/logger.ts) が `LOG_PRETTY=true` のとき実行時に解決するため、`devDependencies` に置くと本番で全リクエストが 500 になる
+- **`worker` の起動は `--env-file-if-exists`**（2026-08-02・PR #9）。`.env` が無い環境（本番イメージ / クローン直後）でも起動する。ただし**本番コンテナ内では `pnpm worker` ではなく `./node_modules/.bin/tsx src/worker/index.ts` を使う**（イメージに pnpm が無いため）→ [worker の起動コマンド](TODO_補足.md#worker-の起動コマンド)
 - ローカル環境の検証項目はすべて完了済み
 - `update-todo` スキルを 3 エージェント分追加済み（正本 [`docs/skills/update-todo.md`](../skills/update-todo.md)）。**Claude Code / Codex での起動・検出は確認済み**、Copilot は未確認
 - 初回コミット以降の変更（Supabase 手順の追記・スキル追加・CI 修正）は**すべて `main` に反映済み**

@@ -572,7 +572,8 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 
 - **本番DB / ストレージ**: [Supabase](https://supabase.com/) の PostgreSQL + Storage を使用。`STORAGE_TYPE=supabase`に切り替える。接続文字列は **Session pooler** のものを使う（Direct connection は IPv6 専用で Cloud Run から到達できず、Transaction pooler は `prisma migrate deploy` が通らない）。
 - **ホスティング**: [Google Cloud Run](https://cloud.google.com/run) に GitHub リポジトリを連携し、`main` ブランチへの push を契機に Cloud Build が [`docker/Dockerfile`](docker/Dockerfile) をビルドして自動デプロイする。リージョンは Always Free 対象の **us-central1**、最小インスタンス数は **0**。
-- **サービス構成**: [`docker/Dockerfile`](docker/Dockerfile) の`runner`ステージは app / worker 共用だが、**本番で立てるのは Web（既定の`pnpm start`）のみ**。ワーカーは [`src/worker/index.ts`](src/worker/index.ts) が待受のみで登録済みジョブを持たないため起動しない。実ジョブを追加する段階で Cloud Run Jobs か常駐サービスかを判断する。
+- **サービス構成**: [`docker/Dockerfile`](docker/Dockerfile) の`runner`ステージは app / worker 共用だが、**本番で立てるのは Web（既定の`CMD` = `./node_modules/.bin/next start`）のみ**。ワーカーは [`src/worker/index.ts`](src/worker/index.ts) が待受のみで登録済みジョブを持たないため起動しない。実ジョブを追加する段階で Cloud Run Jobs か常駐サービスかを判断する。
+- **本番イメージには開発用の依存が入っていません**。`runner`ステージは devDependencies（TypeScript・ESLint・Vitest 等）と、glibc ベースでは使われない musl 版ネイティブバイナリを除いてビルドします。**pnpm の実体も入っていない**ため、コンテナ内でワーカーを起動する場合は`pnpm worker`ではなく`./node_modules/.bin/tsx src/worker/index.ts`を使ってください（`pnpm`を叩くと corepack がレジストリへ取得しに行きます）。
 - **環境変数**: `.env.example` を参考に、本番用の値（Supabase の接続文字列・`AUTH_SECRET`・`LOG_PRETTY=false` 等）を Cloud Run のサービス設定へ登録する。`AUTH_TRUST_HOST=true` はリバースプロキシ背後のため必須。`AUTH_URL` は初回デプロイ後に発行された URL を設定して再デプロイする。
 - **マイグレーション**: Cloud Run にはデプロイ前フックがないため、**ローカルから本番 DB に対して `prisma migrate deploy` を手動実行**する。
 - **初期データ**: `prisma migrate deploy` は seed を実行しないため、初回のみローカルから `pnpm prisma:seed` を本番 DB に対して実行する（`SEED_ADMIN_PASSWORD` を必ず指定する）。
