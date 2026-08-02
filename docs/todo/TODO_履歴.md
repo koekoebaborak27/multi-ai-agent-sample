@@ -19,6 +19,7 @@
 | [2026-08-02 開発フローの README 化と CI のスキップ設定](#2026-08-02-開発フローの-readme-化と-ci-のスキップ設定) | PR 運用の README 化、`paths-ignore` と `[skip ci]` の 2 段構え |
 | [2026-08-02 本番 DB の構築と Storage の疎通確認](#2026-08-02-本番-db-の構築と-storage-の疎通確認) | migrate / seed の実行、`apikey` ヘッダ不足のバグ発見と PR #6 |
 | [2026-08-02 残作業の順序を確定する](#2026-08-02-残作業の順序を確定する) | 署名 URL → standalone → Cloud Run に決定。コード変更なし |
+| [2026-08-02 署名 URL 化](#2026-08-02-署名-url-化) | `getPublicUrl` → `getSignedUrl` へ差し替え。PR #7、本番バケットで実機確認 |
 
 ## 2026-07-28 Git の初期化とコミット前チェック
 
@@ -400,3 +401,57 @@ standalone 化を Cloud Run の**前**に置いたのは、**本番へ触る回�
 従来は「新しいセッションほど上」だったが、**上から読めば経緯を最初から追える**ほうが引き継ぎに向くため、**2026-07-28 を先頭とする時系列順**へ反転した。目次も同じ順に並べ替えている。内容の変更はなく、順序だけを入れ替えた。
 
 これに伴い、**新しいセッションの追記先が「先頭」から「末尾」へ変わった**。[`docs/skills/update-todo.md`](../skills/update-todo.md)（スキルの正本）と [`TODO.md`](TODO.md) の説明文も同じ内容へ修正済み。
+
+## 2026-08-02 署名 URL 化
+
+残作業1（署名 URL 化。完了したため [`TODO.md`](TODO.md#完了済みの作業) の「完了済みの作業」へ移動済み）を実施した。**PR #7 をマージ済み**（`main` = `3e8487f`）。前セッションで決めた順序（署名 URL → standalone → Cloud Run）の 1 番目にあたる。
+
+**1. 何を変えたか**
+
+`StorageClient` の URL 発行メソッドを差し替えた。
+
+| before | after |
+|---|---|
+| `getPublicUrl(path): string`（同期） | `getSignedUrl(path, expiresInSeconds?): Promise<string>`（非同期） |
+
+同期メソッドのままでは API 呼び出しの結果を返せないため、インターフェースの変更を伴う。既定の有効期限は **60 秒**（`DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS` として [`types.ts`](../../src/shared/storage/types.ts) に定義）。API の仕様と確定した実装は [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針) に集約した。
+
+**変更は 5 ファイルで閉じた**（`src/shared/storage/` の 4 つ + `README.md`）。事前に見積もった「影響範囲 4 ファイル」どおりで、`src/app/` `src/modules/` には一切波及していない。**呼び出し元がゼロのうちに変える**という順序判断はそのまま機能した。
+
+**2. 実機確認で分かったこと**
+
+本番バケットに対し、使い捨てスクリプトを `uploads/`（`.gitignore` 済み）へ置いて tsx で直接実行した（コマンドは [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針)）。**認証ヘッダを付けずに `fetch` する**ことで、ブラウザで開くのと同じ条件を再現している。
+
+| # | 確認内容 | 実測 |
+|---|---|---|
+| 1 | `upload` | 成功 |
+| 2 | 署名 URL をヘッダなしで取得 | 200・内容一致 |
+| 3 | `expiresIn: 1` で発行 → 3 秒後に取得 | 400 `InvalidJWT`（`"exp" claim timestamp check failed`） |
+| 4 | 公開 URL（署名なし） | 400 `NoSuchBucket` |
+
+3 番目まで確認したのは、**200 が返るだけでは期限切れが効いているか分からない**ため。有効期限を短くする設計に意味があることを実測で押さえた。
+
+**新たに判明した落とし穴**: **存在しないオブジェクトへの署名 URL 発行は HTTP 400 で失敗する**（検証オブジェクトを削除した後に発行を試みて発見）。実装は `AppError("STORAGE_SIGNED_URL_FAILED", 502)` を投げるため、画面側で「ファイルが無い」と「Supabase 側の障害」を区別したい場合は追加の作り込みが要る。既存の `download` も同様に 404 相当を 502 にしているので、**今回は一貫性を優先してそのままにした**。ファイル配信画面を作る段階で再検討すること。
+
+**3. 検証用オブジェクトは削除した**
+
+本番バケットに `signed-url-check/hello.txt` を置いて確認したので、終了後に `remove` し、`download` が失敗することで削除を確認した。使い捨てスクリプト 3 本も削除済み（`uploads/` は `.gitignore` 済みだが、[`tsconfig.json`](../../tsconfig.json) の `include` が `**/*.ts` のため `pnpm typecheck` の対象になる。残すと次のセッションで邪魔になる）。
+
+**4. 実行したコマンド**
+
+```powershell
+git checkout -b fix/storage-signed-url
+# 実装・テスト修正
+pnpm lint; pnpm typecheck; pnpm format:check; pnpm test   # すべて成功（テスト 26 件）
+git add -A; git commit; git push -u origin fix/storage-signed-url
+gh pr create --base main --head fix/storage-signed-url
+gh run watch <run-id> --exit-status                        # CI green
+gh pr merge 7 --squash --delete-branch
+git checkout main; git pull --ff-only; git remote prune origin
+```
+
+`pnpm format:check` は **1 回落ちた**（`supabase.ts` の import 文の折り返し）。`pnpm exec prettier --write <file>` で修正した。Prettier は `*.md` を対象外にしているが **`.ts` は対象**なので、コミット前に必ず通すこと。
+
+**5. README を更新した**
+
+「ファイルストレージ」節にあった `getPublicUrl` の但し書き（HTTP 400 で拒否される旨の警告）を、`getSignedUrl` の使い方・保存先ごとの挙動・有効期限を短く保つ理由へ書き換えた。**警告を消すのではなく、使い方の説明へ置き換えている**（private バケットで公開 URL が使えないという事実自体は残しておく必要があるため）。`README_SIMPLE.md` はストレージに触れていないため変更なし。

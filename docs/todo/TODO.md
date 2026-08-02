@@ -2,16 +2,17 @@
 
 汎用契約管理システムテンプレートへの作り替え（[`foundation_plan.md`](../foundation_plan.md)）の残作業一覧。
 
-> **残るは 3 つ。「署名 URL 化 → standalone 化 → Cloud Run 構築」の順で進める**（根拠は [作業の順序](#作業の順序)）。ローカル環境 / Git / GitHub / Supabase は完了済み。
+> **残るは 2 つ。「standalone 化 → Cloud Run 構築」の順で進める**（根拠は [作業の順序](#作業の順序)）。ローカル環境 / Git / GitHub / Supabase / 署名 URL 化は完了済み。
+>
+> 番号（`残作業2` / `残作業3`）は順序を確定したときのまま据え置いている（履歴からのリンクを壊さないため）。`残作業1` は完了し [完了済みの作業](#完了済みの作業) へ移動した。
 
 ## 目次
 
 | 節 | 内容 |
 |---|---|
 | [進捗サマリ](#進捗サマリ) | 区分ごとの残数 |
-| [作業の順序](#作業の順序) | 3 つの残作業をこの順に並べた理由 |
+| [作業の順序](#作業の順序) | 3 つの残作業をこの順に並べた理由（1 は完了済み） |
 | [次にやること](#次にやること) | 次のセッションが最初に打つ手 |
-| [残作業1 署名 URL 化](#残作業1-署名-url-化) | private バケットで壊れている `getPublicUrl` の差し替え |
 | [残作業2 standalone 化](#残作業2-standalone-化) | Docker イメージの軽量化（コールドスタート対策） |
 | [残作業3 Google Cloud Run](#残作業3-google-cloud-run) | 本番サーバの構築（ブラウザ作業） |
 | [補足資料](#補足資料) | 設定値・手順・落とし穴（別ファイル） |
@@ -35,9 +36,9 @@
 | ローカル環境 | 9 / 9 | 完了 |
 | Git と GitHub | 13 / 13 | 完了 |
 | Supabase（本番 DB / Storage） | 6 / 6 | 完了。実機で読み書きまで確認済み |
-| **1. 署名 URL 化** | **0 / 5** | **未着手。次はここから** |
-| 2. standalone 化 | 0 / 5 | 未着手。1 の次 |
-| 3. Google Cloud Run | 0 / 8 | 未着手。1・2 を終えてから |
+| 1. 署名 URL 化 | 5 / 5 | 完了（PR #7）。本番バケットで実機確認済み |
+| **2. standalone 化** | **0 / 5** | **未着手。次はここから** |
+| 3. Google Cloud Run | 0 / 8 | 未着手。2 を終えてから |
 | 積み残しと検討事項 | 4 / 7 | 未対応 3 件（期限なし） |
 
 ## 作業の順序
@@ -46,7 +47,7 @@
 
 | # | 作業 | 種別 | この順にした理由 |
 |---|---|---|---|
-| 1 | [署名 URL 化](#残作業1-署名-url-化) | コード | **いま安く、あとで高くなる**。`StorageClient` インターフェースの変更を伴うが、現時点で `getPublicUrl` の呼び出し元がゼロのため修正は 3 ファイルで済む。ファイル配信画面を作った後にやると呼び出し元すべてを追う羽目になる |
+| 1 | 署名 URL 化（**2026-08-02 完了** → [完了済みの作業](#完了済みの作業)） | コード | **いま安く、あとで高くなる**。`StorageClient` インターフェースの変更を伴うが、現時点で `getPublicUrl` の呼び出し元がゼロのため修正は 3 ファイルで済む。ファイル配信画面を作った後にやると呼び出し元すべてを追う羽目になる。**実際に変更は 5 ファイル（`src/shared/storage/` の 4 つ + `README.md`）で閉じ、この読みは当たった** |
 | 2 | [standalone 化](#残作業2-standalone-化) | コード + Docker | **いつやってもコストは変わらない**（`next.config.ts` と `docker/Dockerfile` で閉じている）。ただし Cloud Run より前に済ませておけば、本番へは最終形を 1 回デプロイするだけで済む |
 | 3 | [Cloud Run 構築](#残作業3-google-cloud-run) | ブラウザ | **人の手が要る作業をまとめて最後に置く**。コード側を先に固めておけば、一度立てた本番に後から手を入れずに済み、課金対象のプロジェクトを準備段階から放置することもない |
 
@@ -54,29 +55,20 @@
 
 ## 次にやること
 
-**[残作業1 署名 URL 化](#残作業1-署名-url-化) から着手する。** コードとテストだけで完結し、Cloud Run の完成を待つ必要がない。
+**[残作業2 standalone 化](#残作業2-standalone-化) から着手する。** これもコードと Docker だけで完結し、Cloud Run の完成を待つ必要がない。
 
-最初に読むのは [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針)。実装は [`types.ts`](../../src/shared/storage/types.ts) のインターフェース変更から入り、[`supabase.ts`](../../src/shared/storage/supabase.ts) → [`local.ts`](../../src/shared/storage/local.ts) の順に追随させる。
+**最初に読むのは [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点)**（worker と正面衝突するため、読まずに着手すると手戻りする）。実装は「worker を本番イメージから外すか」の決定 → [`next.config.ts`](../../next.config.ts) の `output: "standalone"` → [`docker/Dockerfile`](../../docker/Dockerfile) の `runner` ステージ、の順。
 
-最初に打つコマンド（feature ブランチの作成）:
+最初に打つコマンド（DB 起動 + feature ブランチの作成。DB は最後のローカル起動確認で使う）:
 
 ```powershell
-git checkout -b fix/storage-signed-url
+docker compose -f docker/docker-compose.yml up -d db
+git checkout -b chore/next-standalone-output
 ```
 
 **コード**を変更するので、`main` へ直接 push せず **feature ブランチ → PR → CI green → squash マージ**の流れに従う（コマンドは [`TODO_履歴.md`](TODO_履歴.md#2026-08-02-pr-運用の開始と-ci-の順序バグ修正) の「PR 運用の型が固まった」を参照）。一方、**`.md` / `docs/` 配下だけの変更**は `paths-ignore` により CI が動かないため、`main` へ直接コミットして push してよい（手順は [`README.md`](../../README.md) の「ドキュメントだけの変更でCIを実行しない」）。Supabase / Cloud Run の設定作業そのものはリポジトリ外の操作なので、どちらの対象でもない。
 
 各セッションの終わりには、エージェントに「TODO を更新して」（または `/update-todo`）と伝えてこのファイルを更新する。手順は [`docs/skills/update-todo.md`](../skills/update-todo.md)。
-
-## 残作業1 署名 URL 化
-
-private バケットでは [`getPublicUrl`](../../src/shared/storage/supabase.ts#L74-L77) が返す公開 URL が HTTP 400 で拒否されることを 2026-08-02 に実機確認した。**現時点でどのモジュールからも呼ばれていないため実害はないが、ファイル配信を実装する段階で必ず踏む**。バケットを public にする案は、契約書類を扱う以上採らない。方針の詳細は [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針)。
-
-- [ ] [`types.ts`](../../src/shared/storage/types.ts) の `StorageClient` を変更する（`getPublicUrl`（同期）では署名 URL を返せないため、非同期メソッドへ置き換える）
-- [ ] [`supabase.ts`](../../src/shared/storage/supabase.ts) を `/object/sign/` へ問い合わせる実装にする（`apikey` ヘッダの併送は既存実装を踏襲する）
-- [ ] [`local.ts`](../../src/shared/storage/local.ts) を新しいインターフェースへ追随させる（ローカルに署名の概念はないため、従来のパスを返すだけでよい）
-- [ ] テストを追加し、**本番バケットに対して発行した署名 URL が実際に開けること**を実機確認する（手順は [ストレージ実装を tsx から直接呼ぶ](TODO_補足.md#supabase-の-api-キー形式) と同じ）
-- [ ] feature ブランチ → PR → CI green → squash マージ。[`README.md`](../../README.md) の「ファイルストレージ」節にある `getPublicUrl` の但し書き（HTTP 400 で拒否される旨）も同じ PR で更新する
 
 ## 残作業2 standalone 化
 
@@ -125,7 +117,7 @@ private バケットでは [`getPublicUrl`](../../src/shared/storage/supabase.ts
 | 2026-08-02 | [本番 DB への適用手順](TODO_補足.md#本番-db-への適用手順) | `migrate deploy` / seed を PowerShell で実行する 6 手順 |
 | 2026-08-02 | [Supabase の API キー形式](TODO_補足.md#supabase-の-api-キー形式) | 新形式キーには `apikey` ヘッダが要る。疎通確認コマンド |
 | 2026-08-02 | [ローカルの .env に本番の値を置いてよいか](TODO_補足.md#ローカルの-env-に本番の値を置いてよいか) | 変数ごとの可否と、本番ストレージへの切り替え方 |
-| 未実施 | [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針) | Supabase の署名 URL API と、インターフェース変更の影響範囲 |
+| 2026-08-02 | [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針) | 確定した API 仕様・インターフェース・実機確認の結果と落とし穴 |
 | 未実施 | [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) | worker との衝突、ローカルでの検証コマンド |
 | 未実施 | [本番の環境変数](TODO_補足.md#本番の環境変数) | Cloud Run のサービス設定に入れる値の一覧 |
 | 未実施 | [本番で動かさないもの](TODO_補足.md#本番で動かさないもの) | pg-boss ワーカー / ローカル用 `db` サービス |
@@ -134,7 +126,7 @@ private バケットでは [`getPublicUrl`](../../src/shared/storage/supabase.ts
 
 ### 未対応
 
-> **2026-08-02 に 2 件がここから昇格した。** 「`getPublicUrl` の署名 URL 化」は [残作業1](#残作業1-署名-url-化)、「`output: "standalone"` 化」は [残作業2](#残作業2-standalone-化) へ移動し、期限なしの宿題から**Cloud Run より前にやる作業**に格上げした（理由は [作業の順序](#作業の順序)）。
+> **2026-08-02 に 2 件がここから昇格した。** 「`getPublicUrl` の署名 URL 化」（→ **完了**。[完了済みの作業](#完了済みの作業)）と「`output: "standalone"` 化」（→ [残作業2](#残作業2-standalone-化)）を、期限なしの宿題から**Cloud Run より前にやる作業**に格上げした（理由は [作業の順序](#作業の順序)）。
 
 - [ ] `/update-todo` が GitHub Copilot Chat（`chat.promptFiles` が有効なこと）で実際に起動するか確認する。**Claude Code は 2026-08-02 のセッションで `/update-todo` の起動と正本（`docs/skills/update-todo.md`）の読み込みを確認済み**。Codex は `codex debug prompt-input` で検出済み
 - [ ] マイグレーションの自動化を検討する（当面はローカルからの手動 `prisma migrate deploy`。Cloud Run には Railway の Pre-Deploy Command に相当する仕組みがないため、自動化するなら Cloud Run Jobs か Cloud Build のデプロイ後ステップになる）
@@ -218,9 +210,22 @@ private バケットでは [`getPublicUrl`](../../src/shared/storage/supabase.ts
 
 </details>
 
+<details>
+<summary><b>1. 署名 URL 化</b> — 5 項目すべて完了（2026-08-02 / PR #7）</summary>
+
+private バケットでは `getPublicUrl` が返す公開 URL が HTTP 400 で拒否されることを 2026-08-02 に実機確認したため、署名 URL の発行へ差し替えた。バケットを public にする案は、契約書類を扱う以上採らなかった。確定した仕様と落とし穴は [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針)、経緯は [履歴](TODO_履歴.md#2026-08-02-署名-url-化)。
+
+- [x] [`types.ts`](../../src/shared/storage/types.ts) の `StorageClient` を変更する（`getPublicUrl(path): string` → `getSignedUrl(path, expiresInSeconds?): Promise<string>`。既定値 `DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS = 60` も同ファイルに定義）
+- [x] [`supabase.ts`](../../src/shared/storage/supabase.ts) を `/object/sign/` へ問い合わせる実装にする（`apikey` ヘッダの併送は既存実装を踏襲。応答の相対パスに `{SUPABASE_URL}/storage/v1` を前置する）
+- [x] [`local.ts`](../../src/shared/storage/local.ts) を新しいインターフェースへ追随させる（従来どおり `/uploads/{path}` を返す。`async` 化のみ）
+- [x] テストを追加し、**本番バケットに対して発行した署名 URL が実際に開けること**を実機確認する（テスト 19 → 26 件。実機では認証ヘッダなしの `fetch` で 200・内容一致、`expiresIn: 1` で 3 秒後に 400 `InvalidJWT` を確認。検証用オブジェクトは削除済み）
+- [x] feature ブランチ → PR → CI green → squash マージ（PR #7 / `3e8487f`）。[`README.md`](../../README.md) の「ファイルストレージ」節も `getSignedUrl` の使い方へ更新した
+
+</details>
+
 ## 現在の状態
 
-- リポジトリ: `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `0518b6d`**（全 13 コミット = 初回コミット + PR #1〜#6 + ドキュメントのみの直接 push 6 件）。PR は 6 本ともマージ済み・ブランチ削除済み
+- リポジトリ: `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `3e8487f`**（初回コミット + PR #1〜#7 + ドキュメントのみの直接 push）。PR は 7 本ともマージ済み・ブランチ削除済み
 - コミット署名は個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変
 - `gh` CLI 認証済み。scope は `gist` / `read:org` / `repo` / **`workflow`**
 - CI（GitHub Actions）はグリーンで**警告 0 件**。ステップ順序のバグ（Typecheck が Prisma generate より前）とアクションの Node.js 20 非推奨は、どちらも修正済みで `main` に反映済み
@@ -229,8 +234,8 @@ private バケットでは [`getPublicUrl`](../../src/shared/storage/supabase.ts
 - **Supabase は使える状態**（2026-08-02 完了）。プロジェクト作成済み（East US (North Virginia)、Data API オフ）／Session pooler の接続文字列取得済み／**マイグレーション適用済み**（`20260723125616_init`）／**初期 ADMIN 投入済み**（`admin`・要パスワード変更）／**バケット `uploads` を private で作成済み**（`SUPABASE_URL` / `secret` キー取得済み・実装からの読み書きを実機確認済み）
 - ローカルの `.env` には**本番 Supabase の `SUPABASE_URL` / `secret` キーを設定済み**。`STORAGE_TYPE` は `local`、`DATABASE_URL` は `localhost` のまま（→ [ローカルの .env に本番の値を置いてよいか](TODO_補足.md#ローカルの-env-に本番の値を置いてよいか)）
 - **Google Cloud のアカウントは未作成**。残るインフラ作業は Cloud Run のみ
-- **2026-08-02 に残作業の順序を確定した**（署名 URL 化 → standalone 化 → Cloud Run）。**この日のセッションではコードを一切変更していない**（作業ツリーはクリーン）。決めたのは順序と、standalone 化に付ける検証条件のみ → [作業の順序](#作業の順序)
-- `getPublicUrl` は private バケットに対して機能しない状態のまま（[残作業1](#残作業1-署名-url-化)）。呼び出し元がゼロのため実害は出ていない
+- **2026-08-02 に残作業の順序を確定し**（署名 URL 化 → standalone 化 → Cloud Run）、**同日 1 番目まで完了した** → [作業の順序](#作業の順序)
+- **`getPublicUrl` は `getSignedUrl` へ差し替え済み**（2026-08-02・PR #7）。`StorageClient.getSignedUrl(path, expiresInSeconds?): Promise<string>`（既定 60 秒）。本番バケットに対して「ヘッダなしで開ける」「期限切れで 400 になる」ところまで実機確認済み。**存在しないオブジェクトへの発行は 400 → `AppError("STORAGE_SIGNED_URL_FAILED", 502)` になる**（→ [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針)）
 - [`next.config.ts`](../../next.config.ts) は `output: "standalone"` **未設定**。[`docker/Dockerfile`](../../docker/Dockerfile) の `runner` は `node_modules` を丸ごと持ち込む構成（[残作業2](#残作業2-standalone-化)）
 - ローカル環境の検証項目はすべて完了済み
 - `update-todo` スキルを 3 エージェント分追加済み（正本 [`docs/skills/update-todo.md`](../skills/update-todo.md)）。**Claude Code / Codex での起動・検出は確認済み**、Copilot は未確認
