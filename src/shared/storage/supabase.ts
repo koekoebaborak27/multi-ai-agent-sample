@@ -1,7 +1,7 @@
 import "server-only";
 import { env } from "@/shared/config/env";
 import { AppError } from "@/shared/errors/app-error";
-import type { StorageClient } from "@/shared/storage/types";
+import { DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS, type StorageClient } from "@/shared/storage/types";
 
 /** Supabase Storage の REST API（`@supabase/supabase-js` 非依存の最小実装）。 */
 function requireConfig() {
@@ -24,6 +24,11 @@ function authHeaders(key: string): Record<string, string> {
 function objectUrl(path: string): string {
   const { url } = requireConfig();
   return `${url}/storage/v1/object/${env.SUPABASE_STORAGE_BUCKET}/${path}`;
+}
+
+function signUrl(path: string): string {
+  const { url } = requireConfig();
+  return `${url}/storage/v1/object/sign/${env.SUPABASE_STORAGE_BUCKET}/${path}`;
 }
 
 export const supabaseStorage: StorageClient = {
@@ -71,8 +76,30 @@ export const supabaseStorage: StorageClient = {
     }
   },
 
-  getPublicUrl(path) {
-    const { url } = requireConfig();
-    return `${url}/storage/v1/object/public/${env.SUPABASE_STORAGE_BUCKET}/${path}`;
+  /**
+   * 有効期限付きの署名 URL を発行する。
+   * バケットは非公開で運用するため、公開 URL（`/object/public/...`）は HTTP 400 で拒否される。
+   * 応答の `signedURL` は `/storage/v1` を含まない相対パスなので、前置して完全な URL にする。
+   */
+  async getSignedUrl(path, expiresInSeconds = DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS) {
+    const { url, key } = requireConfig();
+    const res = await fetch(signUrl(path), {
+      method: "POST",
+      headers: { ...authHeaders(key), "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresIn: expiresInSeconds }),
+    });
+    if (!res.ok) {
+      throw new AppError("STORAGE_SIGNED_URL_FAILED", 502, "ファイルURLの発行に失敗しました", {
+        status: res.status,
+      });
+    }
+    const body = (await res.json()) as { signedURL?: string };
+    if (!body.signedURL) {
+      throw new AppError("STORAGE_SIGNED_URL_FAILED", 502, "ファイルURLの発行に失敗しました", {
+        reason: "signedURL が応答に含まれていません",
+      });
+    }
+    const relative = body.signedURL.startsWith("/") ? body.signedURL : `/${body.signedURL}`;
+    return `${url}/storage/v1${relative}`;
   },
 };

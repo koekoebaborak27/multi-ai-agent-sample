@@ -298,7 +298,23 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset
 
 呼び出し側は`storage`クライアント経由で操作するため、切り替えによるアプリケーションコードの変更は不要です。
 
-> **`getPublicUrl`だけは例外です。** 本番のSupabaseバケットは非公開（private）で運用するため、このメソッドが返す公開URLではファイルを取得できません（HTTP 400で拒否されます）。ローカル（`STORAGE_TYPE=local`）では動くため気づきにくい点に注意してください。ファイル配信を実装する際は、署名URLの発行に置き換える必要があります。
+### ブラウザへファイルを渡すURL（`getSignedUrl`）
+
+本番のSupabaseバケットは非公開（private）で運用するため、公開URLではファイルを取得できません（HTTP 400で拒否されます）。ブラウザから直接ファイルを開かせたい場合は`getSignedUrl`を使ってください。
+
+```ts
+import { storage } from "@/shared/storage";
+
+const url = await storage.getSignedUrl("contracts/2026/a.pdf"); // 既定60秒で失効
+const longer = await storage.getSignedUrl("contracts/2026/a.pdf", 300); // 秒数を指定
+```
+
+| 保存先 | 返すURL | 有効期限 |
+|---|---|---|
+| `supabase` | Supabaseが発行する署名URL（`?token=...`付き） | 既定60秒（第2引数で変更可） |
+| `local` | `/uploads/<path>` | なし（署名の概念がないため引数は無視されます） |
+
+> **有効期限は短く保ってください。** 署名URLは「URLを知っていれば誰でも開ける」ため、画面を表示するたびに発行し直す前提で数十秒〜数分に収めます。長くすると、リンクが共有されたりログに残ったりした場合の露出時間がそのまま延びます。
 
 ## よく使うコマンド
 
