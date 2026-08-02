@@ -20,7 +20,8 @@ export const localStorage: StorageClient = {
     await rm(join(env.STORAGE_LOCAL_DIR, path), { force: true });
   },
 
-  getPublicUrl(path) {
+  /** ローカル保存に署名の概念はないため、静的パスをそのまま返す（有効期限は無視する）。 */
+  async getSignedUrl(path) {
     return `/uploads/${path}`;
   },
 };

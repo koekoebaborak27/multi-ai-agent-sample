@@ -4,6 +4,8 @@
  *       （Authorization + apikey）を送ることを担保する。
  *       apikey が欠けると、新形式キー（`sb_secret_...`）は JWT ではないため Supabase 側の
  *       パースに失敗し `Invalid Compact JWS`（HTTP 400）で全操作が拒否される。
+ *       あわせて、非公開バケット向けの署名 URL 発行（`/object/sign/`）が、正しいエンドポイント・
+ *       有効期限で呼ばれ、相対パスの応答を完全な URL に組み立てることを担保する。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,6 +25,7 @@ vi.mock("@/shared/config/env", () => ({
 
 import { isAppError } from "@/shared/errors/app-error";
 import { supabaseStorage } from "@/shared/storage/supabase";
+import { DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS } from "@/shared/storage/types";
 
 const fetchMock = vi.fn();
 
@@ -40,6 +43,12 @@ function sentHeaders(): Record<string, string> {
 /** 直近の fetch 呼び出しの URL */
 function sentUrl(): string {
   return fetchMock.mock.calls[0]?.[0] as string;
+}
+
+/** 直近の fetch 呼び出しに渡された JSON ボディ */
+function sentJsonBody(): Record<string, unknown> {
+  const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+  return JSON.parse(init?.body as string) as Record<string, unknown>;
 }
 
 /** code だけを取り出す（AppError 以外は再スローする） */
@@ -145,11 +154,85 @@ describe("shared/storage/supabase", () => {
     });
   });
 
-  describe("getPublicUrl", () => {
-    it("public プレフィックス付きの URL を組み立てる（非公開バケットでは取得できない）", () => {
-      expect(supabaseStorage.getPublicUrl("a/b.txt")).toBe(
-        `https://example.supabase.co/storage/v1/object/public/${BUCKET}/a/b.txt`,
-      );
+  describe("getSignedUrl", () => {
+    /** 署名 URL 発行 API の応答（`signedURL` は `/storage/v1` を含まない相対パス） */
+    function signResponse(signedURL: string): Response {
+      return new Response(JSON.stringify({ signedURL }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    describe("正常系", () => {
+      beforeEach(() => {
+        fetchMock.mockResolvedValue(signResponse(`/object/sign/${BUCKET}/a/b.txt?token=xyz`));
+      });
+
+      it("Authorization と apikey の両方にキーを載せて送る", async () => {
+        await supabaseStorage.getSignedUrl("a/b.txt");
+
+        expect(sentHeaders().Authorization).toBe(`Bearer ${KEY}`);
+        expect(sentHeaders().apikey).toBe(KEY);
+      });
+
+      it("sign エンドポイントへ POST する", async () => {
+        await supabaseStorage.getSignedUrl("a/b.txt");
+
+        expect(sentUrl()).toBe(
+          `https://example.supabase.co/storage/v1/object/sign/${BUCKET}/a/b.txt`,
+        );
+        expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe("POST");
+      });
+
+      it("有効期限を秒数で expiresIn に載せて送る", async () => {
+        await supabaseStorage.getSignedUrl("a/b.txt", 300);
+
+        expect(sentJsonBody()).toEqual({ expiresIn: 300 });
+        expect(sentHeaders()["Content-Type"]).toBe("application/json");
+      });
+
+      it("有効期限を省略すると既定値（60秒）を送る", async () => {
+        await supabaseStorage.getSignedUrl("a/b.txt");
+
+        expect(sentJsonBody()).toEqual({ expiresIn: DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS });
+        expect(DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS).toBe(60);
+      });
+
+      it("応答の相対パスに SUPABASE_URL と /storage/v1 を前置した URL を返す", async () => {
+        await expect(supabaseStorage.getSignedUrl("a/b.txt")).resolves.toBe(
+          `https://example.supabase.co/storage/v1/object/sign/${BUCKET}/a/b.txt?token=xyz`,
+        );
+      });
+
+      it("応答の相対パスが / で始まらなくても区切りが欠けない", async () => {
+        fetchMock.mockResolvedValue(signResponse(`object/sign/${BUCKET}/a/b.txt?token=xyz`));
+
+        await expect(supabaseStorage.getSignedUrl("a/b.txt")).resolves.toBe(
+          `https://example.supabase.co/storage/v1/object/sign/${BUCKET}/a/b.txt?token=xyz`,
+        );
+      });
+    });
+
+    describe("応答がエラーのとき", () => {
+      it("AppError(STORAGE_SIGNED_URL_FAILED) を投げる", async () => {
+        fetchMock.mockResolvedValue(new Response("{}", { status: 404 }));
+
+        await expect(codeOf(supabaseStorage.getSignedUrl("a/b.txt"))).resolves.toBe(
+          "STORAGE_SIGNED_URL_FAILED",
+        );
+      });
+    });
+
+    describe("応答に signedURL が含まれないとき", () => {
+      it("AppError(STORAGE_SIGNED_URL_FAILED) を投げる", async () => {
+        fetchMock.mockResolvedValue(
+          new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }),
+        );
+
+        await expect(codeOf(supabaseStorage.getSignedUrl("a/b.txt"))).resolves.toBe(
+          "STORAGE_SIGNED_URL_FAILED",
+        );
+      });
     });
   });
 });
