@@ -141,6 +141,15 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset        # DB�
 
 - **マイグレーション**: データベースのテーブルや列を、プロジェクトで定義された状態へ更新する処理です。`prisma/schema.prisma`を変更したときに実行します。
 
+## デバッグする（VSCode）
+
+コードを1行ずつ止めながら動かせます。`Ctrl+Shift+D`（実行とデバッグ）を開き、一覧から構成を選んで▶を押すだけで、追加の準備は不要です。
+
+- `PC:`で始まる構成 … VSCodeがプログラムを起動します（普段はこちら）
+- `Docker:`で始まる構成 … `docker compose`で起動中のコンテナへ接続します
+
+詳しい手順とうまく動かないときの対処は[`README.md`の「VSCodeでステップイン実行する（デバッグ）」](README.md#vscodeでステップイン実行するデバッグ)を参照してください。
+
 ## AIエージェントで開発する
 
 このプロジェクトは、**GitHub Copilot・Claude Code・Codex のどれを使っても開発できる**ように準備されています。使い慣れたものを選んでください。

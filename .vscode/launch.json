@@ -1,0 +1,125 @@
+{
+  // VSCode の「実行とデバッグ」（Ctrl+Shift+D）に表示されるデバッグ構成。
+  // 使い方は README.md「VSCodeでステップイン実行する（デバッグ）」を参照。
+  //
+  // 構成名の接頭辞:
+  //   PC:     … PC 上で直接起動してデバッグする（起動型）。動作が最も安定する
+  //   Docker: … docker compose で起動済みのコンテナへ後から接続する（接続型）
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Server Components / Route Handler / Server Action / src/proxy.ts を止める。
+      // node-terminal はターミナルで実行したコマンドの子プロセスまで自動で追跡するため、
+      // 複数プロセスに分かれる next dev でもブレークポイントが効く。
+      "name": "PC: Next.js サーバ側",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm dev",
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // "use client" が付いたコンポーネントはブラウザで動くため、Node ではなく Chrome へ繋ぐ。
+      // 先に「PC: Next.js サーバ側」を起動しておくこと。
+      // Chrome が無い場合は "type" を "msedge" に変えれば Edge で動く。
+      "name": "PC: Next.js ブラウザ側",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}",
+      "sourceMapPathOverrides": {
+        "webpack://_N_E/*": "${webRoot}/*"
+      }
+    },
+    {
+      // ジョブワーカー（pg-boss）。--import tsx で TypeScript と @/ エイリアスを解決する。
+      // package.json の `worker` スクリプトと同じく .env があれば読み込む。
+      "name": "PC: worker（ジョブワーカー）",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/worker/index.ts",
+      "runtimeArgs": ["--import", "tsx", "--env-file-if-exists=.env"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // エディタで開いているテストファイルだけを実行する。
+      // --no-file-parallelism: テストを別スレッドへ分離させず、ブレークポイントを確実に効かせる
+      // --testTimeout=0     : 停止中にテストがタイムアウトで打ち切られないようにする
+      "name": "PC: テスト（開いているファイル）",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "--no-file-parallelism", "--testTimeout=0", "${relativeFile}"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "smartStep": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "PC: テスト（すべて）",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "--no-file-parallelism", "--testTimeout=0"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "smartStep": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // 初期データ投入（prisma/seed.ts）。DB 接続情報は .env から読む。
+      "name": "PC: 初期データ投入（seed）",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/prisma/seed.ts",
+      "runtimeArgs": ["--import", "tsx", "--env-file-if-exists=.env"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // docker compose で起動済みの app コンテナへ接続する。
+      // 事前に `docker compose -f docker/docker-compose.yml up -d` が動いていること。
+      // localRoot / remoteRoot は「PC 上のパス」と「コンテナ内のパス」の対応づけ。
+      // これが無いとブレークポイントが灰色のまま反応しない。
+      //
+      // ポートが 9229 ではなく 9230 なのは、コンテナ内で先に起動する pnpm が 9229 を
+      // 使ってしまい、Next.js が実際のサーバを 1 つ後ろの 9230 へずらすため
+      // （app のログの「- Debugger port: 9230」がその実測値）。
+      "name": "Docker: app（Next.js）へ接続",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9230,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/app",
+      "restart": true,
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // worker コンテナへ接続する。コンテナ内 9229 を PC 側 9231 へ公開している
+      // （app が 9229 / 9230 を使うため。docker/docker-compose.yml の ports を参照）。
+      "name": "Docker: worker へ接続",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9231,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/app",
+      "restart": true,
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": [
+    {
+      // サーバ側とブラウザ側を同時に起動する。1 回の実行で両方止められる。
+      "name": "PC: Next.js フルスタック（サーバ + ブラウザ）",
+      "configurations": ["PC: Next.js サーバ側", "PC: Next.js ブラウザ側"],
+      "stopAll": true
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  // このリポジトリを開いたときに VSCode が推奨として案内する拡張機能。
+  // インストールは任意で、無くてもデバッグ（.vscode/launch.json）は動作する。
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "prisma.prisma",
+    "ms-azuretools.vscode-docker"
+  ]
+}

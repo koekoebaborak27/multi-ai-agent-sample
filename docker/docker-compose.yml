@@ -32,8 +32,19 @@ services:
       # （Turbopack はこの環境ではポーリング設定でもファイル変更を検知できなかったため、
       #   実績のある webpack + WATCHPACK_POLLING の組み合わせを使う）
       WATCHPACK_POLLING: "true"
+      # VSCode から接続してステップイン実行するためのデバッガ受付口を開く。
+      # 0.0.0.0 にしないとコンテナの外（PC 側）から接続できない。
+      # デバッグしないときも常時開いているが、公開先は PC の localhost だけ。
+      #
+      # 注意: NODE_OPTIONS はこのコマンドが起動する Node すべてに効くため、先に走る pnpm が
+      # 9229 を取り、Next.js は実際のサーバを 9230 へずらす（起動ログの「Debugger port」で確認できる）。
+      # VSCode から繋ぐのは 9230 のほう。両方 ports で公開しているのは、この関係を
+      # ログと突き合わせて確認できるようにするため。
+      NODE_OPTIONS: "--inspect=0.0.0.0:9229"
     ports:
       - "3000:3000"
+      - "9229:9229"
+      - "9230:9230"
     volumes:
       - ..:/app
       - /app/node_modules
@@ -54,6 +65,8 @@ services:
       LOG_LEVEL: info
       LOG_PRETTY: "true"
       CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "9231:9229"
     volumes:
       - ..:/app
       - /app/node_modules
@@ -63,7 +76,12 @@ services:
     # tsx watch でソース変更のたびに worker を自動再起動する（開発用）
     # 接続情報は上の environment が渡すため .env は不要。--env-file-if-exists にして
     # .env 未作成のクローン直後でも起動できるようにする（.env があればそちらも読む）
-    command: sh -c "pnpm prisma generate && pnpm exec tsx watch --env-file-if-exists=.env src/worker/index.ts"
+    #
+    # デバッガの受付口は app と違い NODE_OPTIONS ではなく tsx の引数で開く。NODE_OPTIONS だと
+    # 先に走る prisma generate と tsx watch 自身が 9229 を取り合い、肝心の worker 本体が
+    # 「address already in use」で受付口を持てないため（実測で確認済み）。
+    # tsx watch は Node フラグを実行側の子プロセスへ渡すので、この書き方なら本体に付く。
+    command: sh -c "pnpm prisma generate && pnpm exec tsx watch --inspect=0.0.0.0:9229 --env-file-if-exists=.env src/worker/index.ts"
 
 volumes:
   db-data:
