@@ -21,6 +21,7 @@
 | [2026-08-02 残作業の順序を確定する](#2026-08-02-残作業の順序を確定する) | 署名 URL → standalone → Cloud Run に決定。コード変更なし |
 | [2026-08-02 署名 URL 化](#2026-08-02-署名-url-化) | `getPublicUrl` → `getSignedUrl` へ差し替え。PR #7、本番バケットで実機確認 |
 | [2026-08-02 Docker イメージの軽量化と worker の .env 依存解消](#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消) | standalone 化を差し替え。PR #8 / #9、1.73GB → 1.31GB、既存バグ 2 件を発見 |
+| [2026-08-03 VSCode デバッグ環境の整備](#2026-08-03-vscode-デバッグ環境の整備) | PR #10。ステップイン実行に対応。inspector ポートの取り合いを実測で解決 |
 
 ## 2026-07-28 Git の初期化とコミット前チェック
 
@@ -553,3 +554,93 @@ gh pr merge 9 --squash --delete-branch
 **7. 更新したドキュメント**
 
 [`README.md`](../../README.md) は 2 か所。「環境変数ファイルを作成する」の `.env` 必須の但し書き（PR #9）と、「本番デプロイ」節のサービス構成（`pnpm start` → 実際の起動コマンド）。`README_SIMPLE.md` は本番手順を扱わず、`.env` を必須と書いてもいないため変更なし。
+
+## 2026-08-03 VSCode デバッグ環境の整備
+
+Cloud Run 構築（[残作業3](TODO.md#残作業3-google-cloud-run)）へ進む前に、**ローカルで処理を 1 行ずつ追える環境**を用意した。PR #10。手順の正本は [`README.md`](../../README.md#vscodeでステップイン実行するデバッグ) に置き、ここには経緯と実測値だけを残す。
+
+**1. 方針の決定**
+
+ユーザーから「新人でも分かるように説明してほしい」という要望があり、**起動型（VSCode がプログラムを起動）と接続型（起動済みコンテナへ後から接続）の違い**から説明したうえで方針を選んでもらった。結論は次の 2 つ。
+
+| 論点 | 決定 | 理由 |
+|---|---|---|
+| 対象 | **両方**（`PC:` と `Docker:` の 2 系統） | 普段は Docker で動かしていても、止めたいときだけ PC 上で直接起動するほうが速い場面が多い |
+| `.vscode` の扱い | **Git 管理下に置く** | `launch.json` は個人のフォント設定ではなく「このプロジェクトの動かし方」。テンプレートの流用先でもそのまま使えるべき |
+
+`.gitignore` は `.vscode/` の全除外から **`.vscode/*` 除外 + `launch.json` / `extensions.json` だけ許可**へ変更した。
+
+**2. 実測で判明した落とし穴 その1: app の接続先は 9229 ではなく 9230**
+
+`NODE_OPTIONS: "--inspect=0.0.0.0:9229"` を compose に置いたが、**この変数はコマンドが起動する Node プロセスすべてに効く**。コンテナ内では `pnpm`（corepack）が先に起動するため 9229 を占有し、Next.js は実サーバを 1 つ後ろのポートへずらしていた。
+
+```
+app-1  | Debugger listening on ws://0.0.0.0:9229/...
+app-1  | Starting inspector on 0.0.0.0:9229 failed: address already in use
+app-1  | Debugger listening on ws://0.0.0.0:9230/...
+app-1  | - Debugger port: 9230
+```
+
+どちらが本体かは `/json/list` で確定できる。**ポート番号ではなくプロセスの実体を見ること。**
+
+```powershell
+curl -s http://localhost:9229/json/list   # → /usr/local/bin/pnpm（corepack の pnpm.js）
+curl -s http://localhost:9230/json/list   # → next/dist/server/lib/start-server.js ← 本体
+```
+
+**3. 実測で判明した落とし穴 その2: worker は NODE_OPTIONS では受付口を持てない**
+
+worker 側は事情が違った。`prisma generate` と `tsx watch` 自身が先に 9229 を取り、**肝心の worker 本体が `address already in use` で弾かれる**（app と違い、tsx は Node のようにポートを自動でずらさない）。
+
+```
+worker-1  | Starting inspector on 0.0.0.0:9229 failed: address already in use
+worker-1  | [06:56:48] INFO: worker 起動完了: pg-boss ready
+```
+
+`NODE_OPTIONS` をやめ、**tsx の引数として渡す**形に変えて解決した。tsx watch は Node フラグを実行側の子プロセスへ渡すため、これなら本体に付く。
+
+```yaml
+command: sh -c "pnpm prisma generate && pnpm exec tsx watch --inspect=0.0.0.0:9229 --env-file-if-exists=.env src/worker/index.ts"
+```
+
+**同じ設定方法が 2 つのサービスで通用しなかった。** デバッガの受付口は「どのプロセスが最初に起動するか」に左右されるため、サービスごとに起動ログで確認すること。
+
+**4. ブレークポイントが効く根拠を、VSCode を開く前に取った**
+
+エージェント側は VSCode の UI を操作できないため、**CDP（Chrome DevTools Protocol）で直接コンテナのデバッガへ接続**し、アプリのソースが認識されているかを確認した（使い捨てスクリプトはスクラッチパッドに置き、リポジトリには残していない）。
+
+| 対象 | スクリプトの URL | ソースマップの参照先 |
+|---|---|---|
+| app | `webpack-internal:///(rsc)/./src/app/api/health/route.ts` | `/app/src/app/api/health/route.ts` |
+| worker | `file:///app/src/worker/index.ts` | 同上（`/app/...`） |
+
+**参照先が `/app/...` の絶対パスであることが決め手**で、`launch.json` の `localRoot` / `remoteRoot` でそのまま解決できると確定した（ここが合わないとブレークポイントが灰色のまま反応しない）。その後ユーザーの実機で、`/api/health` とログイン処理（Server Action → `authorize` → `verifyCredentials`）の停止まで確認済み。
+
+**5. 付随して分かったこと**
+
+- **Prettier は JSONC のコメントを保持する。** `.vscode/launch.json` は `pnpm format:check` の対象で最初は失敗したが、`--write` で整形してもコメント 31 個はすべて残った。VSCode 設定ファイルにコメントを書いても CI と衝突しない
+- **`next-env.d.ts` は dev サーバ実行で書き換わる**（`./.next/types/routes.d.ts` → `./.next/dev/types/routes.d.ts`）。検証で `pnpm dev` を動かした副作用なので、コミットからは外した。**動作確認の後は `git status` に無関係な差分が混ざっていないか見ること**
+- Git Bash には `pkill` が無い。検証で起動した dev サーバは `Get-NetTCPConnection -LocalPort 3001` → `Stop-Process` で止めた
+
+**6. 実行したコマンド**
+
+```powershell
+Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"   # 停止していたため起動
+docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml up -d app worker        # ports 変更の反映には再作成が必要
+
+# PC 直接実行側の検証（DB は Docker の db を使用）
+node --import tsx --env-file-if-exists=.env src/worker/index.ts     # pg-boss 待受まで到達
+node --import tsx --env-file-if-exists=.env prisma/seed.ts          # Seed 完了
+node node_modules/vitest/vitest.mjs run --no-file-parallelism --testTimeout=0 src/modules/auth/rbac.test.ts   # 3 passed
+pnpm exec next dev --port 3001                                     # /api/health が ok
+
+pnpm lint; pnpm format:check; pnpm typecheck; pnpm test            # すべて成功
+git switch -c chore/vscode-debug
+gh pr create --base main --head chore/vscode-debug
+gh pr merge 10 --squash --delete-branch                            # main = 3b48fba
+```
+
+**7. 更新したドキュメント**
+
+[`README.md`](../../README.md) に「VSCodeでステップイン実行する（デバッグ）」節を新設した（構成一覧、PC 直接実行と Docker 接続それぞれの手順、ポートの対応表、止まらないときの対処）。[`README_SIMPLE.md`](../../README_SIMPLE.md) には 2 系統の違いだけを 5 行で書き、詳細は README へリンクしている（初学者向けの最小手順に留める方針のため）。

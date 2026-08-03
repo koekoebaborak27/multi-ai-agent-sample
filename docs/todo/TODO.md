@@ -2,7 +2,7 @@
 
 汎用契約管理システムテンプレートへの作り替え（[`foundation_plan.md`](../foundation_plan.md)）の残作業一覧。
 
-> **残るは 1 つ。[Cloud Run 構築](#残作業3-google-cloud-run) だけ**（根拠は [作業の順序](#作業の順序)）。ローカル環境 / Git / GitHub / Supabase / 署名 URL 化 / Docker イメージの軽量化は完了済み。
+> **残るは 1 つ。[Cloud Run 構築](#残作業3-google-cloud-run) だけ**（根拠は [作業の順序](#作業の順序)）。ローカル環境（VSCode でのステップイン実行を含む）/ Git / GitHub / Supabase / 署名 URL 化 / Docker イメージの軽量化は完了済み。
 >
 > 番号（`残作業3`）は順序を確定したときのまま据え置いている（履歴からのリンクを壊さないため）。`残作業1`（署名 URL 化）と `残作業2` は完了し [完了済みの作業](#完了済みの作業) へ移動した。
 >
@@ -34,7 +34,7 @@
 
 | 区分 | 進捗 | 状況 |
 |---|---|---|
-| ローカル環境 | 9 / 9 | 完了 |
+| ローカル環境 | 10 / 10 | 完了。VSCode でのステップイン実行に対応（PR #10） |
 | Git と GitHub | 13 / 13 | 完了 |
 | Supabase（本番 DB / Storage） | 6 / 6 | 完了。実機で読み書きまで確認済み |
 | 1. 署名 URL 化 | 5 / 5 | 完了（PR #7）。本番バケットで実機確認済み |
@@ -74,7 +74,7 @@
 最初に打つ手は**ブラウザでの Google Cloud アカウント作成**（コマンドではない）。アカウント作成前に、手元の状態を確認しておく場合のコマンドは次のとおり。
 
 ```powershell
-git log --oneline -1                                    # main = d6e18f3 であること
+git log --oneline -1                                    # main = 3b48fba であること
 docker build -f docker/Dockerfile --target runner -t contract-app:verify .   # 本番イメージが今も通ること
 docker images contract-app:verify --format "{{.Size}}"  # 1.3GB 前後
 ```
@@ -176,7 +176,7 @@ Cloud Run の設定作業そのものはリポジトリ外の操作なので、*
 ## 完了済みの作業
 
 <details>
-<summary><b>ローカル環境</b> — 9 項目すべて完了</summary>
+<summary><b>ローカル環境</b> — 10 項目すべて完了</summary>
 
 - [x] Docker Desktop を起動し、`docker compose -f docker/docker-compose.yml up -d db` で PostgreSQL を起動する
 - [x] `pnpm prisma:migrate -- --name init` で初期マイグレーションを生成・適用する（`prisma/migrations/` は現状空。生成された `migration.sql` は目視レビューする）
@@ -187,6 +187,7 @@ Cloud Run の設定作業そのものはリポジトリ外の操作なので、*
 - [x] `/contracts` で契約先を選択して契約の新規登録・一覧表示・削除を確認する（契約先が0件の場合は先に `/parties` で登録する）
 - [x] 別ターミナルで `pnpm worker` を起動し、pg-boss ワーカーが待受状態になることを確認する
 - [x] ローカル開発を Docker だけで完結できるようにする（`docker/Dockerfile` に `deps` から分岐する `dev` ステージを追加し `pnpm dev`/`tsx watch` で起動、`docker-compose.yml` はソースコードをバインドマウントして即時反映させる。既存の `build`/`runner` ステージは変更せず、`main` push時の本番ビルドには影響させない）
+- [x] **VSCode からステップイン実行できるようにする**（2026-08-03 / PR #10）。`.vscode/launch.json` に 9 構成（`PC:` = VSCode が起動 / `Docker:` = 起動済みコンテナへ接続）。**実機でブレークポイント停止まで確認済み**（`/api/health`、ログインの Server Action → `authorize` → `verifyCredentials`）。操作手順は [`README.md`](../../README.md#vscodeでステップイン実行するデバッグ)、経緯と実測は [履歴](TODO_履歴.md#2026-08-03-vscode-デバッグ環境の整備)
 
 </details>
 
@@ -250,7 +251,7 @@ private バケットでは `getPublicUrl` が返す公開 URL が HTTP 400 で�
 
 ## 現在の状態
 
-- リポジトリ: `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `d6e18f3`**（初回コミット + PR #1〜#9 + ドキュメントのみの直接 push）。PR は 9 本ともマージ済み・ブランチ削除済み
+- リポジトリ: `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `3b48fba`**（初回コミット + PR #1〜#10 + ドキュメントのみの直接 push）。PR は 10 本ともマージ済み・ブランチ削除済み
 - コミット署名は個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変
 - `gh` CLI 認証済み。scope は `gist` / `read:org` / `repo` / **`workflow`**
 - CI（GitHub Actions）はグリーンで**警告 0 件**。ステップ順序のバグ（Typecheck が Prisma generate より前）とアクションの Node.js 20 非推奨は、どちらも修正済みで `main` に反映済み
@@ -266,6 +267,7 @@ private バケットでは `getPublicUrl` が返す公開 URL が HTTP 400 で�
 - **`pino-pretty` は `dependencies`**（2026-08-02・PR #8）。[`logger.ts`](../../src/shared/observability/logger.ts) が `LOG_PRETTY=true` のとき実行時に解決するため、`devDependencies` に置くと本番で全リクエストが 500 になる
 - **`worker` の起動は `--env-file-if-exists`**（2026-08-02・PR #9）。`.env` が無い環境（本番イメージ / クローン直後）でも起動する。ただし**本番コンテナ内では `pnpm worker` ではなく `./node_modules/.bin/tsx src/worker/index.ts` を使う**（イメージに pnpm が無いため）→ [worker の起動コマンド](TODO_補足.md#worker-の起動コマンド)
 - ローカル環境の検証項目はすべて完了済み
+- **VSCode でステップイン実行できる**（2026-08-03・PR #10）。[`.vscode/launch.json`](../../.vscode/launch.json) は Git 管理下（`.gitignore` を `.vscode/*` 除外 + `launch.json` / `extensions.json` のみ許可へ変更）。**Docker 接続時の接続先は app = `9230` / worker = `9231`**（`9229` は `pnpm` 自身のプロセスで、繋いでも止まらない）。[`docker-compose.yml`](../../docker/docker-compose.yml) の変更は `dev` ステージを使う 2 サービスに閉じており、**本番イメージ（`runner`）への影響はない**
 - `update-todo` スキルを 3 エージェント分追加済み（正本 [`docs/skills/update-todo.md`](../skills/update-todo.md)）。**Claude Code / Codex での起動・検出は確認済み**、Copilot は未確認
 - 初回コミット以降の変更（Supabase 手順の追記・スキル追加・CI 修正）は**すべて `main` に反映済み**
 
