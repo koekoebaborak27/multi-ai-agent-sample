@@ -619,7 +619,7 @@ git commit -m "chore: エージェントの権限設定を追加する [skip ci]
 ### 補足
 
 - **作業用ブランチへpushしただけではCIは動きません。** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)は`main`へのpushとPull Requestのみを対象にしているためです。CIはPull Requestを作成した時点で初めて実行されます（ただし変更が`*.md`と`docs/`だけの場合は、`paths-ignore`により実行されません）。
-- **`main`にブランチ保護は設定していません。** privateリポジトリでこの機能を使うにはGitHub Proまたはpublic化が必要なためです。したがって**CIが赤くてもマージボタンは押せてしまいます**。上記の流れは仕組みによる強制ではなく、運用ルールとして守るものです（[`docs/todo/TODO.md`](docs/todo/TODO.md)の「積み残しと検討事項」参照）。
+- **`main`にブランチ保護は設定していません。** privateリポジトリでこの機能を使うにはGitHub Proまたはpublic化が必要なためです。したがって**CIが赤くてもマージボタンは押せてしまいます**。上記の流れは仕組みによる強制ではなく、運用ルールとして守るものです（[`docs/todo/TODO.md`](docs/todo/TODO.md)の「残っているタスク」参照）。
 - 日本語の複数行コミットメッセージをPowerShellから渡すときは、上記のヒアストリング（`@'` 〜 `'@`）を使います。**閉じる`'@`は行頭**に置いてください。インデントすると構文エラーになります。
 
 ## CI（GitHub Actions）
