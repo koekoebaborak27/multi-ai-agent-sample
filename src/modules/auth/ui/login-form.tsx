@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useActionState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { useActionState } from "react";
 import { loginWithCredentials, loginWithEntra, type FormState } from "@/modules/auth/actions";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { PasswordInput } from "@/shared/ui/password-input";
 
 const initialState: FormState = {};
 
 export function LoginForm({ entraEnabled }: { entraEnabled: boolean }) {
   const [state, formAction, pending] = useActionState(loginWithCredentials, initialState);
-  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -41,26 +40,7 @@ export function LoginForm({ entraEnabled }: { entraEnabled: boolean }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">パスワード</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              required
-              className="pr-9"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute inset-y-0 right-0 h-full w-9 text-muted-foreground hover:bg-transparent"
-              onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? "パスワードを非表示にする" : "パスワードを表示する"}
-            >
-              {showPassword ? <EyeOff /> : <Eye />}
-            </Button>
-          </div>
+          <PasswordInput id="password" name="password" autoComplete="current-password" required />
         </div>
         {state.error && (
           <p role="alert" className="text-sm text-destructive">

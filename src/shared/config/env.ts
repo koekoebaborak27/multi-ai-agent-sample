@@ -26,7 +26,7 @@ const envSchema = z.object({
   AUTH_MICROSOFT_ENTRA_ID_ISSUER: optionalUrl,
 
   // アプリ
-  MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  MAX_ATTEMPTS: z.coerce.number().int().positive().default(20),
   PAGE_SIZE: z.coerce.number().int().positive().default(30),
 
   // ログ
