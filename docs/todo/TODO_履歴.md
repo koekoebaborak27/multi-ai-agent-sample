@@ -22,6 +22,7 @@
 | [2026-08-02 署名 URL 化](#2026-08-02-署名-url-化) | `getPublicUrl` → `getSignedUrl` へ差し替え。PR #7、本番バケットで実機確認 |
 | [2026-08-02 Docker イメージの軽量化と worker の .env 依存解消](#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消) | standalone 化を差し替え。PR #8 / #9、1.73GB → 1.31GB、既存バグ 2 件を発見 |
 | [2026-08-03 VSCode デバッグ環境の整備](#2026-08-03-vscode-デバッグ環境の整備) | PR #10。ステップイン実行に対応。inspector ポートの取り合いを実測で解決 |
+| [2026-08-04 Cloud Run の構築とログイン不能バグの修正](#2026-08-04-cloud-run-の構築とログイン不能バグの修正) | **本番稼働に到達**。Cloud Build が 2 連続で失敗。middleware と Server Action の衝突を PR #11 で修正 |
 
 ## 2026-07-28 Git の初期化とコミット前チェック
 
@@ -557,7 +558,7 @@ gh pr merge 9 --squash --delete-branch
 
 ## 2026-08-03 VSCode デバッグ環境の整備
 
-Cloud Run 構築（[残作業3](TODO.md#残作業3-google-cloud-run)）へ進む前に、**ローカルで処理を 1 行ずつ追える環境**を用意した。PR #10。手順の正本は [`README.md`](../../README.md#vscodeでステップイン実行するデバッグ) に置き、ここには経緯と実測値だけを残す。
+Cloud Run 構築（当時の `残作業3`。2026-08-04 に完了し [完了済みの作業](TODO.md#完了済みの作業) へ移動）へ進む前に、**ローカルで処理を 1 行ずつ追える環境**を用意した。PR #10。手順の正本は [`README.md`](../../README.md#vscodeでステップイン実行するデバッグ) に置き、ここには経緯と実測値だけを残す。
 
 **1. 方針の決定**
 
@@ -644,3 +645,153 @@ gh pr merge 10 --squash --delete-branch                            # main = 3b48
 **7. 更新したドキュメント**
 
 [`README.md`](../../README.md) に「VSCodeでステップイン実行する（デバッグ）」節を新設した（構成一覧、PC 直接実行と Docker 接続それぞれの手順、ポートの対応表、止まらないときの対処）。[`README_SIMPLE.md`](../../README_SIMPLE.md) には 2 系統の違いだけを 5 行で書き、詳細は README へリンクしている（初学者向けの最小手順に留める方針のため）。
+
+## 2026-08-04 Cloud Run の構築とログイン不能バグの修正
+
+**最後の残作業だった [Cloud Run 構築](TODO.md#完了済みの作業) を完了し、本番稼働に到達した。** 併せて**本番でしか露見しないバグを 1 件発見して修正**している（PR #11 / `main` = `a8181bd`）。画面ごとの設定値と落とし穴は [Cloud Run のサービス作成画面](TODO_補足.md#cloud-run-のサービス作成画面) / [Cloud Build が失敗する 2 つの原因](TODO_補足.md#cloud-build-が失敗する-2-つの原因) に集約したので、ここには経緯と判断だけ残す。
+
+**1. 着手前にコード側を実測で固めた**
+
+ブラウザ作業に入る前に、本番イメージが今も通ることと**実行時メモリ**を測った。Cloud Run のメモリ設定を勘で決めないためで、結果は **77MB**。既定の 512MiB に対して 6 倍以上の余裕があり、**1GiB へ上げない根拠**になった（無料枠は「メモリ量 × CPU 割り当て秒」で消費されるため、1GiB にすると減りが 2 倍速くなる）。
+
+```powershell
+docker build -f docker/Dockerfile --target runner -t contract-app:verify .   # 1.31GB
+docker run -d --name app-verify -p 3100:3000 -e DATABASE_URL='...' ... contract-app:verify
+docker stats app-verify --no-stream --format "MEM: {{.MemUsage}} ({{.MemPerc}})"
+# → MEM: 77.07MiB / 7.621GiB (0.99%)
+```
+
+**TODO に無かった設定を 1 つ足した。** 「**インスタンスの最大数を 2 にする**」。既定は空欄（＝100）で、想定外のアクセスが来ると 100 本まで自動増加して Always Free を突き抜ける。最小 0 の設定ばかり注目していたが、**課金事故を防ぐのは最大側**である。
+
+**2. コンソールの UI が事前資料と大きく違った**
+
+エージェント側が用意した手順は「サービスを作成」ボタンを押す前提だったが、**そのボタンは存在しなかった**。現在の Cloud Run は概要ページに「リポジトリの接続」「コンテナのデプロイ」のカードが並ぶ形で、さらにサービス設定とビルド設定が**1 画面に統合**されている。公式ドキュメント（`docs.cloud.google.com`）を先に読んでいたが、それでも画面と一致しなかった。
+
+**この結果、想定していた「2 段階デプロイ」が不要になった。** 新 UI はサービス名とリージョンを入れた時点で**エンドポイント URL を画面に表示する**ため、`AUTH_URL` を最初から設定できる。旧資料にある `https://<service>-<hash>-uc.a.run.app` という形式も現在は使われていない（`https://<service>-<プロジェクト番号>.<region>.run.app`）。
+
+**手順書は画面ごとに確認しながら進めるべきだった。** 一括で全手順を提示したが、実際には 1 画面ごとにスクリーンショットをもらって差分を埋める形に切り替えている。**クラウドコンソールの UI は資料より速く変わる**前提で進めること。
+
+**3. Cloud Build が 2 回連続で失敗した**
+
+どちらも Cloud Run の設定ではなく Cloud Build 側の問題だった。詳細と対処は [Cloud Build が失敗する 2 つの原因](TODO_補足.md#cloud-build-が失敗する-2-つの原因) にある。
+
+| # | エラー | 原因 |
+|---|---|---|
+| 1 | `403 Permission 'developerconnect.gitRepos...'` | Developer Connect の権限が未反映。トリガー編集画面の「すべて付与」で解決 |
+| 2 | `COPY failed: stat package.json: file does not exist` | **ビルドコンテキストが `docker/` になっていた** |
+
+**2 番目が本質的な落とし穴。** Cloud Build の Dockerfile モードは「**Dockerfile のあるディレクトリ＝ビルドコンテキスト**」として扱うが、[`docker/Dockerfile`](../../docker/Dockerfile) はリポジトリルートがコンテキストである前提で書かれている（`COPY package.json ...`）。**パス指定 `/docker/Dockerfile` 自体は正しく効いており**、Dockerfile の 35 ステップを読み込めていたので、切り分けを誤りやすい。
+
+当初は「`cloudbuild.yaml` をリポジトリに追加する」案を提示したが、**トリガーの構成を見たら既にインライン YAML だった**ため不要になった。その場で `docker` → `'.'` に直すだけで済んでいる。**推測でコードを足す前に、既にある設定を見ること。**
+
+**「ビルドを再試行」では直らない。** このボタンは**そのビルドが走った時点の構成のスナップショット**を再利用するため、トリガーの YAML を直しても反映されない。所要時間が前回とほぼ同じ（16 秒）で同じ行で落ちたのが手がかりだった。**Cloud Build → トリガー → 「実行」** で手動実行すること。
+
+**4. 本番でログインできず、アプリのバグが見つかった（PR #11）**
+
+デプロイ成功後、`/api/health` も `/api/health?check=db` も 200 で返るのに、**ブラウザからログインすると画面がログイン画面に戻り続けた**。
+
+切り分けの経過を残す。**遠回りした部分も含めて書く**（同じ順で疑うと速いため）。
+
+| # | 調べたこと | 結果 |
+|---|---|---|
+| 1 | 誤パスワードで `/api/auth/callback/credentials` を叩く | 302 → `/login?error=CredentialsSignin`。**リダイレクト先が正しい本番ホスト名**なので `AUTH_URL` / `AUTH_TRUST_HOST` は正常と確定 |
+| 2 | 正しいパスワードで同上 → `/api/auth/session` | **ユーザー情報が返る**。認証もセッション Cookie も正常 |
+| 3 | Cookie 付きで各パスを GET | `/settings/password` は **200**。サーバ側は完全に正常 |
+| 4 | RSC ヘッダ付きで再確認 | やはり 200。再現しない |
+| 5 | ブラウザの DevTools（Preserve log 有効） | **`POST /settings/password` が 303 を返している**ことを確認 |
+
+**5 番で確定した。** Request Method が **POST**、Content-Type が `text/x-component`、応答に `X-Action-Redirect: .../;push` があった。つまり**ログインの Server Action が `/settings/password` へ送られている**。
+
+原因は [`proxy.ts`](../../src/proxy.ts) が Server Action の POST をリダイレクトしていたこと。**middleware がリダイレクトを返すと POST はそのまま転送先へ再送される**ため、`signIn` 直後に「`/` → `/settings/password` → `/` → …」と往復が終わらなくなっていた。
+
+```
+ログインの Server Action (POST) → signIn 成功 → "/" へ
+  → proxy が mustChangePassword を見て /settings/password へリダイレクト
+    → POST が /settings/password へ再送され、アクションが再実行される
+      → また "/" へ戻される → 以下ループ
+```
+
+**ローカルで気づけなかった理由も判明した。** このバグは `mustChangePassword: true` のユーザーでしか起きないが、**ローカルの admin は過去の検証で既に `false` になっていた**。再現のため DB を直接 `true` へ戻したところ、本番と同じ症状が出た。**「本番固有の問題」に見えても、まず手元で同じ状態を作れないか試すこと。**
+
+**5. 修正の設計判断（PR #11）**
+
+「案内」と「認可」を分け、**案内だけを GET 限定**にした。
+
+| ガード | 扱い | 理由 |
+|---|---|---|
+| ログイン済みで `/login` → `/` | **GET 限定へ** | 利便のための案内 |
+| 初回 PW 変更 → `/settings/password` | **GET 限定へ** | 同上 |
+| 未ログイン時のガード | **変更なし** | 緩めると未認証のまま業務処理へ届く |
+| `/admin/*` の認可 | **変更なし** | 緩めると権限のない人が管理機能を叩ける |
+
+判定ロジックは [`route-guard.ts`](../../src/modules/auth/route-guard.ts) の純粋関数 `decideRedirect` へ切り出した。**middleware のままだとテストのために `NextRequest` を組み立てる必要がある**が、ただの関数なら「この状況ならこう返る」を 1 行で書ける。回帰テスト 12 件を追加（テスト 26 → 38）。
+
+**検証は「直したい挙動」と「壊したくない挙動」の両方を見た。**
+
+| リクエスト | 修正前 | 修正後 |
+|---|---|---|
+| `GET /` | 307 → `/settings/password` | 307 → `/settings/password`（維持） |
+| **`POST /`（`next-action` ヘッダ付き）** | **307 → `/settings/password`** | **404・リダイレクトなし** |
+| `GET /login` | 307 → `/` | 307 → `/`（維持） |
+
+修正後の 404 はダミーのアクション ID を送っているためで、**middleware がリダイレクトせず Next.js まで届いた証拠**になる。
+
+**6. 本番の admin パスワードは `Admin@123` だった**
+
+ログインできない原因を探る過程で判明した。[`TODO.md`](TODO.md) には「2026-08-02 に `SEED_ADMIN_PASSWORD` を指定して投入済み」と記録していたが、**実際には効いておらず** [`seed.ts`](../../prisma/seed.ts) の既定値のままだった。
+
+さらに **[`seed.ts`](../../prisma/seed.ts) の `upsert` は `update: {}`** なので、**再 seed しても既存ユーザーのパスワードは上書きされない**。復旧には DB を直接更新するしかなく、使い捨てスクリプトを `uploads/`（`.gitignore` 済み）に置いて対処した（作業後に削除済み）。
+
+**ロック機構にも注意が要る。** [`service.ts`](../../src/modules/auth/service.ts) は失敗が閾値に達すると `lockedAt` を立て、**自動解除しない**。当時の閾値は 5 回で、パスワードを探るうちに到達していた。この体験からユーザー判断で**閾値を 20 回へ緩和**している（PR #11）。
+
+**7. ユーザー要望で 3 点を改善した（PR #11 の 2 コミット目）**
+
+ログイン不能が直って初回パスワード変更画面まで到達できるようになり、実際に触って出てきた要望。
+
+| # | 内容 | 実装 |
+|---|---|---|
+| 1 | パスワード欄に目のアイコンを付ける | ログイン画面にだけあった実装を [`shared/ui/password-input.tsx`](../../src/shared/ui/password-input.tsx) へ**共通化**し、変更画面の 3 欄へ適用。コピーせず切り出したので、片方だけ直し忘れる事故が起きない |
+| 2 | ロック閾値 5 → 20 回 | [`env.ts`](../../src/shared/config/env.ts) の既定値。`.env.example` / `foundation_plan.md` も揃えた |
+| 3 | 初回変更画面でサイドバーを出さない | [`(main)/layout.tsx`](<../../src/app/(main)/layout.tsx>) が `mustChangePassword` を見て中央寄せの単独画面に切り替える。proxy がこの間の遷移をすべて戻すため、出しても押せるリンクが無い |
+
+3 番目は**「初回のときだけ」**である点を検証に含めた（変更後の再ログインでサイドバーが戻ることまで確認）。
+
+**8. 自動デプロイの確認（残作業3 の最終項目）**
+
+PR #11 のマージがそのまま検証になった。**反映の判定は JS チャンク名で行う。**
+
+```powershell
+$l=(Invoke-WebRequest "$base/login" -UseBasicParsing).Content
+([regex]::Matches($l,'/_next/static/chunks/[a-z0-9_\-]+\.js') | ForEach-Object { $_.Value }) | Select-Object -Unique
+# → 新しいチャンク 1p1cuvawk3f73.js が出現、旧 3i8cgd-nq-ee8.js が消滅
+```
+
+**CSS のハッシュでは判定できなかった。** 最初は CSS で見ようとしたが変化しない。Tailwind は**使用クラスの集合から CSS を生成する**ため、既存クラスしか使わない変更ではハッシュが変わらない。
+
+**9. 実行したコマンド**
+
+```powershell
+# 事前検証
+docker build -f docker/Dockerfile --target runner -t contract-app:verify .
+docker stats app-verify --no-stream --format "MEM: {{.MemUsage}}"    # 77MB
+
+# バグの再現（ローカルの本番ビルド）
+$env:DATABASE_URL='postgresql://app:password@localhost:5432/app_db'
+pnpm exec tsx uploads/reset-admin-password.ts                        # mustChangePassword を true へ
+pnpm build
+$env:AUTH_URL='http://localhost:3100'; pnpm exec next start -p 3100  # 3000 は docker compose が使用中
+# POST / に next-action ヘッダを付けて 307 を確認 → 修正 → 404 を確認
+
+pnpm lint; pnpm format:check; pnpm typecheck; pnpm test; pnpm build  # すべて成功（38 tests）
+git checkout -b fix/proxy-server-action-redirect-loop
+gh pr create --base main --head fix/proxy-server-action-redirect-loop
+gh pr edit 11 --title "..." --body @'...'@                           # 追加コミット後に説明を更新
+gh pr merge 11 --squash --delete-branch                              # main = a8181bd
+Remove-Item uploads/reset-admin-password.ts                          # 使い捨てスクリプトを削除
+```
+
+**ポート 3000 が空いていなかった。** docker compose の開発環境が使っていたため、止めずに 3100 で起動した。`$env:AUTH_URL` で上書きすれば URL 不一致は起きない（既存の環境変数が `.env` より優先されるため）。
+
+**10. 更新したドキュメント**
+
+[`src/AGENTS.md`](../../src/AGENTS.md) に「**middleware から Server Action の POST をリダイレクトしない**」を規約として追記した（PR #11 に同梱）。同じ設計ミスを次に繰り返さないための、最も効く置き場所だと判断したため。

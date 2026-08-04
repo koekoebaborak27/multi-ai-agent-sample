@@ -2,11 +2,11 @@
 
 汎用契約管理システムテンプレートへの作り替え（[`foundation_plan.md`](../foundation_plan.md)）の残作業一覧。
 
-> **残るは 1 つ。[Cloud Run 構築](#残作業3-google-cloud-run) だけ**（根拠は [作業の順序](#作業の順序)）。ローカル環境（VSCode でのステップイン実行を含む）/ Git / GitHub / Supabase / 署名 URL 化 / Docker イメージの軽量化は完了済み。
+> **2026-08-04 に本番稼働へ到達した。期限のある残作業はゼロ。** Cloud Run 上で動作しており、ログイン → パスワード変更 → 契約先 / 契約の登録まで実機で確認済み。`main` への push を契機に自動デプロイされることも確認した。
 >
-> 番号（`残作業3`）は順序を確定したときのまま据え置いている（履歴からのリンクを壊さないため）。`残作業1`（署名 URL 化）と `残作業2` は完了し [完了済みの作業](#完了済みの作業) へ移動した。
+> 以降は [積み残しと検討事項](#積み残しと検討事項)（期限のない宿題）から選んで進める。
 >
-> **`残作業2` は当初「standalone 化」だったが、2026-08-02 に「Docker イメージの軽量化」へ差し替えた。** standalone 化は [積み残しと検討事項](#積み残しと検討事項) へ降格し、worker 用イメージを分離する段階で再検討する（理由は [作業の順序](#作業の順序)）。
+> 番号（`残作業1`〜`残作業3`）は順序を確定したときのまま据え置いている（履歴からのリンクを壊さないため）。3 つとも完了し [完了済みの作業](#完了済みの作業) へ移動した。`残作業2` は当初「standalone 化」だったが 2026-08-02 に「Docker イメージの軽量化」へ差し替えており、standalone 化は積み残しへ降格している。
 
 ## 目次
 
@@ -15,7 +15,6 @@
 | [進捗サマリ](#進捗サマリ) | 区分ごとの残数 |
 | [作業の順序](#作業の順序) | 残作業をこの順に並べた理由と、2026-08-02 の見直し |
 | [次にやること](#次にやること) | 次のセッションが最初に打つ手 |
-| [残作業3 Google Cloud Run](#残作業3-google-cloud-run) | 本番サーバの構築（ブラウザ作業）。**唯一の残作業** |
 | [補足資料](#補足資料) | 設定値・手順・落とし穴（別ファイル） |
 | [積み残しと検討事項](#積み残しと検討事項) | 期限のない宿題 |
 | [完了済みの作業](#完了済みの作業) | 実施履歴（折りたたみ） |
@@ -39,8 +38,8 @@
 | Supabase（本番 DB / Storage） | 6 / 6 | 完了。実機で読み書きまで確認済み |
 | 1. 署名 URL 化 | 5 / 5 | 完了（PR #7）。本番バケットで実機確認済み |
 | 2. Docker イメージの軽量化 | 6 / 6 | 完了（PR #8 / #9）。1.73GB → 1.31GB。**standalone 化からの差し替え** |
-| **3. Google Cloud Run** | **0 / 8** | **未着手。次はここから** |
-| 積み残しと検討事項 | 4 / 8 | 未対応 4 件（期限なし。standalone 化を追加） |
+| **3. Google Cloud Run** | **8 / 8** | **完了（2026-08-04）。本番稼働中。過程で既存バグ 1 件を発見し PR #11 で修正** |
+| 積み残しと検討事項 | 4 / 10 | 未対応 6 件（期限なし。2026-08-04 に 2 件追加） |
 
 ## 作業の順序
 
@@ -50,7 +49,7 @@
 |---|---|---|---|
 | 1 | 署名 URL 化（**完了** → [完了済みの作業](#完了済みの作業)） | コード | **いま安く、あとで高くなる**。`getPublicUrl` の呼び出し元がゼロのうちに変えられた。実際に変更は 5 ファイルで閉じ、この読みは当たった |
 | 2 | Docker イメージの軽量化（**完了** → [完了済みの作業](#完了済みの作業)） | Docker | 当初は standalone 化を置いていたが、**より安く同等の効果が出る施策へ差し替えた**（下記） |
-| 3 | [Cloud Run 構築](#残作業3-google-cloud-run) | ブラウザ | **人の手が要る作業を最後に置く**。コード側を先に固めておけば、一度立てた本番に後から手を入れずに済む |
+| 3 | Cloud Run 構築（**完了** → [完了済みの作業](#完了済みの作業)） | ブラウザ | **人の手が要る作業を最後に置く**。この読みは当たり、コード側の準備は一切やり直さずに済んだ。ただし**本番でしか露見しないバグを 1 件踏んだ**（→ [完了済みの作業](#完了済みの作業)） |
 
 ### なぜ standalone 化を差し替えたか
 
@@ -67,48 +66,36 @@
 
 ## 次にやること
 
-**[残作業3 Cloud Run 構築](#残作業3-google-cloud-run) から着手する。** コード側の準備は完了しており、残るのはブラウザ作業のみ。
+**期限のある残作業は無い。** テンプレートの土台は本番稼働まで到達した。次のセッションは [積み残しと検討事項](#積み残しと検討事項) から選ぶか、`src/modules/` へ案件固有の業務ドメインを足す段階へ進む。
 
-**最初に読むのは [本番の環境変数](TODO_補足.md#本番の環境変数)**（Cloud Run のサービス設定に入れる値の一覧）。次いで [残作業3](#残作業3-google-cloud-run) の「進めるうえでの要点 3 つ」。
+積み残しから着手するなら、次の順で価値が高い。
 
-最初に打つ手は**ブラウザでの Google Cloud アカウント作成**（コマンドではない）。アカウント作成前に、手元の状態を確認しておく場合のコマンドは次のとおり。
+| 優先 | 項目 | 理由 |
+|---|---|---|
+| 1 | Cloud Run の実行サービス アカウントを絞る | **本番が動いている今も、コンテナがプロジェクトの編集者権限を持ったまま**。リビジョン編集で差し替えるだけなので安い |
+| 2 | `main` のブランチ保護 | 自動デプロイが動き出したため、`main` への誤 push が**そのまま本番へ出る**ようになった。判断の重みが増している |
+| 3 | `output: "standalone"` 化 | 単独では価値が低い。worker 用イメージを分離するときに併せて行う |
+
+手元の状態を確認するコマンドは次のとおり。
 
 ```powershell
-git log --oneline -1                                    # main = 3b48fba であること
-docker build -f docker/Dockerfile --target runner -t contract-app:verify .   # 本番イメージが今も通ること
-docker images contract-app:verify --format "{{.Size}}"  # 1.3GB 前後
+git log --oneline -1                                     # main = a8181bd
+git status --porcelain                                   # 何も出なければクリーン
+docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
 
-Cloud Run の設定作業そのものはリポジトリ外の操作なので、**PR も直接 push も発生しない**。デプロイ後に `AUTH_URL` の設定で 1 度だけ再デプロイが要る。
+本番が生きているかは、ブラウザを開かずに確認できる（URL は Cloud Run コンソールの「サービスの詳細」に表示される）。
+
+```powershell
+$base="https://contract-app-<プロジェクト番号>.us-central1.run.app"
+Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"status":"ok","db":"up"}}
+```
+
+**2026-08-04 以降、`main` への push は本番デプロイを引き起こす。** `main` が更新されると Cloud Build が起動して Cloud Run へ反映される。`.md` だけの変更は GitHub Actions の CI こそ動かないが、**Cloud Build は別の仕組みなので走る**（→ [積み残しと検討事項](#積み残しと検討事項)）。
 
 なお**コード**を変更する場合は `main` へ直接 push せず **feature ブランチ → PR → CI green → squash マージ**に従う（コマンドは [`TODO_履歴.md`](TODO_履歴.md#2026-08-02-pr-運用の開始と-ci-の順序バグ修正) の「PR 運用の型が固まった」）。**`.md` / `docs/` 配下だけの変更**は `paths-ignore` により CI が動かないため `main` へ直接 push してよい（手順は [`README.md`](../../README.md) の「ドキュメントだけの変更でCIを実行しない」）。
 
 各セッションの終わりには、エージェントに「TODO を更新して」（または `/update-todo`）と伝えてこのファイルを更新する。手順は [`docs/skills/update-todo.md`](../skills/update-todo.md)。
-
-## 残作業3 Google Cloud Run
-
-ここが終われば本番稼働に必要な作業はすべて片付く。**クレジットカード登録が必須**だが、Always Free の範囲内なら請求は発生しない。コンソール操作が中心で、リポジトリ側の変更は原則不要。
-
-進めるうえでの要点は 3 つ。
-
-1. **ビルド設定で `docker/Dockerfile` のパス指定を忘れない。** リポジトリ直下に `Dockerfile` が無いため、既定の自動検出では失敗する
-2. **`AUTH_URL` は 2 段階。** デプロイ前は URL が分からないので、初回デプロイ → 発行された URL を環境変数に設定 → 再デプロイ、の順になる
-3. **環境変数は Cloud Run のサービス設定に入れる。** 手元では `$env:` でそのセッションにのみ設定し、**本番の接続文字列を `.env` に書き込まない**（→ [ローカルの .env に本番の値を置いてよいか](TODO_補足.md#ローカルの-env-に本番の値を置いてよいか)）
-
-デプロイ後の確認は `/api/health` → `/api/health?check=db` → ログイン の順。**初回ログインでは初期 ADMIN のパスワードを必ず変更する**（`SEED_ADMIN_PASSWORD` に設定した値は使い捨て）。`STORAGE_TYPE=supabase` での読み書きは 2026-08-02 に実機確認済みなので、ストレージ周りで詰まる要素は残っていない。
-
-- [ ] Google Cloud アカウントを作成し、課金を有効化する（**クレジットカード登録が必須**。Always Free の範囲内なら請求は発生しないが、登録自体は必要）
-- [ ] Google Cloud プロジェクトを新規作成する
-- [ ] Cloud Run サービスを作成し、「リポジトリから継続的にデプロイする」で GitHub リポジトリを連携する
-  - ビルドタイプ: **Dockerfile**、パスに `docker/Dockerfile` を指定する（リポジトリ直下にないため既定では検出されない）
-  - リージョン: **us-central1**（Always Free 対象）
-  - 認証: 「未認証の呼び出しを許可」（アプリ側で Auth.js が認証するため）
-  - 最小インスタンス数: **0**（コールドスタートを受け入れて無料枠に収める）
-- [ ] Cloud Run の環境変数を設定する（[本番の環境変数](TODO_補足.md#本番の環境変数) を参照）
-- [ ] 初回デプロイ後に発行された URL（`https://<service>-<hash>-uc.a.run.app`）を `AUTH_URL` に設定して**再デプロイする**（URL はデプロイ前には分からないため 2 段階になる）
-- [ ] `main` ブランチへの push で Cloud Build が起動し、自動デプロイされることを確認する
-- [ ] 本番 URL で `/api/health`（liveness）と `/api/health?check=db`（DB 疎通）を確認する
-- [ ] 本番 URL でログイン〜パスワード変更〜契約先/契約の登録までの一連の動作を確認する
 
 ## 補足資料
 
@@ -126,15 +113,27 @@ Cloud Run の設定作業そのものはリポジトリ外の操作なので、*
 | 2026-08-02 | [本番イメージから落としたもの](TODO_補足.md#本番イメージから落としたもの) | 実測値つきの内訳。効いた施策と効かなかった施策 |
 | 2026-08-02 | [worker の起動コマンド](TODO_補足.md#worker-の起動コマンド) | 環境ごとの正しい起動方法。`pnpm worker` が本番で使えない 2 つの理由 |
 | 未実施 | [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) | worker との衝突、ローカルでの検証コマンド。**着手条件が変わった** |
-| 未実施 | [本番の環境変数](TODO_補足.md#本番の環境変数) | Cloud Run のサービス設定に入れる値の一覧 |
-| 未実施 | [本番で動かさないもの](TODO_補足.md#本番で動かさないもの) | pg-boss ワーカー / ローカル用 `db` サービス |
+| 2026-08-04 | [Cloud Run のサービス作成画面](TODO_補足.md#cloud-run-のサービス作成画面) | 画面ごとの設定値。**既定のままだと危ない項目**（リージョン / 最大インスタンス数） |
+| 2026-08-04 | [Cloud Build が失敗する 2 つの原因](TODO_補足.md#cloud-build-が失敗する-2-つの原因) | 権限不足とビルドコンテキスト。**初回は 2 回連続で落ちた** |
+| 2026-08-04 | [本番の環境変数](TODO_補足.md#本番の環境変数) | Cloud Run に設定する 9 個 |
+| 2026-08-04 | [デプロイ後の確認](TODO_補足.md#デプロイ後の確認) | 疎通コマンドと、自動デプロイの反映を判定する方法 |
+| 2026-08-04 | [本番で動かさないもの](TODO_補足.md#本番で動かさないもの) | pg-boss ワーカー / ローカル用 `db` サービス |
 
 ## 積み残しと検討事項
 
 ### 未対応
 
 > **2026-08-02 に 2 件がここから昇格し、うち 1 件が戻ってきた。** 「`getPublicUrl` の署名 URL 化」は昇格して**完了**（[完了済みの作業](#完了済みの作業)）。「`output: "standalone"` 化」は一度 `残作業2` へ昇格したが、**同日ここへ差し戻した**（理由は [なぜ standalone 化を差し替えたか](#なぜ-standalone-化を差し替えたか)）。
+>
+> **2026-08-04 に 2 件を追加した**（Cloud Run 構築で判明した宿題）。いずれも本番が動いている状態で残っているものなので、優先度は [次にやること](#次にやること) を参照。
 
+- [ ] **Cloud Run の実行サービス アカウントを、権限を持たない専用 SA に差し替える**（2026-08-04 追加）。現在は既定の `<プロジェクト番号>-compute@developer.gserviceaccount.com` を使っており、**プロジェクトの編集者権限を持ったまま本番が動いている**
+  - このアプリは Google Cloud の API を一切呼ばない（DB もストレージも Supabase を直接叩く）ため、**権限ゼロの SA で動くはず**。[`docker/Dockerfile`](../../docker/Dockerfile) で非 root 実行までしている方針とも整合しない
+  - サービス アカウントは**リビジョン編集で差し替え可能**（リージョンやサービス名と違い、やり直しが効く）。「新しいリビジョンの編集とデプロイ」→「セキュリティ」タブ
+  - 差し替え後は `/api/health?check=db` とログインまで通し、本当に権限が不要であることを確認する
+- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める**（2026-08-04 追加）。GitHub Actions 側の `paths-ignore` は **Cloud Build には効かない**ため、`.md` の修正のたびに 5〜10 分のビルドと Cloud Run のリビジョン作成が発生する
+  - 選択肢: ①放置（Always Free の範囲なら実害なし。現状はこれ） ②コミットメッセージに `[skip ci]` を付ける（Cloud Build も同じ文字列に対応） ③トリガーの「含まれるファイルと無視されるファイルのフィルタ」で `**.md` / `docs/**` を除外する
+  - ③が仕組みとして確実だが、**トリガー設定は Git 管理外**なので、リポジトリを clone しただけでは再現しない（テンプレートとして配る際は手順書が要る）
 - [ ] **`output: "standalone"` 化を検討する**（2026-08-02 に `残作業2` からここへ差し戻し）。**着手の適時は「worker 用イメージを `runner` から分離するとき」**。イメージを分ければ app 側は worker を気にせず standalone にでき、[案 B](TODO_補足.md#standalone-化の設計上の論点) が成立する
   - 単独でやる価値は低い。コールドスタートの**起動処理そのものは縮まない**うえ、[軽量化 PR](#完了済みの作業) で 1.73GB → 1.31GB を worker と衝突せずに達成済み
   - 着手する場合の論点・落とし穴 5 つ・ローカル検証コマンドは [standalone 化の設計上の論点](TODO_補足.md#standalone-化の設計上の論点) に整理済み
@@ -249,23 +248,48 @@ private バケットでは `getPublicUrl` が返す公開 URL が HTTP 400 で�
 
 </details>
 
+<details>
+<summary><b>3. Google Cloud Run</b> — 8 項目すべて完了（2026-08-04）</summary>
+
+**本番稼働に到達した。** コンソールの UI が事前資料と大きく違ううえ Cloud Build が 2 回連続で失敗したため、画面単位の手順は [Cloud Run のサービス作成画面](TODO_補足.md#cloud-run-のサービス作成画面) と [Cloud Build が失敗する 2 つの原因](TODO_補足.md#cloud-build-が失敗する-2-つの原因) に集約した。経緯は [履歴](TODO_履歴.md#2026-08-04-cloud-run-の構築とログイン不能バグの修正)。
+
+- [x] Google Cloud アカウントを作成し、課金を有効化する
+- [x] Google Cloud プロジェクトを新規作成する（プロジェクト ID `multi-ai-agent-sample-2026`。**ID は作成後に変更不可**）
+- [x] Cloud Run サービスを作成し、GitHub リポジトリを連携する（`contract-app` / **us-central1** / パブリック アクセスを許可 / 最小 0・**最大 2** / メモリ 512MiB / Developer Connect 経由）。**「サービスを作成」ボタンは存在せず、概要ページの「リポジトリの接続」から入る**
+- [x] Cloud Run の環境変数を 9 個設定する（→ [本番の環境変数](TODO_補足.md#本番の環境変数)）
+- [x] `AUTH_URL` を設定する（**作成画面にエンドポイント URL が表示されるため、当初想定した 2 段階デプロイは不要だった**）
+- [x] `main` への push で Cloud Build が起動し自動デプロイされることを確認する（PR #11 のマージで検証。反映は JS チャンク名の変化で判定 → [デプロイ後の確認](TODO_補足.md#デプロイ後の確認)）
+- [x] 本番 URL で `/api/health`（liveness）と `/api/health?check=db`（DB 疎通）を確認する
+- [x] 本番 URL でログイン〜パスワード変更〜契約先/契約の登録までの一連の動作を確認する（**この過程でログイン不能のバグを発見し、PR #11 で修正した**）
+
+**発見したバグ（PR #11）**: `mustChangePassword: true` のユーザーがログインすると、ログイン画面に戻り続けて先へ進めなかった。middleware（[`proxy.ts`](../../src/proxy.ts)）が Server Action の POST をリダイレクトしており、**リダイレクトによって POST が転送先へ再送される**ため `/` と `/settings/password` の間で往復し続けていた。判定を [`route-guard.ts`](../../src/modules/auth/route-guard.ts) の純粋関数へ切り出し、ログイン済みユーザーの誘導を GET のみに限定して解消した（回帰テスト 12 件追加。テスト 26 → 38）。あわせて 3 点を改善している（パスワード欄の表示切替、ロック閾値 5 → 20 回、初回変更画面でサイドバー非表示）。
+
+</details>
+
 ## 現在の状態
 
-- リポジトリ: `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `3b48fba`**（初回コミット + PR #1〜#10 + ドキュメントのみの直接 push）。PR は 10 本ともマージ済み・ブランチ削除済み
+- リポジトリ: `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `a8181bd`**（初回コミット + PR #1〜#11 + ドキュメントのみの直接 push）。PR は 11 本ともマージ済み・ブランチ削除済み
 - コミット署名は個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変
 - `gh` CLI 認証済み。scope は `gist` / `read:org` / `repo` / **`workflow`**
 - CI（GitHub Actions）はグリーンで**警告 0 件**。ステップ順序のバグ（Typecheck が Prisma generate より前）とアクションの Node.js 20 非推奨は、どちらも修正済みで `main` に反映済み
-- **CI は `**.md` / `docs/**` のみの変更では起動しない**（`paths-ignore`。2026-08-02 に設定し、実機で**検証済み**）。それ以外で CI を止めたい場合はコミットメッセージの `[skip ci]`（`f365896` で検証済み）
+- **CI は `**.md` / `docs/**` のみの変更では起動しない**（`paths-ignore`。2026-08-02 に設定し、実機で**検証済み**）。それ以外で CI を止めたい場合はコミットメッセージの `[skip ci]`（`f365896` で検証済み）。ただし **`paths-ignore` が効くのは GitHub Actions だけで、Cloud Build には効かない**ため、ドキュメントのみの変更でも本番デプロイは走る → [積み残しと検討事項](#積み残しと検討事項)
 - **`main` にブランチ保護はかかっていない**（private リポジトリでは GitHub Pro か public 化が必要なため）。PR 運用は仕組みではなく運用ルールで守っている → [積み残しと検討事項](#積み残しと検討事項)
 - **Supabase は使える状態**（2026-08-02 完了）。プロジェクト作成済み（East US (North Virginia)、Data API オフ）／Session pooler の接続文字列取得済み／**マイグレーション適用済み**（`20260723125616_init`）／**初期 ADMIN 投入済み**（`admin`・要パスワード変更）／**バケット `uploads` を private で作成済み**（`SUPABASE_URL` / `secret` キー取得済み・実装からの読み書きを実機確認済み）
 - ローカルの `.env` には**本番 Supabase の `SUPABASE_URL` / `secret` キーを設定済み**。`STORAGE_TYPE` は `local`、`DATABASE_URL` は `localhost` のまま（→ [ローカルの .env に本番の値を置いてよいか](TODO_補足.md#ローカルの-env-に本番の値を置いてよいか)）
-- **Google Cloud のアカウントは未作成**。残るインフラ作業は Cloud Run のみ
-- **2026-08-02 に残作業の順序を確定し**（署名 URL 化 → standalone 化 → Cloud Run）、**同日 2 番目を「Docker イメージの軽量化」へ差し替えたうえで 1・2 番目とも完了した** → [作業の順序](#作業の順序)
+- **本番は Google Cloud Run で稼働中**（2026-08-04 構築）。プロジェクト `multi-ai-agent-sample-2026` / サービス `contract-app` / リージョン **us-central1** / 最小インスタンス 0・**最大 2** / メモリ 512MiB（**実測 77MB**）/ パブリック アクセスを許可。URL は `https://contract-app-<プロジェクト番号>.us-central1.run.app` 形式で、コンソールの「サービスの詳細」に表示される
+- **`main` への push で Cloud Build が起動し、自動デプロイされる**（2026-08-04 に PR #11 のマージで検証済み）。GitHub との接続は **Developer Connect** 経由。ビルド構成はトリガー内の**インライン YAML** で、`docker build --target runner -f docker/Dockerfile .`（**ビルドコンテキストはリポジトリルート**）+ `timeout: 1800s` → [Cloud Build が失敗する 2 つの原因](TODO_補足.md#cloud-build-が失敗する-2-つの原因)
+- **Cloud Run の実行サービス アカウントは既定のまま**（`<プロジェクト番号>-compute@developer.gserviceaccount.com`）。プロジェクトの編集者権限を持っている → [積み残しと検討事項](#積み残しと検討事項)
+- **本番の初期 ADMIN は `admin`**。2026-08-02 の seed 実行では `SEED_ADMIN_PASSWORD` が効いておらず、実際のパスワードは [`seed.ts`](../../prisma/seed.ts) の既定値 `Admin@123` だった（2026-08-04 に判明）。**本番稼働の確認時に変更済み**。なお [`seed.ts`](../../prisma/seed.ts) の `upsert` は `update: {}` のため、**再 seed では既存ユーザーのパスワードを上書きできない**（復旧するには DB を直接更新する）
+- **2026-08-02 に残作業の順序を確定し**（署名 URL 化 → standalone 化 → Cloud Run）、**同日 2 番目を「Docker イメージの軽量化」へ差し替えたうえで、2026-08-04 に 3 つとも完了した** → [作業の順序](#作業の順序)
 - **`getPublicUrl` は `getSignedUrl` へ差し替え済み**（2026-08-02・PR #7）。`StorageClient.getSignedUrl(path, expiresInSeconds?): Promise<string>`（既定 60 秒）。本番バケットに対して「ヘッダなしで開ける」「期限切れで 400 になる」ところまで実機確認済み。**存在しないオブジェクトへの発行は 400 → `AppError("STORAGE_SIGNED_URL_FAILED", 502)` になる**（→ [署名 URL への差し替え方針](TODO_補足.md#署名-url-への差し替え方針)）
 - **本番イメージは 1.31GB**（2026-08-02 に 1.73GB から軽量化。PR #8）。[`docker/Dockerfile`](../../docker/Dockerfile) の `runner` は devDependencies と musl バイナリを落とした `node_modules` を持ち込み、`CMD` は `./node_modules/.bin/next start`。**イメージに pnpm 実体は無い**（`corepack install` を削除したため）→ [本番イメージから落としたもの](TODO_補足.md#本番イメージから落としたもの)
 - [`next.config.ts`](../../next.config.ts) は `output: "standalone"` **未設定**（意図的。→ [積み残しと検討事項](#積み残しと検討事項)）
 - **`pino-pretty` は `dependencies`**（2026-08-02・PR #8）。[`logger.ts`](../../src/shared/observability/logger.ts) が `LOG_PRETTY=true` のとき実行時に解決するため、`devDependencies` に置くと本番で全リクエストが 500 になる
 - **`worker` の起動は `--env-file-if-exists`**（2026-08-02・PR #9）。`.env` が無い環境（本番イメージ / クローン直後）でも起動する。ただし**本番コンテナ内では `pnpm worker` ではなく `./node_modules/.bin/tsx src/worker/index.ts` を使う**（イメージに pnpm が無いため）→ [worker の起動コマンド](TODO_補足.md#worker-の起動コマンド)
+- **middleware は Server Action の POST をリダイレクトしない**（2026-08-04・PR #11）。判定は [`route-guard.ts`](../../src/modules/auth/route-guard.ts) の純粋関数 `decideRedirect` にあり、[`proxy.ts`](../../src/proxy.ts) はリクエストの読み取りとレスポンスの組み立てに徹する。**ログイン済みユーザーの誘導（`/login` → `/`、初回 PW 変更）は GET 限定**で、未ログイン時のガードと `/admin/*` の認可はメソッドを問わず適用される
+- **ログイン失敗ロックの閾値は 20 回**（2026-08-04・PR #11。旧 5 回）。閾値に達すると `lockedAt` が立ち、**自動解除されない**（DB を直接更新するしかない）
+- **パスワード入力欄は [`password-input.tsx`](../../src/shared/ui/password-input.tsx) に共通化済み**（2026-08-04・PR #11）。ログイン画面とパスワード変更画面の双方で、目のアイコンによる表示 / 非表示の切り替えが使える
+- **初回パスワード変更が未了の間はサイドバー / ヘッダーを表示しない**（2026-08-04・PR #11）。[`(main)/layout.tsx`](<../../src/app/(main)/layout.tsx>) が `mustChangePassword` を見て、ログイン画面と同じ中央寄せの単独画面に切り替える
 - ローカル環境の検証項目はすべて完了済み
 - **VSCode でステップイン実行できる**（2026-08-03・PR #10）。[`.vscode/launch.json`](../../.vscode/launch.json) は Git 管理下（`.gitignore` を `.vscode/*` 除外 + `launch.json` / `extensions.json` のみ許可へ変更）。**Docker 接続時の接続先は app = `9230` / worker = `9231`**（`9229` は `pnpm` 自身のプロセスで、繋いでも止まらない）。[`docker-compose.yml`](../../docker/docker-compose.yml) の変更は `dev` ステージを使う 2 サービスに閉じており、**本番イメージ（`runner`）への影響はない**
 - `update-todo` スキルを 3 エージェント分追加済み（正本 [`docs/skills/update-todo.md`](../skills/update-todo.md)）。**Claude Code / Codex での起動・検出は確認済み**、Copilot は未確認
