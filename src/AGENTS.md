@@ -8,7 +8,8 @@
 - **依存方向は一方向**: `app/ → modules/ → shared/`（逆流・横流れ禁止）。
 - `modules/A` は `modules/B` の内部を直接 import しない。**`modules/B/index.ts` の公開 API のみ**使う。
 - `app/` は**薄いアダプタ**。fetch して module を呼び描画するだけ。ロジックを持たせない。
-- 認証ガード / RBAC は `src/proxy.ts`（Next.js 16。JWT クレームで判定、DB アクセスしない）。
+- 認証ガード / RBAC は `src/proxy.ts`（Next.js 16。JWT クレームで判定、DB アクセスしない）。判定そのものは `modules/auth/route-guard.ts` の純粋関数 `decideRedirect` に置き、`proxy.ts` は入出力の変換に徹する（`NextRequest` 抜きで分岐を網羅テストするため）。
+- **middleware から Server Action の POST をリダイレクトしない**。リダイレクトすると POST が転送先へ再送され、誘導先との間で往復し続ける。ログイン済みユーザーの誘導は画面遷移（GET）でのみ行い、認可（`/admin/*`）はメソッドを問わず適用する。
 
 ## モジュール標準ファイル
 

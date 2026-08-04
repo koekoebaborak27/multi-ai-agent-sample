@@ -3,8 +3,8 @@
 import { useActionState } from "react";
 import { changePassword, type FormState } from "@/modules/auth/actions";
 import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { PasswordInput } from "@/shared/ui/password-input";
 
 const initialState: FormState = {};
 
@@ -15,30 +15,22 @@ export function PasswordChangeForm() {
     <form action={formAction} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="currentPassword">現在のパスワード</Label>
-        <Input
+        <PasswordInput
           id="currentPassword"
           name="currentPassword"
-          type="password"
           autoComplete="current-password"
           required
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="newPassword">新しいパスワード</Label>
-        <Input
-          id="newPassword"
-          name="newPassword"
-          type="password"
-          autoComplete="new-password"
-          required
-        />
+        <PasswordInput id="newPassword" name="newPassword" autoComplete="new-password" required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">新しいパスワード（確認）</Label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           required
         />

@@ -8,6 +8,17 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   // proxy でもガードするが、二重に保護する
   if (!user) redirect("/login");
 
+  // 初回パスワード変更が未了の間は、proxy が他画面への遷移をすべて /settings/password へ戻す。
+  // サイドバーやヘッダーを出しても押せるリンクが無いため、ログイン画面と同じ
+  // 中央寄せの単独画面として見せる。
+  if (user.mustChangePassword) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <div className="w-full max-w-md">{children}</div>
+      </main>
+    );
+  }
+
   return (
     <div className="flex min-h-screen">
       <Sidebar role={user.role} />
