@@ -1,41 +1,29 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/modules/auth/auth";
-import { ROLES } from "@/shared/constants/roles";
+import { decideRedirect } from "@/modules/auth/route-guard";
 
 /**
  * 認証ガード + RBAC（§4）。
  * Next.js 16 で middleware.ts から proxy.ts に改名（Node.js ランタイムで動作）。
  * ロール判定は JWT クレームのみで完結させ、DB アクセスはしない。
+ *
+ * 判定そのものは route-guard.ts の純粋関数に委ね、ここはリクエストの読み取りと
+ * レスポンスの組み立てに徹する（分岐の網羅テストを NextRequest 抜きで書けるようにするため）。
  */
 export default auth((req) => {
   const { nextUrl } = req;
-  const path = nextUrl.pathname;
-  const session = req.auth;
-  const isLoggedIn = !!session?.user;
+  const user = req.auth?.user;
 
-  // 未ログイン: /login 以外は /login へ
-  if (!isLoggedIn) {
-    if (path.startsWith("/login")) return NextResponse.next();
-    const url = new URL("/login", nextUrl);
-    return NextResponse.redirect(url);
-  }
+  const target = decideRedirect({
+    path: nextUrl.pathname,
+    isLoggedIn: !!user,
+    // Server Action は POST + next-action ヘッダで届く
+    isServerAction: req.method === "POST" && req.headers.has("next-action"),
+    mustChangePassword: !!user?.mustChangePassword,
+    role: user?.role ?? null,
+  });
 
-  // ログイン済みで /login に来たらダッシュボードへ
-  if (path.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/", nextUrl));
-  }
-
-  // 初回PW変更の強制
-  if (session.user.mustChangePassword && path !== "/settings/password") {
-    return NextResponse.redirect(new URL("/settings/password", nextUrl));
-  }
-
-  // /admin/* は ADMIN 限定
-  if (path.startsWith("/admin") && session.user.role !== ROLES.ADMIN) {
-    return NextResponse.redirect(new URL("/", nextUrl));
-  }
-
-  return NextResponse.next();
+  return target ? NextResponse.redirect(new URL(target, nextUrl)) : NextResponse.next();
 });
 
 export const config = {
