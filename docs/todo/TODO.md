@@ -22,7 +22,7 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 | 1. 署名 URL 化               | 5 / 5                |
 | 2. Docker イメージの軽量化        | 6 / 6                |
 | 3. Google Cloud Run       | 8 / 8                |
-| マスタ画面作りこみ（設計）             | 1 / 6                |
+| マスタ画面作りこみ（設計）             | 2 / 6                |
 | マスタ画面作りこみ（製造）             | 0 / 6                |
 | 残っているタスク                  | 4 / 10（未対応 6 件・期限なし） |
 
@@ -37,7 +37,7 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
   
   - [x] **マスタおよびマスタ分類の削除**（2026-08-08 完了）。[`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) へ反映済み。**物理削除**・削除ボタンは詳細画面のみ・マスタ分類画面（MST-06 / MST-07）の新設まで含む → [履歴](TODO_履歴.md#2026-08-08-マスタ削除機能の設計)
   
-  - [ ] マスタコードおよびマスタ分類の変更
+  - [x] **マスタコードおよびマスタ分類の変更**（2026-08-08 完了）。[`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) へ反映済み。**画面が 7 → 11 枚**（MST-08〜MST-11 を追加）。マスタ分類を独立した登録・更新・削除へ切り出し、**MST-02 の「新しい分類を登録する」を廃止**した → [履歴](TODO_履歴.md#2026-08-08-マスタコードとマスタ分類の変更機能の設計)
   
   - [ ] CSVなどによる一括登録・一括更新
   
@@ -55,16 +55,26 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 
 - テンプレをコピーして、新システムを別途作成。
 
-**設計は 6 項目のうち 1 件が終わった段階で、製造は 1 件も着手していない。** マスタ機能は設計書だけが存在し、[`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダのまま、`Master` / `MasterCategory` テーブルも [`schema.prisma`](../../prisma/schema.prisma) に存在しない（→ [マスタ機能](#マスタ機能)）。
+**設計は 6 項目のうち 2 件が終わった段階で、製造は 1 件も着手していない。** マスタ機能は設計書だけが存在し、[`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダのまま、`Master` / `MasterCategory` テーブルも [`schema.prisma`](../../prisma/schema.prisma) に存在しない（→ [マスタ機能](#マスタ機能)）。
 
 次のセッションは、次のどちらかを選ぶ。
 
-1. **設計を続ける**（推奨）。残り 5 項目のうち「マスタコードおよびマスタ分類の変更」から着手する。削除の設計で決めた方針（物理削除・`createdBy` / `updatedBy`・詳細画面からの操作）を前提にできる
-2. **削除まで含めたマスタ機能の製造に入る**。その場合は Prisma スキーマの追加から始める
+1. **設計を続ける**。残り 4 項目のうち「CSVなどによる一括登録・一括更新」から着手する。worker（pg-boss）を使う初めての機能になるため、他の 3 項目より前提の確認が多い
+2. **製造に入る**（推奨）。設計 2 件で画面が 11 枚まで増えたため、これ以上設計を積む前に一度動くものを作ったほうが、設計の粗も早く見つかる。**Prisma スキーマの追加から始める**
 
 ```powershell
 docker compose -f docker/docker-compose.yml up -d db     # 製造に入る場合のみ
 pnpm dlx shadcn@latest add alert-dialog                  # 削除ダイアログに必要（未導入）
+```
+
+製造は画面単位ではなく、次の順で進めると依存が素直になる。
+
+```text
+Prisma スキーマ + マイグレーション
+  → マスタ分類の一覧・登録（MST-06 / MST-09 / MST-10）   ← マスタ登録の前提になる
+  → マスタの検索一覧・登録・詳細（MST-01 / MST-02 / MST-03 / MST-04）
+  → マスタの更新・コード変更（MST-05 / MST-08）
+  → 削除一式（MST-07 / MST-11 / 各削除ダイアログ）
 ```
 
 余裕があれば後述の、 [残っているタスク](#残っているタスク) も実施できると良い。
@@ -78,7 +88,7 @@ pnpm dlx shadcn@latest add alert-dialog                  # 削除ダイアログ
 手元の状態を確認するコマンドは次のとおり。
 
 ```powershell
-git log --oneline -1                                     # main = 1f65edf
+git log --oneline -1                                     # main = a0ffc8c
 git status --porcelain                                   # 何も出なければクリーン
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
@@ -143,7 +153,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 | 項目                 | 状態                                                                                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `1f65edf`**。PR #1〜#11 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している                |
+| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `a0ffc8c`**。PR #1〜#11 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している              |
 | コミット署名             | 個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変                                    |
 | `gh` CLI           | 認証済み。scope は `gist` / `read:org` / `repo` / `workflow`                                                                                              |
 | CI（GitHub Actions） | グリーンで**警告 0 件**。ステップ順序のバグとアクションの Node.js 20 非推奨はどちらも修正済み                                                                                            |
@@ -188,18 +198,21 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 ### マスタ機能
 
-**設計のみ存在し、実装は 1 行も無い。**
+**設計のみ存在し、実装は 1 行も無い。** 設計書に載っている画面は 11 枚（MST-01〜MST-11）。
 
-| 項目       | 状態                                                                                                                                                              |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 基本設計書    | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)。検索一覧・登録・確認・詳細・更新（MST-01〜05）に加え、**削除とマスタ分類画面（MST-06 / MST-07）まで反映済み**（2026-08-08） |
-| 画面       | [`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) は `FeaturePlaceholder` を返すだけ。`src/modules/master/` は存在しない                                    |
-| DB       | `Master` / `MasterCategory` は [`schema.prisma`](../../prisma/schema.prisma) に**未追加**。設計書 §8.2 はモデル「案」であり、マイグレーションも無い                                          |
-| 削除方式     | **物理削除**（論理削除は不採用）。理由は削除したマスタコード / 分類名を再利用できなくなるため → 設計書 §8.3                                                                                              |
-| 削除の権限・導線 | ADMIN / OPERATOR のみ。削除ボタンは**詳細画面（MST-04 / MST-07）だけ**に置き、一覧には置かない                                                                                              |
-| 利用中チェック  | **行わない**。参照されていても削除できる。参照側は外部キーを張らず、取得できなければ「未設定」と表示する → 設計書 §8.4                                                                                          |
-| 監査       | `createdBy` / `updatedBy` を持つ（FK なし）。削除の記録はアプリログのみ（`withOp` の引数出力を使う）→ 設計書 §10.1                                                                             |
-| 未導入の依存   | `AlertDialog`（`pnpm dlx shadcn@latest add alert-dialog`）。[`src/shared/ui/`](../../src/shared/ui/) には `dialog.tsx` しか無い                                         |
+| 項目            | 状態                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 基本設計書         | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)（1078 行）。**MST-01〜MST-11 の 11 画面**が反映済み（2026-08-08） |
+| 画面            | [`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) は `FeaturePlaceholder` を返すだけ。`src/modules/master/` は存在しない   |
+| DB            | `Master` / `MasterCategory` は [`schema.prisma`](../../prisma/schema.prisma) に**未追加**。設計書 §8.2 はモデル「案」であり、マイグレーションも無い           |
+| 削除方式          | **物理削除**（論理削除は不採用）。理由は削除したマスタコード / 分類名を再利用できなくなるため → 設計書 §8.3                                                                  |
+| 削除の権限・導線      | ADMIN / OPERATOR のみ。削除ボタンは**詳細画面（MST-04 / MST-07）だけ**に置き、一覧には置かない                                                              |
+| 変更できる項目       | マスタ内容は MST-05、マスタコードと所属分類は **MST-08（専用画面）**、マスタ分類名は MST-11。`id` / `createdAt` / `createdBy` は変更しない → 設計書 §8.2                  |
+| マスタ分類の登録      | **MST-09 でのみ行う**。マスタ新規登録画面（MST-02）とコード変更画面（MST-08）からは登録できず、登録済みの分類を選ぶだけ。分類が 0 件のときは MST-02 の「確認する」を無効化する                       |
+| 利用中チェック       | **行わない**。参照されていても削除・変更できる。参照側は外部キーを張らず**マスタコードも保持しない**（ID のみ）。取得できなければ「未設定」と表示する → 設計書 §8.4                                    |
+| 監査            | `createdBy` / `updatedBy` を持つ（FK なし）。削除と変更の記録はアプリログのみ（`withOp` の引数出力を使う）。**コードと分類名は変更前の値もログへ渡す**（マスタ内容の更新は渡さない）→ 設計書 §10.1     |
+| Server Action | 7 つ（マスタの登録・更新・コード変更・削除、マスタ分類の登録・更新・削除）→ 設計書 §11                                                                                |
+| 未導入の依存        | `AlertDialog`（`pnpm dlx shadcn@latest add alert-dialog`）。[`src/shared/ui/`](../../src/shared/ui/) には `dialog.tsx` しか無い         |
 
 ### 開発環境
 
@@ -326,11 +339,11 @@ private バケットでは `getPublicUrl` が返す公開 URL が HTTP 400 で�
 
 ## 関連ドキュメント
 
-| ファイル                                                                             | 内容                                                                          |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| [`specs/99_infra/READ_ME_INFRA.md`](../specs/99_infra/READ_ME_INFRA.md)          | **インフラ構築手順書の正本**。本番環境をゼロから構築する手順（アカウント作成〜動作確認）                              |
-| [`specs/02_basic-design/basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) | マスタ管理機能の基本設計書（MST-01〜MST-07）                                                 |
-| [`TODO_補足.md`](TODO_補足.md)                                                       | **このプロジェクトを構築したときの実測値と経緯の記録**。手順の正本は `READ_ME_INFRA.md` へ移した。**冒頭に節ごとの目次がある** |
-| [`TODO_履歴.md`](TODO_履歴.md)                                                       | セッションごとの作業記録と判断の経緯（ホスティング先の選定を含む）                                           |
-| [`foundation_plan.md`](../foundation_plan.md)                                    | 設計・確定方針の正本                                                                  |
-| [`skills/update-todo.md`](../skills/update-todo.md)                              | このファイルの更新手順（スキルの正本）                                                         |
+| ファイル                                                                                              | 内容                                                                            |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`specs/99_infra/READ_ME_INFRA.md`](../specs/99_infra/READ_ME_INFRA.md)                           | **インフラ構築手順書の正本**。本番環境をゼロから構築する手順（アカウント作成〜動作確認）                                |
+| [`specs/02_basic-design/basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) | マスタ管理機能の基本設計書（MST-01〜MST-11）                                                  |
+| [`TODO_補足.md`](TODO_補足.md)                                                                        | **このプロジェクトを構築したときの実測値と経緯の記録**。手順の正本は `READ_ME_INFRA.md` へ移した。**冒頭に節ごとの目次がある** |
+| [`TODO_履歴.md`](TODO_履歴.md)                                                                        | セッションごとの作業記録と判断の経緯（ホスティング先の選定を含む）                                             |
+| [`foundation_plan.md`](../foundation_plan.md)                                                     | 設計・確定方針の正本                                                                    |
+| [`skills/update-todo.md`](../skills/update-todo.md)                                               | このファイルの更新手順（スキルの正本）                                                           |
