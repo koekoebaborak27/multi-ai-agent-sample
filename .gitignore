@@ -32,11 +32,12 @@ codex/
 
 # === IDE ===
 .idea/
-# .vscode は原則除外するが、デバッグ構成と推奨拡張機能は「このプロジェクトの動かし方」
-# であってフォント等の個人設定ではないため、リポジトリで共有する
+# .vscode は原則除外するが、デバッグ構成・推奨拡張機能・Copilot の権限ポリシーは
+# 「このプロジェクトの動かし方」であってフォント等の個人設定ではないため、リポジトリで共有する
 .vscode/*
 !.vscode/launch.json
 !.vscode/extensions.json
+!.vscode/settings.json
 *.swp
 *.swo
 
