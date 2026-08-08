@@ -150,6 +150,12 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset        # DB�
 
 詳しい手順とうまく動かないときの対処は[`README.md`の「VSCodeでステップイン実行する（デバッグ）」](README.md#vscodeでステップイン実行するデバッグ)を参照してください。
 
+## 本番環境を構築する
+
+ここまでの手順は、自分のPCで動かすためのものです。**インターネット上に公開する本番環境（インフラ）を新しく構築する**場合は、[`docs/specs/99_infra/READ_ME_INFRA.md`](docs/specs/99_infra/READ_ME_INFRA.md)（インフラ構築手順書）を参照してください。
+
+> 本番環境は、GitHub（ソースコードの保管）・Supabase（データベースとファイル保管）・Google Cloud Run（アプリの実行）の3つを組み合わせて構築します。いずれも無料枠の範囲で動かせます。
+
 ## AIエージェントで開発する
 
 このプロジェクトは、**GitHub Copilot・Claude Code・Codex のどれを使っても開発できる**ように準備されています。使い慣れたものを選んでください。

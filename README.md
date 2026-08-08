@@ -643,6 +643,8 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 
 ## 本番デプロイ（Google Cloud Run + Supabase）
 
+> **本番環境をゼロから構築する場合は [`docs/specs/99_infra/READ_ME_INFRA.md`](docs/specs/99_infra/READ_ME_INFRA.md)（インフラ構築手順書）を参照してください。** アカウント作成から動作確認まで、画面操作と用語の説明を含めて手順化してあります。以下はその要約です。
+
 - **本番DB / ストレージ**: [Supabase](https://supabase.com/) の PostgreSQL + Storage を使用。`STORAGE_TYPE=supabase`に切り替える。接続文字列は **Session pooler** のものを使う（Direct connection は IPv6 専用で Cloud Run から到達できず、Transaction pooler は `prisma migrate deploy` が通らない）。
 - **ホスティング**: [Google Cloud Run](https://cloud.google.com/run) に GitHub リポジトリを連携し、`main` ブランチへの push を契機に Cloud Build が [`docker/Dockerfile`](docker/Dockerfile) をビルドして自動デプロイする。リージョンは Always Free 対象の **us-central1**、最小インスタンス数は **0**、**最大インスタンス数は 2**（既定の 100 のままだと想定外のアクセスで無料枠を超えるため必ず絞る）。メモリは既定の **512MiB** で足りる（実測 77MB）。
 - **サービス構成**: [`docker/Dockerfile`](docker/Dockerfile) の`runner`ステージは app / worker 共用だが、**本番で立てるのは Web（既定の`CMD` = `./node_modules/.bin/next start`）のみ**。ワーカーは [`src/worker/index.ts`](src/worker/index.ts) が待受のみで登録済みジョブを持たないため起動しない。実ジョブを追加する段階で Cloud Run Jobs か常駐サービスかを判断する。
@@ -716,6 +718,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code 向けの入口（`AGENTS.md` + Claude 固有の補足） |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot 向けの入口（`AGENTS.md` + Copilot 固有の補足） |
 | [`docs/foundation_plan.md`](docs/foundation_plan.md) | 設計・確定方針（設計の正本） |
+| [`docs/specs/99_infra/READ_ME_INFRA.md`](docs/specs/99_infra/READ_ME_INFRA.md) | **インフラ構築手順書**（本番環境をゼロから構築する手順の正本） |
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
 | [`docs/todo/TODO.md`](docs/todo/TODO.md) | 残タスク一覧・進捗・現在の状態 |
