@@ -88,7 +88,7 @@ Prisma スキーマ + マイグレーション
 手元の状態を確認するコマンドは次のとおり。
 
 ```powershell
-git log --oneline -1                                     # main = a0ffc8c
+git log --oneline -1                                     # main = 46e0f1e
 git status --porcelain                                   # 何も出なければクリーン
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
@@ -153,7 +153,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 | 項目                 | 状態                                                                                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `a0ffc8c`**。PR #1〜#11 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している              |
+| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `46e0f1e`**。PR #1〜#11 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している              |
 | コミット署名             | 個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変                                    |
 | `gh` CLI           | 認証済み。scope は `gist` / `read:org` / `repo` / `workflow`                                                                                              |
 | CI（GitHub Actions） | グリーンで**警告 0 件**。ステップ順序のバグとアクションの Node.js 20 非推奨はどちらも修正済み                                                                                            |
