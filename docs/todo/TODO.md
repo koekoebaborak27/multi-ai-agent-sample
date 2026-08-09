@@ -2,7 +2,7 @@
 
 汎用契約管理システムテンプレートへの作り替え（[`foundation_plan.md`](../foundation_plan.md)）の残作業一覧。
 
-**2026-08-04 に本番稼働へ到達した。期限のある残作業はゼロ。** Cloud Run 上で動作しており、ログイン → パスワード変更 → 契約先 / 契約の登録まで実機で確認済み。`main` への push を契機に自動デプロイされることも確認した。以降は [残っているタスク](#残っているタスク)（期限のない宿題 6 件）から選んで進める。
+**2026-08-04 に本番稼働へ到達し、2026-08-09 にマスタ機能の設計を完了した。** Cloud Run 上で動作しており、ログイン → パスワード変更 → 契約先 / 契約の登録まで実機で確認済み。現在は [マスタ機能の製造工程](#マスタ機能の製造工程) を上から順に進める。別枠の [残っているタスク](#残っているタスク) は、期限のない宿題 5 件である。
 
 TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書かないこと。**
 
@@ -23,8 +23,8 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 | 2. Docker イメージの軽量化        | 6 / 6                |
 | 3. Google Cloud Run       | 8 / 8                |
 | マスタ画面作りこみ（設計）             | **6 / 6**            |
-| マスタ画面作りこみ（製造）             | 0 / 10（画面）           |
-| 残っているタスク                  | 4 / 10（未対応 6 件・期限なし） |
+| マスタ機能（製造）                  | **0 / 18（工程）**        |
+| 残っているタスク                  | 4 / 9（未対応 5 件・期限なし）  |
 
 番号（`1`〜`3`）は 2026-08-02 に順序を確定したときのまま据え置いている。`2` は当初「standalone 化」だったが同日「Docker イメージの軽量化」へ差し替え、standalone 化は宿題へ降格した（経緯 → [履歴](TODO_履歴.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)）。
 
@@ -47,50 +47,71 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
   
   - [x] **変更履歴の参照画面** — **不採用で決着**（2026-08-09）。追跡はアプリログのみ（設計書 §10.1）。理由は設計書 §14.1.3
 
-- 上記をデザインに落とし込む
-
-- 一画面ずつ製造。
-
-- テンプレをコピーして、新システムを別途作成。
-
 **設計は 6 項目すべて終わったが、製造は 1 件も着手していない。** マスタ機能は設計書だけが存在し、[`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダのまま、`Master` / `MasterCategory` / `MasterExport` テーブルも [`schema.prisma`](../../prisma/schema.prisma) に存在しない（→ [マスタ機能](#マスタ機能)）。
 
-**次のセッションは製造に入る。** 最初に打つコマンドは次のとおり。
+**次は [マスタ機能の製造工程](#マスタ機能の製造工程) の工程 1 から着手する。** 各工程は、実装だけでなく、その工程に対応するテストと動作確認まで終えた時点でチェックする。
+
+## マスタ機能の製造工程
+
+設計書 [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) を実装の正本とし、次の **18 工程を上から順に進める**。途中まで実装した工程にはチェックを付けず、項目に書かれた完了条件をすべて満たした時点で `- [ ]` を `- [x]` に変える。
+
+### 第1段階 製造準備とデータベース
+
+- [ ] **1. 製造を開始できる状態にする** — feature ブランチを作成し、ローカル PostgreSQL を起動する。未導入の shadcn/ui `AlertDialog` と `Select` を追加し、追加されたファイルと依存関係を確認する
+- [ ] **2. `MasterCategory` / `Master` を Prisma へ追加する** — 設計書 §8.2・§8.3 のモデル、外部キー、一意制約、監査項目を反映する。開発用マイグレーションを作成して SQL を目視確認し、ローカル DB への適用、Prisma Client の生成、`prisma validate` まで通す
+
+### 第2段階 マスタ分類を先に完成させる
+
+マスタの登録と更新は、登録済みのマスタ分類を選択する。そのため、マスタ分類側を先に製造する。
+
+- [ ] **3. マスタ分類一覧（MST-06）を実装する** — `src/modules/master` の型・Repository・Service・公開 API の土台を作り、採番順の一覧、詳細への導線、新規登録への導線、書き込み権限による表示制御を実装する
+- [ ] **4. マスタ分類の新規登録と確認（MST-08 / MST-09）を実装する** — 入力検証、重複の事前確認、登録用 Server Action、確認状態からの実行、完了メッセージを実装する
+- [ ] **5. マスタ分類の詳細と更新（MST-07 / MST-10 / MST-09）を実装する** — 詳細表示、分類名の変更、確認状態、楽観ロック、変更前後の値を含む操作ログを実装する
+
+### 第3段階 マスタ本体を完成させる
+
+- [ ] **6. マスタ検索一覧（MST-01）を実装する** — 検索条件の開閉、分類・コード・内容による検索、URL クエリへの反映、分類名 → マスタコードの固定順、ページング、詳細への導線を実装する
+- [ ] **7. マスタの新規登録と確認（MST-02 / MST-03）を実装する** — 分類選択・コード・内容の共通入力部品、入力検証、重複の事前確認、登録用 Server Action、分類が 0 件の場合の制御を実装する
+- [ ] **8. マスタ詳細（MST-04）を実装する** — 表示項目、一覧へ戻る導線、更新画面への導線、書き込み権限によるボタン表示を実装する
+- [ ] **9. マスタ更新（MST-05 / MST-03）を実装する** — 所属分類・コード・内容の一括更新、変更前後の確認、楽観ロック、自己重複の除外、変更前後の値を含む操作ログを実装する
+- [ ] **10. マスタ削除（MST-04）を実装する** — 詳細画面だけに削除ボタンを置き、確認ダイアログ、二重送信防止、物理削除、削除対象を含む操作ログ、削除完了後の一覧遷移を実装する
+- [ ] **11. マスタ分類削除（MST-07）を実装する** — 配下マスタが 0 件の場合だけ削除できる制御、確認ダイアログ、外部キー制約による競合時の保護、物理削除、削除完了後の一覧遷移を実装する
+- [ ] **12. CSV 以外のマスタ機能を検証する** — 設計書 §12.1〜§12.7 の単体テストを実装し、ADMIN / OPERATOR / VIEWER の権限、競合、入力エラーを確認する。`lint` / `format:check` / `typecheck` / `test` / `build` と、MST-01〜MST-10 のブラウザ操作を通す
+
+### 第4段階 CSVダウンロードをローカルで完成させる
+
+CSV は画面機能の完成後に着手する。worker とストレージを使うため、依頼・生成・受け取りを別工程で確認する。
+
+- [ ] **13. `withRoute` に実行者情報を追加する** — [`with-route.ts`](../../src/shared/observability/with-route.ts) が `userId` / `role` をログへ出せるようにし、マスタモジュール外の横断変更として独立して検証する
+- [ ] **14. `MasterExport` と CSV 生成処理を実装する** — Prisma モデルとマイグレーション、UTF-8 BOM・列順・値の書式・10,000 行上限を扱う純粋関数 `csv.ts`、対応する単体テストを実装する
+- [ ] **15. CSV の依頼処理を実装する** — マスタ用・マスタ分類用の 2 つの Server Action、`MasterExport` の状態管理、pg-boss へのジョブ投入、ローカルでは常駐 worker を利用する起動分岐を実装する
+- [ ] **16. CSV を生成する worker を実装する** — `src/worker/index.ts` からマスタ Service を呼び、CSV をストレージへ保存して状態を更新する。常駐モードに加えて、Cloud Run Jobs 用の単発実行モードと、成功・失敗・上限超過のテストを実装する
+- [ ] **17. CSV の状態確認と受け取りを実装する** — 状態確認・ダウンロードの Route Handler、MST-01 / MST-06 のボタンと待機表示、`storage.download()` を使う返却、受け取り後の即時削除を実装し、ローカルで依頼 → 生成 → 受け取りを通す
+
+### 第5段階 本番構成と最終確認
+
+- [ ] **18. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、app 側の環境変数、対象ジョブだけを実行できる専用サービスアカウント、Cloud Build の app / worker ビルドを整備する。本番でヘルスチェック、ログイン、マスタ CRUD、CSV の依頼 → 生成 → 受け取りを確認し、必要な README とインフラ手順書を更新する
+
+工程 1 で最初に打つコマンドは次のとおり。
 
 ```powershell
+git switch -c feat/master-management                     # 製造用の feature ブランチを作成
 docker compose -f docker/docker-compose.yml up -d db     # ローカル DB を起動
-pnpm dlx shadcn@latest add alert-dialog select           # 削除ダイアログと分類プルダウンに必要（未導入）
+pnpm dlx shadcn@latest add alert-dialog select           # 削除ダイアログと分類プルダウンを追加
 ```
 
-製造は画面単位ではなく、次の順で進めると依存が素直になる。**CSV は最後**。worker と本番構成の作業を伴い、画面が動いてからでないと検証できないため。
+製造工程とは別に、余裕があれば後述の [残っているタスク](#残っているタスク) も実施する。
 
-```text
-Prisma スキーマ + マイグレーション（Master / MasterCategory）
-  → マスタ分類の一覧・登録・更新（MST-06 / MST-08 / MST-09 / MST-10）  ← マスタ登録の前提になる
-  → マスタの検索一覧・登録・詳細（MST-01 / MST-02 / MST-03 / MST-04）
-  → マスタの更新（MST-05。分類・コード・内容の 3 項目）
-  → 削除一式（MST-04 / MST-07 の削除ダイアログ）
-  → CSV ダウンロード（MasterExport の追加 → 依頼 → worker → 受け取り → 本番構成）
-```
-
-CSV に着手する前に、次の 3 つが前提として片づいている必要がある（詳細は設計書 §13.7）。
-
-1. `withRoute` に `userId` / `role` の出力を足す（`src/shared/observability/with-route.ts`。マスタモジュール外の変更なので独立したコミットにする）
-2. worker を単発実行できるようにする（現在の [`src/worker/index.ts`](../../src/worker/index.ts) は常駐待受のみ。Cloud Run Jobs は処理し終えたら終了する必要がある）
-3. 本番に worker が無い（Cloud Run のサービスは `contract-app` の 1 つだけ。Cloud Run Jobs の作成が要る）
-
-余裕があれば後述の、 [残っているタスク](#残っているタスク) も実施できると良い。
-
-| 優先  | 項目                         | 理由                                                      |
-| --- | -------------------------- | ------------------------------------------------------- |
-| 1   | Cloud Run の実行サービス アカウントを絞る | 本番が動いている今も、コンテナがプロジェクトの編集者権限を持ったまま。リビジョン編集で差し替えるだけなので安い |
-| 2   | `main` のブランチ保護             | 自動デプロイが動き出したため、`main` への誤 push が**そのまま本番へ出る**ようになった     |
-| 3   | `output: "standalone"` 化   | 単独では価値が低い。worker 用イメージを分離するときに併せて行う                     |
+| 優先  | 項目                              | 理由                                                  |
+| --- | ------------------------------- | --------------------------------------------------- |
+| 1   | `main` のブランチ保護                  | `main` への誤 push がそのまま本番デプロイにつながるため                  |
+| 2   | `output: "standalone"` 化        | 工程 18 で worker 用イメージを分離するときが、併せて検討する適時であるため          |
+| 3   | ドキュメント変更時の Cloud Build スキップ | 製造中は TODO 更新が増え、ドキュメントだけの push でも Cloud Build が動くため |
 
 手元の状態を確認するコマンドは次のとおり。
 
 ```powershell
-git log --oneline -1                                     # main = 2578ea9
+git log --oneline -1                                     # main = 0b8ed03
 git status --porcelain                                   # 何も出なければクリーン
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
@@ -114,21 +135,6 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 ## 残っているタスク
 
 いずれも**期限のない宿題**。優先度は [次にやること](#次にやること) を参照。
-
-- [ ] **Cloud Run の実行サービス アカウントを、必要な権限だけを持つ専用 SA に差し替える**（2026-08-04 追加 / 2026-08-09 に目標を修正）。現在は既定の `<プロジェクト番号>-compute@developer.gserviceaccount.com` を使っており、プロジェクトの編集者権限を持ったまま本番が動いている
-  
-  - **2026-08-09 に「権限ゼロの SA」という目標を取り下げた。** CSV ダウンロードの設計で **app が Cloud Run Jobs を起動する**方式を採ったため、app の SA にジョブ実行権限（`roles/run.invoker` 相当）が必要になった → 設計書 §13.7.3
-  - 付与するのは**対象の Cloud Run Jobs に対する実行権限だけ**とする。既定 SA のプロジェクト編集者権限とは比較にならないほど狭いため、最小権限という趣旨は保てる
-  - worker（Cloud Run Jobs）側の SA には Google Cloud の権限は不要（DB もストレージも Supabase を直接叩くため）
-  - サービス アカウントは**リビジョン編集で差し替え可能**（リージョンやサービス名と違い、やり直しが効く）。「新しいリビジョンの編集とデプロイ」→「セキュリティ」タブ
-  - 差し替え後は `/api/health?check=db` とログインまで通し、必要な権限が過不足ないことを確認する
-
-- [ ] **本番に worker を用意する**（2026-08-09 追加。CSV ダウンロードの製造前提）。現在 Cloud Run のサービスは `contract-app` の 1 つだけで、[`docker/Dockerfile`](../../docker/Dockerfile) の `runner` の `CMD` は `next start`。**pg-boss のジョブを処理する常駐プロセスが本番に存在しない**
-  
-  - 方式は **Cloud Run Jobs**（常時起動させない。app がジョブ実行 API で起こす）→ 設計書 §13.7.1
-  - 必要な作業は 5 つ（worker 用イメージ、Cloud Run Jobs の作成、app 側の環境変数、SA への権限付与、Cloud Build の更新）→ 設計書 §13.7.4
-  - worker 側にも変更が要る。現在の [`src/worker/index.ts`](../../src/worker/index.ts) は常駐待受のみで、**処理し終えたら終了する単発モードが無い** → 設計書 §13.7.2
-  - ローカルは `docker compose` の `worker` が常駐しているため、この作業なしで動く（`WORKER_INVOKE_MODE=none`）
 
 - [ ] **`main` のブランチ保護をどうするか決める**（当面は「運用ルールとして守る」で保留）。private リポジトリのブランチ保護は **GitHub Pro（$4/月）か public 化が必要**で、2026-08-02 時点では未設定
   
@@ -164,7 +170,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 | 項目                 | 状態                                                                                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `2578ea9`**。PR #1〜#12 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している                          |
+| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `0b8ed03`**。PR #1〜#12 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している                          |
 | コミット署名             | 個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変                                    |
 | `gh` CLI           | 認証済み。scope は `gist` / `read:org` / `repo` / `workflow`                                                                                              |
 | CI（GitHub Actions） | グリーンで**警告 0 件**。ステップ順序のバグとアクションの Node.js 20 非推奨はどちらも修正済み                                                                                            |
@@ -180,10 +186,10 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 | 構築手順         | **正本は [`READ_ME_INFRA.md`](../specs/99_infra/READ_ME_INFRA.md)**（GitHub / Supabase / Cloud Run をゼロから構築する手順書）。[`TODO_補足.md`](TODO_補足.md) は当時の実測値と経緯の記録として残している                                             |
 | 自動デプロイ       | **`main` への push で Cloud Build が起動する**（PR #11 のマージで検証済み）。GitHub との接続は **Developer Connect** 経由                                                                                                            |
 | ビルド構成        | トリガー内の**インライン YAML**。`docker build --target runner -f docker/Dockerfile .`（**ビルドコンテキストはリポジトリルート**）+ `timeout: 1800s` → [Cloud Build が失敗する 2 つの原因](TODO_補足.md#cloud-build-が失敗する-2-つの原因)                    |
-| 実行サービス アカウント | **既定のまま**（`<プロジェクト番号>-compute@developer.gserviceaccount.com`）。プロジェクトの編集者権限を持っている → [残っているタスク](#残っているタスク)                                                                                                  |
+| 実行サービス アカウント | **既定のまま**（`<プロジェクト番号>-compute@developer.gserviceaccount.com`）。プロジェクトの編集者権限を持っている。CSV 用 Cloud Run Jobs の構築時に、対象ジョブだけを実行できる専用 SA へ差し替える → [製造工程 18](#第5段階-本番構成と最終確認)                          |
 | 本番イメージ       | **1.31GB**（1.73GB から軽量化。PR #8）。`runner` は devDependencies と musl バイナリを落とした `node_modules` を持ち、`CMD` は `./node_modules/.bin/next start`。**イメージに pnpm 実体は無い** → [本番イメージから落としたもの](TODO_補足.md#本番イメージから落としたもの) |
 | standalone   | [`next.config.ts`](../../next.config.ts) は `output: "standalone"` **未設定**（意図的）                                                                                                                            |
-| worker       | **本番に存在しない**。Cloud Run のサービスは `contract-app` の 1 つだけで、`runner` の `CMD` は `next start`。pg-boss のジョブを処理する常駐プロセスがない → [残っているタスク](#残っているタスク)                                                             |
+| worker       | **本番に存在しない**。Cloud Run のサービスは `contract-app` の 1 つだけで、`runner` の `CMD` は `next start`。工程 18 で Cloud Run Jobs として用意する → [第5段階 本番構成と最終確認](#第5段階-本番構成と最終確認)                                             |
 
 ### 本番データ（Supabase）
 
@@ -214,6 +220,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 | 項目            | 状態                                                                                                                                                     |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 製造進捗          | **0 / 18 工程**。チェックリストは [マスタ機能の製造工程](#マスタ機能の製造工程)                                                                                                  |
 | 基本設計書         | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)（1512 行）。**MST-01〜MST-10 の 10 画面**＋ CSV ダウンロード（§13）が反映済み（2026-08-09）           |
 | 画面            | [`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) は `FeaturePlaceholder` を返すだけ。`src/modules/master/` は存在しない                           |
 | DB            | `Master` / `MasterCategory` / `MasterExport` は [`schema.prisma`](../../prisma/schema.prisma) に**未追加**。設計書 §8.2・§13.6 はモデル「案」であり、マイグレーションも無い              |
@@ -228,7 +235,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 | Server Action | **8 つ**（マスタの登録・更新・削除、マスタ分類の登録・更新・削除、CSV ダウンロードの依頼 2 つ）→ 設計書 §11                                                                                     |
 | CSV ダウンロード    | **worker 方式**。依頼（Server Action）→ 生成（pg-boss / worker）→ 受け取り（Route Handler が `storage.download()` して返す）。UTF-8 BOM 付き・上限 10,000 行・受け取り後に即削除 → 設計書 §13   |
 | 未導入の依存        | `AlertDialog` と `Select`（`pnpm dlx shadcn@latest add alert-dialog select`）。[`src/shared/ui/`](../../src/shared/ui/) には `dialog.tsx` しか無い                |
-| 実装の前提         | `withRoute` への `userId` 追加、worker の単発実行モード、本番 worker（Cloud Run Jobs）→ [残っているタスク](#残っているタスク)・設計書 §13.7                                               |
+| 実装の前提         | `withRoute` への実行者情報追加、worker の単発実行モード、本番 worker（Cloud Run Jobs）は製造工程 13・16・18 として管理する → [マスタ機能の製造工程](#マスタ機能の製造工程)・設計書 §13.7                                       |
 
 ### 開発環境
 
