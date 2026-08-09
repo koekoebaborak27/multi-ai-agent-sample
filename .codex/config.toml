@@ -4,10 +4,9 @@
 # 注意: Codex はこのファイルを「プロジェクトを trusted として承認した場合のみ」読み込む。
 #       初回起動時の信頼確認で承認していないと、以下の設定は反映されない。
 #
-# 制約: Codex には .claude/settings.json のようなコマンド単位の allow / deny が無い。
-#       サンドボックスと承認ポリシーによる「面」の制御までしか表現できないため、
-#       docs/agent_permissions.md の禁止リスト（db:reset / migrate reset /
-#       push --force / reset --hard / .env の読み取り）は AGENTS.md の規約として遵守する。
+# 補足: コマンド単位の allow / forbidden は .codex/rules/project.rules（execpolicy）側で定義する。
+#       こちらは trusted 承認に依存せず読み込まれるため、禁止コマンドの強制はそちらが担う。
+#       このファイルはサンドボックスと承認ポリシーによる「面」の制御のみを持つ。
 
 # ワークスペース外への書き込みはサンドボックスで遮断する。
 sandbox_mode = "workspace-write"

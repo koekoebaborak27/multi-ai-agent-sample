@@ -559,7 +559,7 @@ git branch -D docs/update-readme
 | 変更したファイル | 判断 | CIの止め方 |
 |---|---|---|
 | `README.md` / `README_SIMPLE.md` / `AGENTS.md` / `CLAUDE.md` / `docs/**` / その他すべての `*.md` | CI不要 | **自動でスキップ**（`paths-ignore`） |
-| `.claude/**` / `.agents/**` のうち `*.md` 以外（`settings.json` など） | CI不要 | 手動でスキップ（`[skip ci]`） |
+| `.claude/**` / `.agents/**` / `.codex/**` のうち `*.md` 以外（`settings.json`・`*.rules` など） | CI不要 | 手動でスキップ（`[skip ci]`） |
 | `src/**` / `prisma/**` / `package.json` / `pnpm-lock.yaml` / `*.ts` / `*.json` などの設定ファイル | **CI必須** | 止めない |
 | `.github/workflows/ci.yml` | **CI必須** | 止めない（CI自体の変更は、動かさないと検証できないため） |
 | `docker/**` | **CI必須** | 止めない |
@@ -745,6 +745,25 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 
 スラッシュコマンドを使わず「TODO を更新して」「CIスキップでプッシュして」と伝えるだけでも、[`AGENTS.md`](AGENTS.md) からの参照を通じて同じ手順が適用されます。
 
+### エージェントの権限（許可・禁止コマンド）
+
+エージェントが**確認なしで実行してよいコマンド**と、**単独で実行してはならない操作**を定めています。**内容の正本は [`docs/agent_permissions.md`](docs/agent_permissions.md) の1ファイル**で、各ツールの設定ファイルはその表を機械可読な形へ写した入口です。
+
+| 区分 | 対象 |
+|---|---|
+| 許可（確認なしで実行） | `pnpm install` / `lint` / `format:check` / `typecheck` / `test` / `build` / `prisma:generate`、`docker compose ... up` / `ps` / `logs`、`git status` / `diff` / `log` / `show` / `branch` |
+| 禁止（単独で実行しない） | `.env` の読み取り、`pnpm db:reset`、`prisma migrate reset`、`git push --force`、`git reset --hard` |
+
+| エージェント | 設定ファイル | 強制のされ方 |
+|---|---|---|
+| Claude Code | [`.claude/settings.json`](.claude/settings.json) | `permissions.allow` / `permissions.deny` でコマンド単位に強制 |
+| Codex | [`.codex/rules/project.rules`](.codex/rules/project.rules) | execpolicy の `prefix_rule` でコマンド単位に強制（`allow` / `prompt` / `forbidden`）。[`.codex/config.toml`](.codex/config.toml) はサンドボックスと承認ポリシーのみ担当 |
+| GitHub Copilot | [`.vscode/settings.json`](.vscode/settings.json) | `chat.tools.terminal.autoApprove` の正規表現ルール。`false` は「常に確認」であり禁止ではない |
+
+> **設定による強制には穴があります。** フラグの位置がずれた形（`git push origin main --force`）やリダイレクトを含むコマンドは判定をすり抜けます。設定は補助であり、**禁止事項はエージェント共通の規約として守る**前提です（限界の詳細は [`docs/agent_permissions.md`](docs/agent_permissions.md) の「注意点」）。
+
+許可・禁止を変更するときは、**まず `docs/agent_permissions.md` を直してから**上の3ファイルへ反映します。
+
 ### 方針を追加・変更するとき
 
 - **全エージェントに共通する内容**は、`AGENTS.md`（またはサブディレクトリの `AGENTS.md`）へ書きます。
@@ -769,6 +788,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/todo/TODO_履歴.md`](docs/todo/TODO_履歴.md) | セッションごとの作業記録（引き継ぎメモ） |
 | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) | TODO / README の更新手順（スキルの正本・全エージェント共通） |
 | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) | CI をスキップして push する手順（スキルの正本・全エージェント共通） |
+| [`docs/agent_permissions.md`](docs/agent_permissions.md) | エージェント権限ポリシー（許可 / 禁止コマンドの正本・全エージェント共通） |
 | [`src/AGENTS.md`](src/AGENTS.md) | アーキテクチャ規約（feature-modular） |
 | [`prisma/AGENTS.md`](prisma/AGENTS.md) | DB 規約 |
 | [`DESIGN.md`](DESIGN.md) | UI / デザイン規約（shadcn/ui + Tailwind v4） |

@@ -5,6 +5,9 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 
 本ファイルは Claude Code / Copilot / Codex すべてが読む**正本**。詳細は各サブディレクトリの AGENTS.md・`DESIGN.md`・`REVIEW.md` に委譲し、ここは薄く保つ。
 
+> **本文中の `@パス` は参照先を示すだけで、自動読み込みはされない**必要になった時点でエージェントが自分で開くこと。
+> したがって、**開かなくても必ず守らせたいルールは、リンクに委譲せずこのファイルの本文へ直接書く**（下記「最小規約」の禁止コマンド一覧がその例）。
+
 ## トップレベル構成
 
 | ディレクトリ | 説明 |
@@ -15,7 +18,7 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 | `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/`、残タスク一式は `docs/todo/`（本編 `TODO.md` + 補足 + 履歴） |
 | `.github/` | Copilot 指示（`copilot-instructions.md`）+ Copilot プロンプト（`prompts/`）+ CI ワークフロー（`workflows/ci.yml`） |
 | `.agents/` | Codex が読むリポジトリ内スキル（`skills/<name>/SKILL.md`） |
-| `.codex/` | Codex CLI のプロジェクト設定（`config.toml`。サンドボックス / 承認ポリシー） |
+| `.codex/` | Codex CLI のプロジェクト設定（`config.toml`。サンドボックス / 承認ポリシー）+ 権限ルール（`rules/*.rules`） |
 | `.claude/` | Claude Code が読むスキル（`skills/<name>/SKILL.md`）+ 権限設定（`settings.json`） |
 | `.vscode/` | デバッグ構成・推奨拡張機能 + Copilot の権限設定（`settings.json`） |
 
@@ -35,7 +38,7 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 - CI を意図的に飛ばして push する場合（コードを含む場合も可）は `@docs/skills/push-skip-ci.md` に従う。**エージェントは実行前に必ずユーザーの承認を取り、得るまでコミットも push もしない。**
 - コミット / PR のレビュー観点は `REVIEW.md`、UI / デザインは `DESIGN.md`（shadcn/ui + Tailwind v4）、テスト作成は `TESTING.md` に従う。
 - コミット/PR には「何を・なぜ・どう検証したか」を記載する。
-- **エージェントが確認なしで実行してよいコマンドと、単独で実行してはならない操作は `@docs/agent_permissions.md` が正本。** `.env` の読み取り、`pnpm db:reset` / `prisma migrate reset` / `git push --force` / `git reset --hard` は、設定ファイルで強制できないツール（Codex 等）でも規約として実行しない。
+- **エージェントが確認なしで実行してよいコマンドと、単独で実行してはならない操作は `@docs/agent_permissions.md` が正本。** `.env` の読み取り、`pnpm db:reset` / `prisma migrate reset` / `git push --force` / `git reset --hard` は設定ファイルでも禁止しているが、強制には穴があるため**規約としても実行しない**。
 - `docs/todo/TODO.md` と `README.md` / `README_SIMPLE.md` の更新は、`@docs/skills/update-todo.md` の手順に従う。
 
 ## 主要コマンド

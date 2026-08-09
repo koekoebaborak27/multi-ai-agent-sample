@@ -32,10 +32,30 @@ Claude Code / Codex / GitHub Copilot が**確認なしで実行してよいコ�
 |---|---|---|
 | Claude Code | `.claude/settings.json` | `permissions.allow` / `permissions.deny` でコマンド単位に強制 |
 | GitHub Copilot（VS Code Agent モード） | `.vscode/settings.json` の `chat.tools.terminal.autoApprove` | 正規表現ルール。`true` = 自動承認、`false` = 常に手動承認 |
-| Codex CLI | `.codex/config.toml` | `sandbox_mode` / `approval_policy` による面での制御。**コマンド単位の allow/deny は持たない**ため、上表の禁止事項は `AGENTS.md` の規約として遵守する |
+| Codex CLI | `.codex/rules/project.rules`（コマンド単位）+ `.codex/config.toml`（面の制御） | execpolicy の `prefix_rule` で `allow` / `prompt` / `forbidden` をコマンド単位に強制。サンドボックスと承認ポリシーは `config.toml` 側 |
+
+### Codex の execpolicy ルール
+
+`.codex/rules/*.rules` は Codex が起動時に読み込むルールファイル（Starlark 風の構文）。
+
+```python
+prefix_rule(pattern=["git", "reset", "--hard"], decision="forbidden")
+prefix_rule(pattern=["git", ["status", "diff", "log"]], decision="allow")
+```
+
+- `decision` は `"allow"`（確認なしで実行）/ `"prompt"`（常に確認）/ `"forbidden"`（実行拒否）の 3 値。`"deny"` は無効値で構文エラーになる。
+- `pattern` はコマンドの**先頭トークン列（前方一致）**。要素にリストを書くと「そのいずれか」を意味する。
+- 読み込み先は 2 か所: `<repo>/.codex/rules/*.rules`（プロジェクト）と `~/.codex/rules/*.rules`（ユーザー）。**`.codex/config.toml` と違い、プロジェクトを trusted 承認していなくても読み込まれる。**
+- `~/.codex/rules/default.rules` は Codex が「常に許可」を選んだときに自動で追記するファイル。手で編集してもよいが、リポジトリで共有されず Codex 自身が書き換えるため、**チーム共通のポリシーはプロジェクト側の `.codex/rules/` に置く。**
+- 構文エラーがあると Codex は起動時に `Error loading rules` で停止する。効いているかは起動可否で確認できる。
 
 ### 注意点
 
 - Copilot の `false` ルールは「常に確認を出す」であり、実行の禁止ではない。**確認された人間が拒否することで初めて禁止が成立する。**
-- Codex はプロジェクト設定 `.codex/config.toml` を、そのプロジェクトを **trusted** として承認した場合のみ読み込む。初回起動時の信頼確認で承認していないと設定は効かない。
+- Codex はプロジェクト設定 `.codex/config.toml` を、そのプロジェクトを **trusted** として承認した場合のみ読み込む。初回起動時の信頼確認で承認していないと `sandbox_mode` / `approval_policy` は効かない（`.codex/rules/` は影響を受けない）。
+- Codex の `forbidden` には以下の穴があるため、**規約としての遵守は引き続き必要**。
+  - 前方一致のため、フラグが後ろに回った形（`git push origin main --force`）は一致しない。
+  - リダイレクト（`>`）・変数展開（`$(...)`）・ワイルドカードを含むコマンドはルール評価の対象外になる（Codex の仕様。allow の適用範囲を絞るための挙動）。
+  - Windows では `pwsh -Command "<コマンド>"` の形で実行されることがあり、その場合トークン列が一致しない。
+  - execpolicy はシェルコマンドのみを見るため、`.env` の読み取り禁止は組み込みのファイル読み取りツール経由では強制できない（ルールは `cat .env` 等のベストエフォート）。
 - 3 ツールとも粒度が異なるため完全な等価にはならない。**強制力の弱いツールほど、この文書の禁止リストを規約として守ることが重要になる。**
