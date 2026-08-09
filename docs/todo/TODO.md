@@ -90,7 +90,7 @@ CSV に着手する前に、次の 3 つが前提として片づいている必�
 手元の状態を確認するコマンドは次のとおり。
 
 ```powershell
-git log --oneline -1                                     # main = ba3c332（本セッションの docs コミット前）
+git log --oneline -1                                     # main = 2578ea9
 git status --porcelain                                   # 何も出なければクリーン
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
@@ -164,7 +164,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 | 項目                 | 状態                                                                                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `ba3c332`**（2026-08-09 の docs コミット前）。PR #1〜#12 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している |
+| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `2578ea9`**。PR #1〜#12 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している                          |
 | コミット署名             | 個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変                                    |
 | `gh` CLI           | 認証済み。scope は `gist` / `read:org` / `repo` / `workflow`                                                                                              |
 | CI（GitHub Actions） | グリーンで**警告 0 件**。ステップ順序のバグとアクションの Node.js 20 非推奨はどちらも修正済み                                                                                            |
