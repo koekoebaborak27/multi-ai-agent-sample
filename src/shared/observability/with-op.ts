@@ -33,6 +33,11 @@ export interface OpContext {
   log: Logger;
 }
 
+export interface WithOpOptions {
+  /** 変更前後の値など、監査に必要な引数を成功時のinfoログにも含める。 */
+  includeArgsInSuccessLog?: boolean;
+}
+
 /**
  * Next.js の制御フロー例外（redirect/notFound）は「正常系」。
  * これらをエラーとして記録しない（成功扱いで再スローする）。
@@ -55,6 +60,7 @@ function isControlFlowError(err: unknown): boolean {
 export function withOp<A extends unknown[], R>(
   op: string,
   fn: (...args: A) => Promise<R>,
+  options?: WithOpOptions,
 ): (...args: A) => Promise<R> {
   return async (...args: A): Promise<R> => {
     const requestId = newRequestId();
@@ -64,12 +70,24 @@ export function withOp<A extends unknown[], R>(
     log.debug({ args: summarizeArgs(args) }, `▶ ${op}`);
     try {
       const result = await fn(...args);
-      log.info({ ms: Math.round(performance.now() - start) }, `✓ ${op}`);
+      log.info(
+        {
+          ms: Math.round(performance.now() - start),
+          ...(options?.includeArgsInSuccessLog ? { args: summarizeArgs(args) } : {}),
+        },
+        `✓ ${op}`,
+      );
       return result;
     } catch (err) {
       if (isControlFlowError(err)) {
         // redirect/notFound は正常系。成功扱いで再スロー。
-        log.info({ ms: Math.round(performance.now() - start) }, `✓ ${op} (redirect)`);
+        log.info(
+          {
+            ms: Math.round(performance.now() - start),
+            ...(options?.includeArgsInSuccessLog ? { args: summarizeArgs(args) } : {}),
+          },
+          `✓ ${op} (redirect)`,
+        );
         throw err;
       }
       // エラーログの唯一の出力点。requestId / op / stack / 所要時間つきで1レコード。

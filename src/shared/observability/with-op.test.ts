@@ -32,6 +32,19 @@ describe("withOp", () => {
     expect(errorMock).not.toHaveBeenCalled();
   });
 
+  it("監査用オプションが有効な成功時は info に引数を含める", async () => {
+    const input = { before: "契約種別", after: "請求区分" };
+    const wrapped = withOp("test.audit", async (value: typeof input) => value.after, {
+      includeArgsInSuccessLog: true,
+    });
+
+    await expect(wrapped(input)).resolves.toBe("請求区分");
+    expect(infoMock).toHaveBeenCalledWith(
+      expect.objectContaining({ args: [input] }),
+      "✓ test.audit",
+    );
+  });
+
   it("例外時は error を1件だけ出し、requestId/op を含めて再スローする", async () => {
     const wrapped = withOp("test.fail", async () => {
       throw new AppError("X_FAIL", 400, "失敗しました");
@@ -49,16 +62,24 @@ describe("withOp", () => {
     expect(msg).toContain("test.fail");
   });
 
-  it("Next.js の redirect(制御フロー例外)は error 扱いしない", async () => {
-    const wrapped = withOp("test.redirect", async () => {
-      const e = new Error("redirect") as Error & { digest?: string };
-      e.digest = "NEXT_REDIRECT;replace;/;307;";
-      throw e;
-    });
-    await expect(wrapped()).rejects.toMatchObject({
+  it("Next.js の redirect(制御フロー例外)は error 扱いせず監査用引数をinfoへ含める", async () => {
+    const input = { before: "契約種別", after: "請求区分" };
+    const wrapped = withOp(
+      "test.redirect",
+      async (_value: typeof input) => {
+        const e = new Error("redirect") as Error & { digest?: string };
+        e.digest = "NEXT_REDIRECT;replace;/;307;";
+        throw e;
+      },
+      { includeArgsInSuccessLog: true },
+    );
+    await expect(wrapped(input)).rejects.toMatchObject({
       digest: expect.stringContaining("NEXT_REDIRECT"),
     });
     expect(errorMock).not.toHaveBeenCalled();
-    expect(infoMock).toHaveBeenCalledTimes(1);
+    expect(infoMock).toHaveBeenCalledWith(
+      expect.objectContaining({ args: [input] }),
+      "✓ test.redirect (redirect)",
+    );
   });
 });

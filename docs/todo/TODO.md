@@ -23,7 +23,7 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 | 2. Docker イメージの軽量化        | 6 / 6                |
 | 3. Google Cloud Run       | 8 / 8                |
 | マスタ画面作りこみ（設計）             | **6 / 6**            |
-| マスタ機能（製造）                  | **2 / 18（工程）**        |
+| マスタ機能（製造）                  | **5 / 18（工程）**        |
 | 残っているタスク                  | 4 / 9（未対応 5 件・期限なし）  |
 
 番号（`1`〜`3`）は 2026-08-02 に順序を確定したときのまま据え置いている。`2` は当初「standalone 化」だったが同日「Docker イメージの軽量化」へ差し替え、standalone 化は宿題へ降格した（経緯 → [履歴](TODO_履歴.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)）。
@@ -47,9 +47,9 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
   
   - [x] **変更履歴の参照画面** — **不採用で決着**（2026-08-09）。追跡はアプリログのみ（設計書 §10.1）。理由は設計書 §14.1.3
 
-**設計は 6 項目すべて完了し、製造工程 2 まで完了した。** `feat/master-management` ブランチで、shadcn/ui の準備と `MasterCategory` / `Master` のデータベース追加まで完了済み。画面と `src/modules/master/` は未着手で、[`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダのまま。`MasterExport` は CSV 工程で追加するため、現時点の [`schema.prisma`](../../prisma/schema.prisma) には存在しない（→ [マスタ機能](#マスタ機能)）。
+**設計は 6 項目すべて完了し、製造工程 5 まで完了した。** `/master/categories` の一覧・新規登録・詳細・更新（MST-06〜MST-10）が利用できる。詳細には配下マスタ件数と監査項目を表示し、更新は確認状態、自己重複の除外、`updatedAt` による楽観ロック、変更前後の分類名を含む操作ログまで対応した。マスタ分類の削除は工程 11 で実装する。`MasterExport` は CSV 工程で追加するため、現時点の [`schema.prisma`](../../prisma/schema.prisma) には存在しない（→ [マスタ機能](#マスタ機能)）。
 
-**次は [マスタ機能の製造工程](#マスタ機能の製造工程) の工程 3 から着手する。** `src/modules/master` に型・Repository・Service・公開 API の土台を作り、マスタ分類一覧（MST-06）を採番順で表示する。詳細・新規登録への導線と、ADMIN / OPERATOR / VIEWER の書き込み権限による表示制御まで実装する。各工程は、実装だけでなく、その工程に対応するテストと動作確認まで終えた時点でチェックする。
+**次は工程 6 のマスタ検索一覧（MST-01）を実装する。** 最初に設計書 §6.1を読み直し、検索条件の開閉、分類・コード・内容による検索、URL クエリへの反映、分類名 → マスタコードの固定順、ページング、詳細への導線を実装する。既存のマスタ分類一覧で確立した Repository / Service / サーバー駆動ページング / Table の構成を踏襲する。
 
 ## マスタ機能の製造工程
 
@@ -64,9 +64,9 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 
 マスタの登録と更新は、登録済みのマスタ分類を選択する。そのため、マスタ分類側を先に製造する。
 
-- [ ] **3. マスタ分類一覧（MST-06）を実装する** — `src/modules/master` の型・Repository・Service・公開 API の土台を作り、採番順の一覧、詳細への導線、新規登録への導線、書き込み権限による表示制御を実装する
-- [ ] **4. マスタ分類の新規登録と確認（MST-08 / MST-09）を実装する** — 入力検証、重複の事前確認、登録用 Server Action、確認状態からの実行、完了メッセージを実装する
-- [ ] **5. マスタ分類の詳細と更新（MST-07 / MST-10 / MST-09）を実装する** — 詳細表示、分類名の変更、確認状態、楽観ロック、変更前後の値を含む操作ログを実装する
+- [x] **3. マスタ分類一覧（MST-06）を実装する**（2026-08-09 完了）— 型・Repository・Service・公開 API、採番順の一覧、詳細・新規登録・マスタ一覧への導線、書き込み権限による表示制御を実装した。`lint` / `format:check` / `typecheck` / 全42テスト / `build`、未認証時の `/login` リダイレクト、ADMIN / VIEWER のブラウザ操作、OPERATOR を含む `canWrite` の単体テストまで成功した
+- [x] **4. マスタ分類の新規登録と確認（MST-08 / MST-09）を実装する**（2026-08-09 完了）— Unicode コードポイント単位の30文字制限と前後空白除去、確認時・実行時の重複検査、ADMIN / OPERATOR 限定の登録用 Server Action、確認状態からの実行、監査項目、一意制約違反の `MASTER_CATEGORY_CONFLICT` 変換、登録後の詳細画面遷移と完了メッセージを実装した。`lint` / `format:check` / `typecheck` / 全54テスト / `build`、VIEWER の直接アクセス防止、ADMIN の登録・重複エラー・一覧反映をブラウザで確認した
+- [x] **5. マスタ分類の詳細と更新（MST-07 / MST-10 / MST-09）を実装する**（2026-08-09 完了）— 詳細表示、分類名の入力・確認・更新、自己重複の除外、`id + updatedAt` の条件付き更新による楽観ロック、変更前後の分類名を含む操作ログを実装した。`lint` / `format:check` / `typecheck` / 全71テスト / `build`、ADMIN の詳細 → 更新 → 完了表示、入力値保持、404、監査項目と info ログをブラウザ・実ログで確認した。VIEWER の Action 拒否と OPERATOR の更新許可は単体テストで確認した
 
 ### 第3段階 マスタ本体を完成させる
 
@@ -92,12 +92,13 @@ CSV は画面機能の完成後に着手する。worker とストレージを使
 
 - [ ] **18. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、app 側の環境変数、対象ジョブだけを実行できる専用サービスアカウント、Cloud Build の app / worker ビルドを整備する。本番でヘルスチェック、ログイン、マスタ CRUD、CSV の依頼 → 生成 → 受け取りを確認し、必要な README とインフラ手順書を更新する
 
-工程 3 で最初に既存モジュールの構成とマスタ画面の入口を確認するコマンドは次のとおり。
+工程 6 で最初に基本設計書と既存一覧実装を確認するコマンドは次のとおり。
 
 ```powershell
-git status --short --branch
-rg --files src/modules/party src/modules/user             # CRUD モジュールの既存パターンを確認
-Get-Content -Raw "src/app/(main)/master/page.tsx"          # MST-06 へ置き換えるプレースホルダを確認
+rg -n -A 180 "^### 6\.1 " docs/specs/02_basic-design/basic_design_master.md
+rg -N "^" "src/app/(main)/master/page.tsx"
+rg -N "^" src/modules/master/repository.ts src/modules/master/service.ts
+rg -N "^" "src/app/(main)/master/categories/page.tsx" src/modules/master/ui/master-category-table.tsx
 ```
 
 製造工程とは別に、余裕があれば後述の [残っているタスク](#残っているタスク) も実施する。
@@ -216,13 +217,13 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 ### マスタ機能
 
-**設計は完了し、製造工程 2 まで完了した。** 設計書に載っている画面は 10 枚（MST-01〜MST-10）。CSV ダウンロードは画面を増やさず、MST-01 / MST-06 のボタンとして載る。
+**設計は完了し、製造工程 5 まで完了した。** 設計書に載っている画面は 10 枚（MST-01〜MST-10）。CSV ダウンロードは画面を増やさず、MST-01 / MST-06 のボタンとして載る。
 
 | 項目            | 状態                                                                                                                                                     |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 製造進捗          | **2 / 18 工程**。チェックリストは [マスタ機能の製造工程](#マスタ機能の製造工程)                                                                                                  |
+| 製造進捗          | **5 / 18 工程**。チェックリストは [マスタ機能の製造工程](#マスタ機能の製造工程)                                                                                                  |
 | 基本設計書         | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)（1512 行）。**MST-01〜MST-10 の 10 画面**＋ CSV ダウンロード（§13）が反映済み（2026-08-09）           |
-| 画面            | [`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) は `FeaturePlaceholder` を返すだけ。`src/modules/master/` は存在しない                           |
+| 画面            | [`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダー。`/master/categories` 配下に MST-06〜MST-10 の一覧・新規登録・確認・詳細・更新を実装済み。マスタ分類削除は工程 11 |
 | DB            | `MasterCategory` / `Master` を [`schema.prisma`](../../prisma/schema.prisma) へ追加し、[`20260809125243_add_master_tables`](../../prisma/migrations/20260809125243_add_master_tables/migration.sql) をローカル DB へ適用済み。`MasterExport` は工程 14 で追加する |
 | 削除方式          | **物理削除**（論理削除は不採用）。理由は削除したマスタコード / 分類名を再利用できなくなるため → 設計書 §8.3                                                                                        |
 | 削除の権限・導線      | ADMIN / OPERATOR のみ。削除ボタンは**詳細画面（MST-04 / MST-07）だけ**に置き、一覧には置かない                                                                                    |
@@ -231,7 +232,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 | 並び順           | **固定**。マスタは分類名 → マスタコードの昇順、マスタ分類は採番順。任意の表示順を持つ機能は**不採用** → 設計書 §14.1.1                                                                              |
 | 有効期間・状態       | **持たない**。登録されているマスタはすべて有効として扱う → 設計書 §14.1.2                                                                                                        |
 | 利用中チェック       | **行わない**。参照されていても削除・変更できる。参照側は外部キーを張らず**マスタコードも保持しない**（ID のみ）。取得できなければ「未設定」と表示する → 設計書 §8.4                                                          |
-| 監査            | `createdBy` / `updatedBy` を持つ（FK なし）。削除と変更の記録はアプリログのみ（`withOp` の引数出力を使う）。**コードと分類名は変更前の値もログへ渡す**（マスタ内容の更新は渡さない）。**履歴テーブルは持たない** → 設計書 §10.1・§14.1.3 |
+| 監査            | `createdBy` / `updatedBy` を持つ（FK なし）。削除と変更の記録はアプリログのみ（`withOp` の引数出力を使う）。監査対象の操作だけ `includeArgsInSuccessLog` を有効にし、通常の info ログへ残す。**コードと分類名は変更前の値もログへ渡す**（マスタ内容の更新は渡さない）。**履歴テーブルは持たない** → 設計書 §10.1・§14.1.3 |
 | Server Action | **8 つ**（マスタの登録・更新・削除、マスタ分類の登録・更新・削除、CSV ダウンロードの依頼 2 つ）→ 設計書 §11                                                                                     |
 | CSV ダウンロード    | **worker 方式**。依頼（Server Action）→ 生成（pg-boss / worker）→ 受け取り（Route Handler が `storage.download()` して返す）。UTF-8 BOM 付き・上限 10,000 行・受け取り後に即削除 → 設計書 §13   |
 | UI 部品          | shadcn/ui の [`alert-dialog.tsx`](../../src/shared/ui/alert-dialog.tsx) と [`select.tsx`](../../src/shared/ui/select.tsx) を追加済み。既存の `radix-ui` 依存を使用するため `package.json` / `pnpm-lock.yaml` の変更は無い |
@@ -241,7 +242,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 | 項目          | 状態                                                                                                                                                                          |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ローカル検証      | 検証項目はすべて完了済み                                                                                                                                                                |
+| ローカル検証      | 工程 5 の `lint` / `format:check` / `typecheck` / 全71テスト / `build`、ADMIN の MST-07 → MST-10 → MST-09 → 更新完了、入力値保持、存在しない詳細・更新URLの404、監査項目更新、変更前後の分類名を含む info ログを確認済み。VIEWER の Action 拒否と OPERATOR の許可は単体テスト済み。ローカル DB の検証用分類は `Codex登録確認20260809` の1件 |
 | ローカル DB      | Docker Compose の PostgreSQL 16 が起動中で `healthy`                                                                                                                                     |
 | VSCode デバッグ | **ステップイン実行できる**（PR #10）。[`.vscode/launch.json`](../../.vscode/launch.json) は Git 管理下。**Docker 接続時の接続先は app = `9230` / worker = `9231`**（`9229` は `pnpm` 自身のプロセスで、繋いでも止まらない） |
 | エージェント スキル  | `update-todo` を 3 エージェント分追加済み（正本 [`docs/skills/update-todo.md`](../skills/update-todo.md)）。**Claude Code / Codex での起動・検出は確認済み**、Copilot は未確認                                |
