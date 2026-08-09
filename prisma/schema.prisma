@@ -41,6 +41,34 @@ model Announcement {
   updatedAt DateTime @updatedAt
 }
 
+/// マスタ分類。id は画面上のマスタ分類コードの採番元として使用する。
+model MasterCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(30)
+  createdAt DateTime @default(now())
+  createdBy String? // 登録した利用者の User.id（FK は張らない）
+  updatedAt DateTime @updatedAt
+  updatedBy String? // 最後に更新した利用者の User.id（FK は張らない）
+
+  masters Master[]
+}
+
+/// マスタ。業務上の識別には id ではなく code を使用する。
+model Master {
+  id         Int            @id @default(autoincrement())
+  categoryId Int
+  category   MasterCategory @relation(fields: [categoryId], references: [id])
+  code       String         @db.VarChar(8)
+  content    String         @db.VarChar(30)
+  createdAt  DateTime       @default(now())
+  createdBy  String?
+  updatedAt  DateTime       @updatedAt
+  updatedBy  String?
+
+  @@unique([categoryId, code])
+  @@index([categoryId])
+}
+
 /// 契約先（汎用契約管理ドメインの最小雛形）。
 model Party {
   id          String   @id @default(cuid())

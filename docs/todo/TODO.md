@@ -23,7 +23,7 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 | 2. Docker イメージの軽量化        | 6 / 6                |
 | 3. Google Cloud Run       | 8 / 8                |
 | マスタ画面作りこみ（設計）             | **6 / 6**            |
-| マスタ機能（製造）                  | **0 / 18（工程）**        |
+| マスタ機能（製造）                  | **2 / 18（工程）**        |
 | 残っているタスク                  | 4 / 9（未対応 5 件・期限なし）  |
 
 番号（`1`〜`3`）は 2026-08-02 に順序を確定したときのまま据え置いている。`2` は当初「standalone 化」だったが同日「Docker イメージの軽量化」へ差し替え、standalone 化は宿題へ降格した（経緯 → [履歴](TODO_履歴.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)）。
@@ -47,9 +47,9 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
   
   - [x] **変更履歴の参照画面** — **不採用で決着**（2026-08-09）。追跡はアプリログのみ（設計書 §10.1）。理由は設計書 §14.1.3
 
-**設計は 6 項目すべて終わったが、製造は 1 件も着手していない。** マスタ機能は設計書だけが存在し、[`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダのまま、`Master` / `MasterCategory` / `MasterExport` テーブルも [`schema.prisma`](../../prisma/schema.prisma) に存在しない（→ [マスタ機能](#マスタ機能)）。
+**設計は 6 項目すべて完了し、製造工程 2 まで完了した。** `feat/master-management` ブランチで、shadcn/ui の準備と `MasterCategory` / `Master` のデータベース追加まで完了済み。画面と `src/modules/master/` は未着手で、[`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダのまま。`MasterExport` は CSV 工程で追加するため、現時点の [`schema.prisma`](../../prisma/schema.prisma) には存在しない（→ [マスタ機能](#マスタ機能)）。
 
-**次は [マスタ機能の製造工程](#マスタ機能の製造工程) の工程 1 から着手する。** 各工程は、実装だけでなく、その工程に対応するテストと動作確認まで終えた時点でチェックする。
+**次は [マスタ機能の製造工程](#マスタ機能の製造工程) の工程 3 から着手する。** `src/modules/master` に型・Repository・Service・公開 API の土台を作り、マスタ分類一覧（MST-06）を採番順で表示する。詳細・新規登録への導線と、ADMIN / OPERATOR / VIEWER の書き込み権限による表示制御まで実装する。各工程は、実装だけでなく、その工程に対応するテストと動作確認まで終えた時点でチェックする。
 
 ## マスタ機能の製造工程
 
@@ -57,8 +57,8 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 
 ### 第1段階 製造準備とデータベース
 
-- [ ] **1. 製造を開始できる状態にする** — feature ブランチを作成し、ローカル PostgreSQL を起動する。未導入の shadcn/ui `AlertDialog` と `Select` を追加し、追加されたファイルと依存関係を確認する
-- [ ] **2. `MasterCategory` / `Master` を Prisma へ追加する** — 設計書 §8.2・§8.3 のモデル、外部キー、一意制約、監査項目を反映する。開発用マイグレーションを作成して SQL を目視確認し、ローカル DB への適用、Prisma Client の生成、`prisma validate` まで通す
+- [x] **1. 製造を開始できる状態にする**（2026-08-09 完了）— `feat/master-management` ブランチを作成し、ローカル PostgreSQL を起動した。shadcn/ui `AlertDialog` と `Select` を公式 CLI で追加し、既存 `button.tsx` と依存関係に目的外の変更がないことを確認した
+- [x] **2. `MasterCategory` / `Master` を Prisma へ追加する**（2026-08-09 完了）— 設計書 §8.2・§8.3 のモデル、外部キー、一意制約、監査項目を反映した。`20260809125243_add_master_tables` を生成・目視確認してローカル DB へ適用し、Prisma Client の生成と `prisma validate` まで完了した
 
 ### 第2段階 マスタ分類を先に完成させる
 
@@ -92,12 +92,12 @@ CSV は画面機能の完成後に着手する。worker とストレージを使
 
 - [ ] **18. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、app 側の環境変数、対象ジョブだけを実行できる専用サービスアカウント、Cloud Build の app / worker ビルドを整備する。本番でヘルスチェック、ログイン、マスタ CRUD、CSV の依頼 → 生成 → 受け取りを確認し、必要な README とインフラ手順書を更新する
 
-工程 1 で最初に打つコマンドは次のとおり。
+工程 3 で最初に既存モジュールの構成とマスタ画面の入口を確認するコマンドは次のとおり。
 
 ```powershell
-git switch -c feat/master-management                     # 製造用の feature ブランチを作成
-docker compose -f docker/docker-compose.yml up -d db     # ローカル DB を起動
-pnpm dlx shadcn@latest add alert-dialog select           # 削除ダイアログと分類プルダウンを追加
+git status --short --branch
+rg --files src/modules/party src/modules/user             # CRUD モジュールの既存パターンを確認
+Get-Content -Raw "src/app/(main)/master/page.tsx"          # MST-06 へ置き換えるプレースホルダを確認
 ```
 
 製造工程とは別に、余裕があれば後述の [残っているタスク](#残っているタスク) も実施する。
@@ -111,7 +111,7 @@ pnpm dlx shadcn@latest add alert-dialog select           # 削除ダイアログ
 手元の状態を確認するコマンドは次のとおり。
 
 ```powershell
-git log --oneline -1                                     # main = 0b8ed03
+git log --oneline -1                                     # main = 0194a19
 git status --porcelain                                   # 何も出なければクリーン
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
@@ -170,7 +170,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 | 項目                 | 状態                                                                                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `0b8ed03`**。PR #1〜#12 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している                          |
+| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `0194a19`**。現在の作業ブランチは `feat/master-management`。PR #1〜#12 はすべてマージ済み・ブランチ削除済み                          |
 | コミット署名             | 個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変                                    |
 | `gh` CLI           | 認証済み。scope は `gist` / `read:org` / `repo` / `workflow`                                                                                              |
 | CI（GitHub Actions） | グリーンで**警告 0 件**。ステップ順序のバグとアクションの Node.js 20 非推奨はどちらも修正済み                                                                                            |
@@ -216,14 +216,14 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 ### マスタ機能
 
-**設計は完了し、実装は 1 行も無い。** 設計書に載っている画面は 10 枚（MST-01〜MST-10）。CSV ダウンロードは画面を増やさず、MST-01 / MST-06 のボタンとして載る。
+**設計は完了し、製造工程 2 まで完了した。** 設計書に載っている画面は 10 枚（MST-01〜MST-10）。CSV ダウンロードは画面を増やさず、MST-01 / MST-06 のボタンとして載る。
 
 | 項目            | 状態                                                                                                                                                     |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 製造進捗          | **0 / 18 工程**。チェックリストは [マスタ機能の製造工程](#マスタ機能の製造工程)                                                                                                  |
+| 製造進捗          | **2 / 18 工程**。チェックリストは [マスタ機能の製造工程](#マスタ機能の製造工程)                                                                                                  |
 | 基本設計書         | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)（1512 行）。**MST-01〜MST-10 の 10 画面**＋ CSV ダウンロード（§13）が反映済み（2026-08-09）           |
 | 画面            | [`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) は `FeaturePlaceholder` を返すだけ。`src/modules/master/` は存在しない                           |
-| DB            | `Master` / `MasterCategory` / `MasterExport` は [`schema.prisma`](../../prisma/schema.prisma) に**未追加**。設計書 §8.2・§13.6 はモデル「案」であり、マイグレーションも無い              |
+| DB            | `MasterCategory` / `Master` を [`schema.prisma`](../../prisma/schema.prisma) へ追加し、[`20260809125243_add_master_tables`](../../prisma/migrations/20260809125243_add_master_tables/migration.sql) をローカル DB へ適用済み。`MasterExport` は工程 14 で追加する |
 | 削除方式          | **物理削除**（論理削除は不採用）。理由は削除したマスタコード / 分類名を再利用できなくなるため → 設計書 §8.3                                                                                        |
 | 削除の権限・導線      | ADMIN / OPERATOR のみ。削除ボタンは**詳細画面（MST-04 / MST-07）だけ**に置き、一覧には置かない                                                                                    |
 | 変更できる項目       | マスタ分類・マスタコード・マスタ内容は **MST-05 で 3 項目まとめて**、マスタ分類名は MST-10。`id` / `createdAt` / `createdBy` は変更しない → 設計書 §8.2                                          |
@@ -234,7 +234,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 | 監査            | `createdBy` / `updatedBy` を持つ（FK なし）。削除と変更の記録はアプリログのみ（`withOp` の引数出力を使う）。**コードと分類名は変更前の値もログへ渡す**（マスタ内容の更新は渡さない）。**履歴テーブルは持たない** → 設計書 §10.1・§14.1.3 |
 | Server Action | **8 つ**（マスタの登録・更新・削除、マスタ分類の登録・更新・削除、CSV ダウンロードの依頼 2 つ）→ 設計書 §11                                                                                     |
 | CSV ダウンロード    | **worker 方式**。依頼（Server Action）→ 生成（pg-boss / worker）→ 受け取り（Route Handler が `storage.download()` して返す）。UTF-8 BOM 付き・上限 10,000 行・受け取り後に即削除 → 設計書 §13   |
-| 未導入の依存        | `AlertDialog` と `Select`（`pnpm dlx shadcn@latest add alert-dialog select`）。[`src/shared/ui/`](../../src/shared/ui/) には `dialog.tsx` しか無い                |
+| UI 部品          | shadcn/ui の [`alert-dialog.tsx`](../../src/shared/ui/alert-dialog.tsx) と [`select.tsx`](../../src/shared/ui/select.tsx) を追加済み。既存の `radix-ui` 依存を使用するため `package.json` / `pnpm-lock.yaml` の変更は無い |
 | 実装の前提         | `withRoute` への実行者情報追加、worker の単発実行モード、本番 worker（Cloud Run Jobs）は製造工程 13・16・18 として管理する → [マスタ機能の製造工程](#マスタ機能の製造工程)・設計書 §13.7                                       |
 
 ### 開発環境
@@ -242,6 +242,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 | 項目          | 状態                                                                                                                                                                          |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ローカル検証      | 検証項目はすべて完了済み                                                                                                                                                                |
+| ローカル DB      | Docker Compose の PostgreSQL 16 が起動中で `healthy`                                                                                                                                     |
 | VSCode デバッグ | **ステップイン実行できる**（PR #10）。[`.vscode/launch.json`](../../.vscode/launch.json) は Git 管理下。**Docker 接続時の接続先は app = `9230` / worker = `9231`**（`9229` は `pnpm` 自身のプロセスで、繋いでも止まらない） |
 | エージェント スキル  | `update-todo` を 3 エージェント分追加済み（正本 [`docs/skills/update-todo.md`](../skills/update-todo.md)）。**Claude Code / Codex での起動・検出は確認済み**、Copilot は未確認                                |
 

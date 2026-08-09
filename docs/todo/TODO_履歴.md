@@ -29,6 +29,8 @@
 | [2026-08-08 マスタコードとマスタ分類の変更機能の設計](#2026-08-08-マスタコードとマスタ分類の変更機能の設計) | 画面が 7 → **10 枚**へ。マスタ分類を独立した CRUD へ切り出し、MST-02 の「分類の同時登録」を廃止。専用画面案は指摘を受けて撤回（コード変更なし） |
 | [2026-08-09 マスタ設計の残り4項目を決着させ、CSVダウンロードを設計](#2026-08-09-マスタ設計の残り4項目を決着させcsvダウンロードを設計) | **設計 6/6 完了**。3 項目を「不採用」で決着。CSV は worker + Cloud Run Jobs 方式へ。TODO の記述ずれ（11 画面など）も修正（コード変更なし） |
 | [2026-08-09 マスタ機能の製造工程をチェックリスト化](#2026-08-09-マスタ機能の製造工程をチェックリスト化) | 製造全体を依存順の 18 工程へ分解。画面数では追えなかった DB・worker・本番構成も同じ進捗として管理（コード変更なし） |
+| [2026-08-09 マスタ機能の製造工程1を完了](#2026-08-09-マスタ機能の製造工程1を完了) | 製造用ブランチ、ローカル DB、`AlertDialog` / `Select` を準備。公式 CLI の既存ファイル上書き確認へ対処し、検証を完了 |
+| [2026-08-09 マスタ機能の製造工程2を完了](#2026-08-09-マスタ機能の製造工程2を完了) | `MasterCategory` / `Master` とマイグレーションを追加。生成SQLをレビューし、ローカルDB適用・Prisma Client生成・検証を完了 |
 
 ## 2026-07-28 ホスティング先の選定
 
@@ -1051,3 +1053,93 @@ CSV は、検索済みのマスタデータと既存の権限制御が動いて�
 **5. README は変更しなかった**
 
 今回は実装・画面ルート・起動コマンド・本番設定を変更せず、TODO 上の作業計画だけを整理した。リポジトリを初めて触る人の現行手順には影響しないため、`README.md` / `README_SIMPLE.md` は変更していない。
+
+## 2026-08-09 マスタ機能の製造工程1を完了
+
+**マスタ機能の製造工程 1「製造を開始できる状態にする」を完了した。** `feat/master-management` ブランチを作成し、ローカル PostgreSQL を起動して、shadcn/ui の `AlertDialog` と `Select` を追加した。製造進捗は **1 / 18 工程**になった。
+
+**1. feature ブランチとローカル DB を準備した**
+
+`main`（`0194a19`）のクリーンな状態から `feat/master-management` を作成した。最初の `docker compose` は Docker Desktop が停止していたため、Docker API の名前付きパイプが存在せず失敗した。Docker Desktop を起動した後に再実行し、PostgreSQL 16 の `docker-db-1` が `healthy` になったことを確認した。コードや compose 設定の問題ではない。
+
+**2. 公式 CLI の既存ファイル上書き確認へ対処した**
+
+最初に設計どおり次のコマンドを実行した。
+
+```powershell
+pnpm dlx shadcn@latest add alert-dialog select
+```
+
+現在の公式 CLI は `AlertDialog` の依存部品として既存の [`button.tsx`](../../src/shared/ui/button.tsx) も最新版へ置換しようとする。非対話実行では上書き確認の既定値が「いいえ」になり、[`select.tsx`](../../src/shared/ui/select.tsx) だけが生成され、`alert-dialog.tsx` は生成されなかった。
+
+`--dry-run` と `--diff` で確認すると、既存 `button.tsx` には配色、サイズ、Radix UI の import 方式など工程 1 の目的外となる大きな変更が含まれていた。このため `AlertDialog` は公式 CLI で生成しつつ、`button.tsx` は元の内容へ戻した。最終差分は [`alert-dialog.tsx`](../../src/shared/ui/alert-dialog.tsx) と [`select.tsx`](../../src/shared/ui/select.tsx) の新規追加だけである。既存の `radix-ui` 依存で動作するため、`package.json` / `pnpm-lock.yaml` の変更は発生していない。
+
+**3. 検証結果**
+
+公式 CLI の出力はリポジトリの Prettier 設定と異なり、最初の `pnpm format:check` は追加した 2 ファイルで失敗した。2 ファイルだけを Prettier で整形した後、次をすべて通した。
+
+| 検証 | 結果 |
+|---|---|
+| `pnpm format:check` | 成功。全対象ファイルが Prettier 準拠 |
+| `pnpm lint` | 成功 |
+| `pnpm typecheck` | 成功 |
+| `pnpm test` | 5 ファイル / 38 テスト成功 |
+| `docker compose -f docker/docker-compose.yml ps db` | PostgreSQL 16 が `healthy` |
+
+**4. 次の工程**
+
+次は工程 2。設計書 §8.2・§8.3 に従って `MasterCategory` / `Master` を [`schema.prisma`](../../prisma/schema.prisma) へ追加し、`add_master_tables` マイグレーションを生成する。生成 SQL の目視確認、ローカル DB への適用、Prisma Client の生成、`prisma validate` まで完了してから工程 2 をチェックする。
+
+**5. README は変更しなかった**
+
+追加したのは今後のマスタ画面で使う内部 UI 部品であり、現時点の画面・ルート・起動方法・セットアップ手順は変わっていない。リポジトリを初めて触る人が README だけを読んでも手順上の不足は生じないため、`README.md` / `README_SIMPLE.md` は変更していない。
+
+## 2026-08-09 マスタ機能の製造工程2を完了
+
+**マスタ機能の製造工程 2「`MasterCategory` / `Master` を Prisma へ追加する」を完了した。** 設計書 §8.2・§8.3 のモデルと制約を [`schema.prisma`](../../prisma/schema.prisma) へ反映し、[`20260809125243_add_master_tables`](../../prisma/migrations/20260809125243_add_master_tables/migration.sql) を生成してローカル DB へ適用した。製造進捗は **2 / 18 工程**になった。
+
+**1. 追加したモデルと制約**
+
+| 対象 | 反映内容 |
+|---|---|
+| `MasterCategory` | `id` の自動採番、分類名30文字、分類名の一意制約、作成・更新日時、`createdBy` / `updatedBy` |
+| `Master` | `id` の自動採番、`categoryId`、コード8文字、内容30文字、作成・更新日時、`createdBy` / `updatedBy` |
+| 分類内コード | `@@unique([categoryId, code])` で同一分類内の重複を禁止 |
+| 分類参照 | `Master.categoryId` から `MasterCategory.id` への外部キー。削除時は `RESTRICT`、更新時は `CASCADE` |
+| 検索用インデックス | `Master.categoryId` に通常インデックス |
+
+`createdBy` / `updatedBy` は設計どおり `User.id` の値を記録するが、利用者削除後も監査情報を残すため外部キーを張っていない。削除用カラムは追加せず、物理削除の設計を維持した。
+
+**2. マイグレーション生成と SQL レビュー**
+
+```powershell
+pnpm prisma:migrate -- --name add_master_tables
+```
+
+このコマンドで `20260809125243_add_master_tables` が生成され、ローカル DB へ適用され、Prisma Client も自動生成された。生成 SQL を目視確認し、次を確認した。
+
+- 作成対象は `MasterCategory` / `Master` の2テーブルだけ
+- `VARCHAR(30)` / `VARCHAR(8)`、主キー、一意制約、インデックス、外部キーが設計どおり
+- 既存テーブルの `DROP` / `ALTER` やデータ損失 DDL が無い
+- `pgboss` スキーマへの変更が混入していない
+- `MasterCategory` に配下マスタがある場合、外部キーの `ON DELETE RESTRICT` が削除を防ぐ
+
+**3. 検証結果**
+
+| 検証 | 結果 |
+|---|---|
+| `pnpm prisma:generate` | Prisma Client v6.19.3 の生成成功 |
+| `pnpm exec prisma validate` | `schema.prisma` は有効 |
+| `pnpm exec prisma migrate status` | 2マイグレーションすべて適用済み、DBは最新 |
+| `pnpm format:check` | 成功 |
+| `pnpm lint` | 成功 |
+| `pnpm typecheck` | 成功 |
+| `pnpm test` | 5ファイル / 38テスト成功 |
+
+**4. 次の工程**
+
+次は工程 3。`src/modules/master` に `types.ts`、`repository.ts`、`service.ts`、`index.ts` と必要な UI を作り、マスタ分類一覧（MST-06）を `MasterCategory.id` の昇順で表示する。詳細・新規登録への導線と、ADMIN / OPERATOR / VIEWER の権限による表示制御までを工程 3 の完了条件とする。
+
+**5. README は変更しなかった**
+
+今回追加したのは未公開のマスタ機能用データベーステーブルであり、現行画面、ルート、セットアップ手順、実行コマンドは変わっていない。マスタ画面が利用可能になる工程で「主な機能」へ反映するため、現時点では `README.md` / `README_SIMPLE.md` を変更していない。
