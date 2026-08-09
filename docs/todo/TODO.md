@@ -22,8 +22,8 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 | 1. 署名 URL 化               | 5 / 5                |
 | 2. Docker イメージの軽量化        | 6 / 6                |
 | 3. Google Cloud Run       | 8 / 8                |
-| マスタ画面作りこみ（設計）             | 2 / 6                |
-| マスタ画面作りこみ（製造）             | 0 / 6                |
+| マスタ画面作りこみ（設計）             | **6 / 6**            |
+| マスタ画面作りこみ（製造）             | 0 / 10（画面）           |
 | 残っているタスク                  | 4 / 10（未対応 6 件・期限なし） |
 
 番号（`1`〜`3`）は 2026-08-02 に順序を確定したときのまま据え置いている。`2` は当初「standalone 化」だったが同日「Docker イメージの軽量化」へ差し替え、standalone 化は宿題へ降格した（経緯 → [履歴](TODO_履歴.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)）。
@@ -33,49 +33,51 @@ TODO は 3 ファイルに分かれている。**同じ内容を 2 か所に書�
 テンプレートの土台は本番稼働まで到達した。
 次はマスタ画面を作りこんでいく。具体的には以下を実施。
 
-- マスタ画面の設計作りこみ
+- マスタ画面の設計作りこみ — **6 項目すべて完了（2026-08-09）**
   
   - [x] **マスタおよびマスタ分類の削除**（2026-08-08 完了）。[`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) へ反映済み。**物理削除**・削除ボタンは詳細画面のみ・マスタ分類画面（MST-06 / MST-07）の新設まで含む → [履歴](TODO_履歴.md#2026-08-08-マスタ削除機能の設計)
   
-  - [x] **マスタコードおよびマスタ分類の変更**（2026-08-08 完了）。[`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) へ反映済み。**画面が 7 → 11 枚**（MST-08〜MST-11 を追加）。マスタ分類を独立した登録・更新・削除へ切り出し、**MST-02 の「新しい分類を登録する」を廃止**した → [履歴](TODO_履歴.md#2026-08-08-マスタコードとマスタ分類の変更機能の設計)
+  - [x] **マスタコードおよびマスタ分類の変更**（2026-08-08 完了）。[`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) へ反映済み。**画面が 7 → 10 枚**（MST-08〜MST-10 を追加）。マスタ分類を独立した登録・更新・削除へ切り出し、**MST-02 の「新しい分類を登録する」を廃止**した → [履歴](TODO_履歴.md#2026-08-08-マスタコードとマスタ分類の変更機能の設計)
   
-  - [ ] CSVによる一括DL。（src/wokerを利用。一括登録・一括更新は不要。）
+  - [x] **CSV ダウンロード**（2026-08-09 完了）。設計書 §13 として新設。**worker（pg-boss）+ ストレージ + Cloud Run Jobs** を使う。画面は増えず、MST-01 / MST-06 にボタンが 1 つずつ増える → [履歴](TODO_履歴.md#2026-08-09-マスタ設計の残り4項目を決着させcsvダウンロードを設計)
   
-  - [ ] マスタの表示順を任意に変更する機能
+  - [x] **マスタの表示順を任意に変更する機能** — **不採用で決着**（2026-08-09）。マスタはマスタコードの昇順、マスタ分類は採番順で固定する。理由は設計書 §14.1.1
   
-  - [ ] マスタの有効期間、有効・無効状態の管理
+  - [x] **マスタの有効期間、有効・無効状態の管理** — **不採用で決着**（2026-08-09）。状態という概念を持たず、使わなくなったマスタは物理削除で対応する。理由は設計書 §14.1.2
   
-  - [ ] 変更履歴の参照画面
+  - [x] **変更履歴の参照画面** — **不採用で決着**（2026-08-09）。追跡はアプリログのみ（設計書 §10.1）。理由は設計書 §14.1.3
 
 - 上記をデザインに落とし込む
 
 - 一画面ずつ製造。
 
-- 他画面も設計から実施（workerを利用したCSVダウンロードの機能も実装）。
-
 - テンプレをコピーして、新システムを別途作成。
 
-**設計は 6 項目のうち 2 件が終わった段階で、製造は 1 件も着手していない。** マスタ機能は設計書だけが存在し、[`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダのまま、`Master` / `MasterCategory` テーブルも [`schema.prisma`](../../prisma/schema.prisma) に存在しない（→ [マスタ機能](#マスタ機能)）。
+**設計は 6 項目すべて終わったが、製造は 1 件も着手していない。** マスタ機能は設計書だけが存在し、[`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) はプレースホルダのまま、`Master` / `MasterCategory` / `MasterExport` テーブルも [`schema.prisma`](../../prisma/schema.prisma) に存在しない（→ [マスタ機能](#マスタ機能)）。
 
-次のセッションは、次のどちらかを選ぶ。
-
-1. **設計を続ける**。残り 4 項目のうち「CSVなどによる一括登録・一括更新」から着手する。worker（pg-boss）を使う初めての機能になるため、他の 3 項目より前提の確認が多い
-2. **製造に入る**（推奨）。設計 2 件で画面が 11 枚まで増えたため、これ以上設計を積む前に一度動くものを作ったほうが、設計の粗も早く見つかる。**Prisma スキーマの追加から始める**
+**次のセッションは製造に入る。** 最初に打つコマンドは次のとおり。
 
 ```powershell
-docker compose -f docker/docker-compose.yml up -d db     # 製造に入る場合のみ
-pnpm dlx shadcn@latest add alert-dialog                  # 削除ダイアログに必要（未導入）
+docker compose -f docker/docker-compose.yml up -d db     # ローカル DB を起動
+pnpm dlx shadcn@latest add alert-dialog select           # 削除ダイアログと分類プルダウンに必要（未導入）
 ```
 
-製造は画面単位ではなく、次の順で進めると依存が素直になる。
+製造は画面単位ではなく、次の順で進めると依存が素直になる。**CSV は最後**。worker と本番構成の作業を伴い、画面が動いてからでないと検証できないため。
 
 ```text
-Prisma スキーマ + マイグレーション
-  → マスタ分類の一覧・登録（MST-06 / MST-09 / MST-10）   ← マスタ登録の前提になる
+Prisma スキーマ + マイグレーション（Master / MasterCategory）
+  → マスタ分類の一覧・登録・更新（MST-06 / MST-08 / MST-09 / MST-10）  ← マスタ登録の前提になる
   → マスタの検索一覧・登録・詳細（MST-01 / MST-02 / MST-03 / MST-04）
-  → マスタの更新・コード変更（MST-05 / MST-08）
-  → 削除一式（MST-07 / MST-11 / 各削除ダイアログ）
+  → マスタの更新（MST-05。分類・コード・内容の 3 項目）
+  → 削除一式（MST-04 / MST-07 の削除ダイアログ）
+  → CSV ダウンロード（MasterExport の追加 → 依頼 → worker → 受け取り → 本番構成）
 ```
+
+CSV に着手する前に、次の 3 つが前提として片づいている必要がある（詳細は設計書 §13.7）。
+
+1. `withRoute` に `userId` / `role` の出力を足す（`src/shared/observability/with-route.ts`。マスタモジュール外の変更なので独立したコミットにする）
+2. worker を単発実行できるようにする（現在の [`src/worker/index.ts`](../../src/worker/index.ts) は常駐待受のみ。Cloud Run Jobs は処理し終えたら終了する必要がある）
+3. 本番に worker が無い（Cloud Run のサービスは `contract-app` の 1 つだけ。Cloud Run Jobs の作成が要る）
 
 余裕があれば後述の、 [残っているタスク](#残っているタスク) も実施できると良い。
 
@@ -88,7 +90,7 @@ Prisma スキーマ + マイグレーション
 手元の状態を確認するコマンドは次のとおり。
 
 ```powershell
-git log --oneline -1                                     # main = 46e0f1e
+git log --oneline -1                                     # main = ba3c332（本セッションの docs コミット前）
 git status --porcelain                                   # 何も出なければクリーン
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
@@ -113,11 +115,20 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 いずれも**期限のない宿題**。優先度は [次にやること](#次にやること) を参照。
 
-- [ ] **Cloud Run の実行サービス アカウントを、権限を持たない専用 SA に差し替える**（2026-08-04 追加）。現在は既定の `<プロジェクト番号>-compute@developer.gserviceaccount.com` を使っており、プロジェクトの編集者権限を持ったまま本番が動いている
+- [ ] **Cloud Run の実行サービス アカウントを、必要な権限だけを持つ専用 SA に差し替える**（2026-08-04 追加 / 2026-08-09 に目標を修正）。現在は既定の `<プロジェクト番号>-compute@developer.gserviceaccount.com` を使っており、プロジェクトの編集者権限を持ったまま本番が動いている
   
-  - このアプリは Google Cloud の API を一切呼ばない（DB もストレージも Supabase を直接叩く）ため、**権限ゼロの SA で動くはず**。[`docker/Dockerfile`](../../docker/Dockerfile) で非 root 実行までしている方針とも整合しない
+  - **2026-08-09 に「権限ゼロの SA」という目標を取り下げた。** CSV ダウンロードの設計で **app が Cloud Run Jobs を起動する**方式を採ったため、app の SA にジョブ実行権限（`roles/run.invoker` 相当）が必要になった → 設計書 §13.7.3
+  - 付与するのは**対象の Cloud Run Jobs に対する実行権限だけ**とする。既定 SA のプロジェクト編集者権限とは比較にならないほど狭いため、最小権限という趣旨は保てる
+  - worker（Cloud Run Jobs）側の SA には Google Cloud の権限は不要（DB もストレージも Supabase を直接叩くため）
   - サービス アカウントは**リビジョン編集で差し替え可能**（リージョンやサービス名と違い、やり直しが効く）。「新しいリビジョンの編集とデプロイ」→「セキュリティ」タブ
-  - 差し替え後は `/api/health?check=db` とログインまで通し、本当に権限が不要であることを確認する
+  - 差し替え後は `/api/health?check=db` とログインまで通し、必要な権限が過不足ないことを確認する
+
+- [ ] **本番に worker を用意する**（2026-08-09 追加。CSV ダウンロードの製造前提）。現在 Cloud Run のサービスは `contract-app` の 1 つだけで、[`docker/Dockerfile`](../../docker/Dockerfile) の `runner` の `CMD` は `next start`。**pg-boss のジョブを処理する常駐プロセスが本番に存在しない**
+  
+  - 方式は **Cloud Run Jobs**（常時起動させない。app がジョブ実行 API で起こす）→ 設計書 §13.7.1
+  - 必要な作業は 5 つ（worker 用イメージ、Cloud Run Jobs の作成、app 側の環境変数、SA への権限付与、Cloud Build の更新）→ 設計書 §13.7.4
+  - worker 側にも変更が要る。現在の [`src/worker/index.ts`](../../src/worker/index.ts) は常駐待受のみで、**処理し終えたら終了する単発モードが無い** → 設計書 §13.7.2
+  - ローカルは `docker compose` の `worker` が常駐しているため、この作業なしで動く（`WORKER_INVOKE_MODE=none`）
 
 - [ ] **`main` のブランチ保護をどうするか決める**（当面は「運用ルールとして守る」で保留）。private リポジトリのブランチ保護は **GitHub Pro（$4/月）か public 化が必要**で、2026-08-02 時点では未設定
   
@@ -153,7 +164,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 | 項目                 | 状態                                                                                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `46e0f1e`**。PR #1〜#11 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している              |
+| リポジトリ              | `koekoebaborak27/multi-ai-agent-sample`（private）。**`main` = `ba3c332`**（2026-08-09 の docs コミット前）。PR #1〜#12 はすべてマージ済み・ブランチ削除済み。以降のドキュメント変更は `main` へ直接 push している |
 | コミット署名             | 個人アカウント（`koekoebaborak27 <263120753+koekoebaborak27@users.noreply.github.com>`）。`--local` 設定のためグローバル（会社アカウント）は不変                                    |
 | `gh` CLI           | 認証済み。scope は `gist` / `read:org` / `repo` / `workflow`                                                                                              |
 | CI（GitHub Actions） | グリーンで**警告 0 件**。ステップ順序のバグとアクションの Node.js 20 非推奨はどちらも修正済み                                                                                            |
@@ -172,6 +183,7 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 | 実行サービス アカウント | **既定のまま**（`<プロジェクト番号>-compute@developer.gserviceaccount.com`）。プロジェクトの編集者権限を持っている → [残っているタスク](#残っているタスク)                                                                                                  |
 | 本番イメージ       | **1.31GB**（1.73GB から軽量化。PR #8）。`runner` は devDependencies と musl バイナリを落とした `node_modules` を持ち、`CMD` は `./node_modules/.bin/next start`。**イメージに pnpm 実体は無い** → [本番イメージから落としたもの](TODO_補足.md#本番イメージから落としたもの) |
 | standalone   | [`next.config.ts`](../../next.config.ts) は `output: "standalone"` **未設定**（意図的）                                                                                                                            |
+| worker       | **本番に存在しない**。Cloud Run のサービスは `contract-app` の 1 つだけで、`runner` の `CMD` は `next start`。pg-boss のジョブを処理する常駐プロセスがない → [残っているタスク](#残っているタスク)                                                             |
 
 ### 本番データ（Supabase）
 
@@ -198,21 +210,25 @@ Invoke-WebRequest "$base/api/health?check=db" -UseBasicParsing   # {"data":{"sta
 
 ### マスタ機能
 
-**設計のみ存在し、実装は 1 行も無い。** 設計書に載っている画面は 11 枚（MST-01〜MST-11）。
+**設計は完了し、実装は 1 行も無い。** 設計書に載っている画面は 10 枚（MST-01〜MST-10）。CSV ダウンロードは画面を増やさず、MST-01 / MST-06 のボタンとして載る。
 
-| 項目            | 状態                                                                                                                             |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 基本設計書         | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)（1078 行）。**MST-01〜MST-11 の 11 画面**が反映済み（2026-08-08） |
-| 画面            | [`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) は `FeaturePlaceholder` を返すだけ。`src/modules/master/` は存在しない   |
-| DB            | `Master` / `MasterCategory` は [`schema.prisma`](../../prisma/schema.prisma) に**未追加**。設計書 §8.2 はモデル「案」であり、マイグレーションも無い           |
-| 削除方式          | **物理削除**（論理削除は不採用）。理由は削除したマスタコード / 分類名を再利用できなくなるため → 設計書 §8.3                                                                  |
-| 削除の権限・導線      | ADMIN / OPERATOR のみ。削除ボタンは**詳細画面（MST-04 / MST-07）だけ**に置き、一覧には置かない                                                              |
-| 変更できる項目       | マスタ内容は MST-05、マスタコードと所属分類は **MST-08（専用画面）**、マスタ分類名は MST-11。`id` / `createdAt` / `createdBy` は変更しない → 設計書 §8.2                  |
-| マスタ分類の登録      | **MST-09 でのみ行う**。マスタ新規登録画面（MST-02）とコード変更画面（MST-08）からは登録できず、登録済みの分類を選ぶだけ。分類が 0 件のときは MST-02 の「確認する」を無効化する                       |
-| 利用中チェック       | **行わない**。参照されていても削除・変更できる。参照側は外部キーを張らず**マスタコードも保持しない**（ID のみ）。取得できなければ「未設定」と表示する → 設計書 §8.4                                    |
-| 監査            | `createdBy` / `updatedBy` を持つ（FK なし）。削除と変更の記録はアプリログのみ（`withOp` の引数出力を使う）。**コードと分類名は変更前の値もログへ渡す**（マスタ内容の更新は渡さない）→ 設計書 §10.1     |
-| Server Action | 7 つ（マスタの登録・更新・コード変更・削除、マスタ分類の登録・更新・削除）→ 設計書 §11                                                                                |
-| 未導入の依存        | `AlertDialog`（`pnpm dlx shadcn@latest add alert-dialog`）。[`src/shared/ui/`](../../src/shared/ui/) には `dialog.tsx` しか無い         |
+| 項目            | 状態                                                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 基本設計書         | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)（1512 行）。**MST-01〜MST-10 の 10 画面**＋ CSV ダウンロード（§13）が反映済み（2026-08-09）           |
+| 画面            | [`(main)/master/page.tsx`](<../../src/app/(main)/master/page.tsx>) は `FeaturePlaceholder` を返すだけ。`src/modules/master/` は存在しない                           |
+| DB            | `Master` / `MasterCategory` / `MasterExport` は [`schema.prisma`](../../prisma/schema.prisma) に**未追加**。設計書 §8.2・§13.6 はモデル「案」であり、マイグレーションも無い              |
+| 削除方式          | **物理削除**（論理削除は不採用）。理由は削除したマスタコード / 分類名を再利用できなくなるため → 設計書 §8.3                                                                                        |
+| 削除の権限・導線      | ADMIN / OPERATOR のみ。削除ボタンは**詳細画面（MST-04 / MST-07）だけ**に置き、一覧には置かない                                                                                    |
+| 変更できる項目       | マスタ分類・マスタコード・マスタ内容は **MST-05 で 3 項目まとめて**、マスタ分類名は MST-10。`id` / `createdAt` / `createdBy` は変更しない → 設計書 §8.2                                          |
+| マスタ分類の登録      | **MST-08 でのみ行う**。マスタ新規登録画面（MST-02）とマスタ更新画面（MST-05）からは登録できず、登録済みの分類を選ぶだけ。分類が 0 件のときは MST-02 の「確認する」を無効化する                                            |
+| 並び順           | **固定**。マスタは分類名 → マスタコードの昇順、マスタ分類は採番順。任意の表示順を持つ機能は**不採用** → 設計書 §14.1.1                                                                              |
+| 有効期間・状態       | **持たない**。登録されているマスタはすべて有効として扱う → 設計書 §14.1.2                                                                                                        |
+| 利用中チェック       | **行わない**。参照されていても削除・変更できる。参照側は外部キーを張らず**マスタコードも保持しない**（ID のみ）。取得できなければ「未設定」と表示する → 設計書 §8.4                                                          |
+| 監査            | `createdBy` / `updatedBy` を持つ（FK なし）。削除と変更の記録はアプリログのみ（`withOp` の引数出力を使う）。**コードと分類名は変更前の値もログへ渡す**（マスタ内容の更新は渡さない）。**履歴テーブルは持たない** → 設計書 §10.1・§14.1.3 |
+| Server Action | **8 つ**（マスタの登録・更新・削除、マスタ分類の登録・更新・削除、CSV ダウンロードの依頼 2 つ）→ 設計書 §11                                                                                     |
+| CSV ダウンロード    | **worker 方式**。依頼（Server Action）→ 生成（pg-boss / worker）→ 受け取り（Route Handler が `storage.download()` して返す）。UTF-8 BOM 付き・上限 10,000 行・受け取り後に即削除 → 設計書 §13   |
+| 未導入の依存        | `AlertDialog` と `Select`（`pnpm dlx shadcn@latest add alert-dialog select`）。[`src/shared/ui/`](../../src/shared/ui/) には `dialog.tsx` しか無い                |
+| 実装の前提         | `withRoute` への `userId` 追加、worker の単発実行モード、本番 worker（Cloud Run Jobs）→ [残っているタスク](#残っているタスク)・設計書 §13.7                                               |
 
 ### 開発環境
 
@@ -342,7 +358,7 @@ private バケットでは `getPublicUrl` が返す公開 URL が HTTP 400 で�
 | ファイル                                                                                              | 内容                                                                            |
 | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | [`specs/99_infra/READ_ME_INFRA.md`](../specs/99_infra/READ_ME_INFRA.md)                           | **インフラ構築手順書の正本**。本番環境をゼロから構築する手順（アカウント作成〜動作確認）                                |
-| [`specs/02_basic-design/basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) | マスタ管理機能の基本設計書（MST-01〜MST-11）                                                  |
+| [`specs/02_basic-design/basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) | マスタ管理機能の基本設計書（MST-01〜MST-10 ＋ CSV ダウンロード）                                     |
 | [`TODO_補足.md`](TODO_補足.md)                                                                        | **このプロジェクトを構築したときの実測値と経緯の記録**。手順の正本は `READ_ME_INFRA.md` へ移した。**冒頭に節ごとの目次がある** |
 | [`TODO_履歴.md`](TODO_履歴.md)                                                                        | セッションごとの作業記録と判断の経緯（ホスティング先の選定を含む）                                             |
 | [`foundation_plan.md`](../foundation_plan.md)                                                     | 設計・確定方針の正本                                                                    |
