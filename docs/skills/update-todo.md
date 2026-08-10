@@ -12,7 +12,7 @@
 | 書きたいこと | 書く場所 |
 |---|---|
 | **残タスク・進捗・次の一手** | [`docs/todo/TODO.md`](../todo/TODO.md) |
-| 設計・仕様の決定（画面項目・データモデル・採用/不採用の理由） | [`docs/specs/`](../specs/) の設計書。マスタ機能は [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) |
+| 設計・仕様の決定（画面項目・データモデル・採用/不採用の理由） | [`docs/specs/`](../specs/) の設計書。マスタ機能は [`docs/specs/02_basic-design/master/`](../specs/02_basic-design/master/README.md) |
 | 本番構築の手順 | [`docs/specs/99_infra/READ_ME_INFRA.md`](../specs/99_infra/README.md) |
 | 設定値・落とし穴・実測値（コピペできるコマンド付き） | [`docs/todo/TODO_補足.md`](../todo/notes/README.md) |
 | 何をやったか・なぜそうしたか・どこで詰まったか | [`docs/todo/TODO_履歴.md`](../todo/history/README.md) |

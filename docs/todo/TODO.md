@@ -7,7 +7,7 @@
 | 書きたいこと | 書く場所 |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------- |
 | **残タスク・進捗・次の一手** | **このファイル** |
-| マスタ機能の設計・仕様の決定 | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)（`docs/specs/` が設計の正本） |
+| マスタ機能の設計・仕様の決定 | [`docs/specs/02_basic-design/master/`](../specs/02_basic-design/master/README.md)（`docs/specs/` が設計の正本） |
 | 土台の設計・確定方針 | [`foundation_plan.md`](../foundation_plan.md) |
 | 本番構築の手順・本番構成・環境変数 | [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | 設定値・落とし穴・実測値 | [`docs/todo/notes/`](notes/README.md)（冒頭に節ごとの目次がある） |
@@ -38,7 +38,7 @@
 最初に打つコマンド:
 
 ```powershell
-rg -n -A 30 "^### 6\.4 " docs/specs/02_basic-design/basic_design_master.md
+rg -N "^" "docs/specs/02_basic-design/master/12_マスタ詳細.md"
 rg -N "^" "src/app/(main)/master/categories/[categoryId]/page.tsx"
 rg -N "^" src/modules/master/ui/master-category-detail-view.tsx
 rg -n "findCategoryDetail|MasterCategoryDetail" src/modules/master/service.ts src/modules/master/repository.ts src/modules/master/types.ts
@@ -57,7 +57,7 @@ docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を
 
 ## マスタ機能の製造工程
 
-設計書 [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) を実装の正本とし、**18 工程を上から順に進める**。完了条件をすべて満たした時点で `- [x]` にし、**実装内容と検証結果は [`docs/todo/history/`](history/README.md) に書く**（この一覧には書かない）。
+設計書 [`docs/specs/02_basic-design/master/`](../specs/02_basic-design/master/README.md) を実装の正本とし、**18 工程を上から順に進める**。完了条件をすべて満たした時点で `- [x]` にし、**実装内容と検証結果は [`docs/todo/history/`](history/README.md) に書く**（この一覧には書かない）。
 
 ### 第1段階 製造準備とデータベース
 
