@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/shared/auth/session";
+import { parseListQuery } from "@/shared/api/pagination";
 import { env } from "@/shared/config/env";
-import { contractService, ContractTable, ContractForm } from "@/modules/contract";
+import {
+  CONTRACT_SORT_FIELDS,
+  contractService,
+  ContractTable,
+  ContractForm,
+} from "@/modules/contract";
 import { partyService } from "@/modules/party";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -11,16 +17,17 @@ export const dynamic = "force-dynamic";
 export default async function ContractsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; order?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { page } = await searchParams;
+  const query = parseListQuery(await searchParams, CONTRACT_SORT_FIELDS, "title");
   const [result, partyList] = await Promise.all([
-    contractService.list(Number(page ?? 1), env.PAGE_SIZE),
+    contractService.list(query.page, env.PAGE_SIZE, query.sort, query.order),
     partyService.list(1, env.PAGE_SIZE),
   ]);
+  const baseUrl = `/contracts?sort=${query.sort}&order=${query.order}${query.page > 1 ? `&page=${query.page}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -42,7 +49,12 @@ export default async function ContractsPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ContractTable contracts={result.items} />
+          <ContractTable
+            contracts={result.items}
+            sort={query.sort}
+            order={query.order}
+            baseUrl={baseUrl}
+          />
         </CardContent>
       </Card>
     </div>

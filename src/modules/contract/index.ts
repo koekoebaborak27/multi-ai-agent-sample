@@ -7,4 +7,8 @@ export {
   deleteContractAction,
   type ContractFormState,
 } from "@/modules/contract/actions";
-export type { ContractSummary } from "@/modules/contract/types";
+export {
+  CONTRACT_SORT_FIELDS,
+  type ContractSortField,
+  type ContractSummary,
+} from "@/modules/contract/types";

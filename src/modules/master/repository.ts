@@ -1,6 +1,8 @@
 import "server-only";
+import type { MasterCategorySortField, MasterSortField } from "@/modules/master/types";
+import type { SortOrder } from "@/shared/api/pagination";
 import { prisma } from "@/shared/db/prisma";
-import type { MasterCategory, Prisma } from "@prisma/client";
+import type { Master, MasterCategory, Prisma } from "@prisma/client";
 
 export type MasterCategoryListRecord = Prisma.MasterCategoryGetPayload<{
   select: {
@@ -22,11 +24,85 @@ export type MasterCategoryDetailRecord = Prisma.MasterCategoryGetPayload<{
   };
 }>;
 
+export type MasterListRecord = Prisma.MasterGetPayload<{
+  select: {
+    id: true;
+    categoryId: true;
+    code: true;
+    content: true;
+    category: { select: { name: true } };
+  };
+}>;
+
+export interface MasterListFilters {
+  categoryId?: number;
+  keyword?: string;
+}
+
 export const masterRepository = {
+  async listMastersAndCount(
+    filters: MasterListFilters,
+    skip: number,
+    take: number,
+    sort: MasterSortField,
+    order: SortOrder,
+  ): Promise<[MasterListRecord[], number]> {
+    const where: Prisma.MasterWhereInput = {
+      ...(filters.categoryId === undefined ? {} : { categoryId: filters.categoryId }),
+      ...(filters.keyword
+        ? {
+            OR: [
+              { code: { contains: filters.keyword, mode: "insensitive" } },
+              { content: { contains: filters.keyword, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+    const orderBy: Prisma.MasterOrderByWithRelationInput[] =
+      sort === "category"
+        ? [{ category: { name: order } }, { code: "asc" }]
+        : sort === "code"
+          ? [{ code: order }, { category: { name: "asc" } }]
+          : [{ content: order }, { category: { name: "asc" } }, { code: "asc" }];
+
+    return Promise.all([
+      prisma.master.findMany({
+        where,
+        select: {
+          id: true,
+          categoryId: true,
+          code: true,
+          content: true,
+          category: { select: { name: true } },
+        },
+        orderBy,
+        skip,
+        take,
+      }),
+      prisma.master.count({ where }),
+    ]);
+  },
+
+  listCategoryOptions(): Promise<Pick<MasterCategory, "id" | "name">[]> {
+    return prisma.masterCategory.findMany({
+      select: { id: true, name: true },
+      orderBy: { id: "asc" },
+    });
+  },
+
   async listCategoriesAndCount(
     skip: number,
     take: number,
+    sort: MasterCategorySortField,
+    order: SortOrder,
   ): Promise<[MasterCategoryListRecord[], number]> {
+    const primaryOrder: Prisma.MasterCategoryOrderByWithRelationInput =
+      sort === "code"
+        ? { id: order }
+        : sort === "name"
+          ? { name: order }
+          : { masters: { _count: order } };
+    const orderBy = sort === "code" ? [primaryOrder] : [primaryOrder, { id: "asc" as const }];
     return Promise.all([
       prisma.masterCategory.findMany({
         select: {
@@ -34,12 +110,39 @@ export const masterRepository = {
           name: true,
           _count: { select: { masters: true } },
         },
-        orderBy: { id: "asc" },
+        orderBy,
         skip,
         take,
       }),
       prisma.masterCategory.count(),
     ]);
+  },
+
+  findMasterByCategoryAndCode(
+    categoryId: number,
+    code: string,
+  ): Promise<Pick<Master, "id"> | null> {
+    return prisma.master.findUnique({
+      where: { categoryId_code: { categoryId, code } },
+      select: { id: true },
+    });
+  },
+
+  createMaster(data: Prisma.MasterUncheckedCreateInput): Promise<MasterListRecord> {
+    return prisma.master.create({
+      data,
+      select: {
+        id: true,
+        categoryId: true,
+        code: true,
+        content: true,
+        category: { select: { name: true } },
+      },
+    });
+  },
+
+  findCategoryById(id: number): Promise<Pick<MasterCategory, "id"> | null> {
+    return prisma.masterCategory.findUnique({ where: { id }, select: { id: true } });
   },
 
   findCategoryByName(name: string): Promise<Pick<MasterCategory, "id"> | null> {

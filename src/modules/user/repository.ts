@@ -1,12 +1,27 @@
 import { prisma } from "@/shared/db/prisma";
+import type { UserSortField } from "@/modules/user/types";
+import type { SortOrder } from "@/shared/api/pagination";
 import type { Prisma, User } from "@prisma/client";
 
 export const userRepository = {
-  async listAndCount(skip: number, take: number): Promise<[User[], number]> {
+  async listAndCount(
+    skip: number,
+    take: number,
+    sort: UserSortField,
+    order: SortOrder,
+  ): Promise<[User[], number]> {
+    const orderBy: Prisma.UserOrderByWithRelationInput[] =
+      sort === "authMethod"
+        ? [{ passwordHash: order }, { externalId: order }]
+        : sort === "status"
+          ? [{ lockedAt: order }, { mustChangePassword: order }]
+          : [{ [sort === "userId" ? "id" : sort]: order }];
+    if (sort !== "userId") orderBy.push({ id: "asc" });
+
     return Promise.all([
       prisma.user.findMany({
         where: { deleted: false },
-        orderBy: { id: "asc" },
+        orderBy,
         skip,
         take,
       }),

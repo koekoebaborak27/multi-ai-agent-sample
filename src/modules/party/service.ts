@@ -1,7 +1,7 @@
 import { partyRepository } from "@/modules/party/repository";
-import type { PartySummary } from "@/modules/party/types";
+import type { PartySortField, PartySummary } from "@/modules/party/types";
 import type { CreatePartyInput, UpdatePartyInput } from "@/modules/party/validation";
-import { toSkipTake, paginated, type Paginated } from "@/shared/api/pagination";
+import { toSkipTake, paginated, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { Errors } from "@/shared/errors/app-error";
 import type { Party } from "@prisma/client";
 
@@ -10,9 +10,14 @@ function toSummary(p: Party): PartySummary {
 }
 
 export const partyService = {
-  async list(page: number, pageSize: number): Promise<Paginated<PartySummary>> {
+  async list(
+    page: number,
+    pageSize: number,
+    sort: PartySortField = "name",
+    order: SortOrder = "asc",
+  ): Promise<Paginated<PartySummary>> {
     const { skip, take } = toSkipTake({ page, pageSize });
-    const [parties, total] = await partyRepository.listAndCount(skip, take);
+    const [parties, total] = await partyRepository.listAndCount(skip, take, sort, order);
     return paginated(parties.map(toSummary), total, { page, pageSize });
   },
 

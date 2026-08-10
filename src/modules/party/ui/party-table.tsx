@@ -1,17 +1,54 @@
 import { deletePartyAction } from "@/modules/party/actions";
-import type { PartySummary } from "@/modules/party/types";
+import type { PartySortField, PartySummary } from "@/modules/party/types";
+import type { SortOrder } from "@/shared/api/pagination";
 import { Button } from "@/shared/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import {
+  SortableTableHead,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/ui/table";
 
-export function PartyTable({ parties }: { parties: PartySummary[] }) {
+interface PartyTableProps {
+  parties: PartySummary[];
+  sort: PartySortField;
+  order: SortOrder;
+  baseUrl: string;
+}
+
+export function PartyTable({ parties, sort, order, baseUrl }: PartyTableProps) {
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>名称</TableHead>
-          <TableHead>分類</TableHead>
-          <TableHead>連絡先</TableHead>
-          <TableHead className="text-right">操作</TableHead>
+          <SortableTableHead
+            sortKey="name"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={baseUrl}
+          >
+            名称
+          </SortableTableHead>
+          <SortableTableHead
+            sortKey="kind"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={baseUrl}
+          >
+            分類
+          </SortableTableHead>
+          <SortableTableHead
+            sortKey="contactInfo"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={baseUrl}
+          >
+            連絡先
+          </SortableTableHead>
+          <TableHead className="text-right" aria-label="操作" />
         </TableRow>
       </TableHeader>
       <TableBody>

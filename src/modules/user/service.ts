@@ -1,8 +1,8 @@
 import { userRepository } from "@/modules/user/repository";
-import type { UserSummary } from "@/modules/user/types";
+import type { UserSortField, UserSummary } from "@/modules/user/types";
 import type { CreateUserInput, UpdateUserInput } from "@/modules/user/validation";
 import { authService } from "@/modules/auth/service";
-import { toSkipTake, paginated, type Paginated } from "@/shared/api/pagination";
+import { toSkipTake, paginated, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { Errors } from "@/shared/errors/app-error";
 import { isRole, type Role } from "@/shared/constants/roles";
 import type { User } from "@prisma/client";
@@ -20,9 +20,14 @@ function toSummary(u: User): UserSummary {
 }
 
 export const userService = {
-  async list(page: number, pageSize: number): Promise<Paginated<UserSummary>> {
+  async list(
+    page: number,
+    pageSize: number,
+    sort: UserSortField = "userId",
+    order: SortOrder = "asc",
+  ): Promise<Paginated<UserSummary>> {
     const { skip, take } = toSkipTake({ page, pageSize });
-    const [users, total] = await userRepository.listAndCount(skip, take);
+    const [users, total] = await userRepository.listAndCount(skip, take, sort, order);
     return paginated(users.map(toSummary), total, { page, pageSize });
   },
 

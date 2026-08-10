@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MasterCategoryTable, masterService } from "@/modules/master";
+import { MASTER_CATEGORY_SORT_FIELDS, MasterCategoryTable, masterService } from "@/modules/master";
+import { parseListQuery } from "@/shared/api/pagination";
 import { getCurrentUser } from "@/shared/auth/session";
 import { env } from "@/shared/config/env";
 import { canWrite } from "@/shared/constants/roles";
@@ -9,21 +10,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
 export const dynamic = "force-dynamic";
 
-function parsePage(value: string | undefined): number {
-  const page = Number(value ?? 1);
-  return Number.isInteger(page) && page > 0 ? page : 1;
-}
-
 export default async function MasterCategoriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; order?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const params = await searchParams;
-  const result = await masterService.listCategories(parsePage(params.page), env.PAGE_SIZE);
+  const query = parseListQuery(await searchParams, MASTER_CATEGORY_SORT_FIELDS, "code");
+  const result = await masterService.listCategories(
+    query.page,
+    env.PAGE_SIZE,
+    query.sort,
+    query.order,
+  );
+  const baseUrl = `/master/categories?sort=${query.sort}&order=${query.order}${query.page > 1 ? `&page=${query.page}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -46,12 +48,21 @@ export default async function MasterCategoriesPage({
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
-          <MasterCategoryTable categories={result.items} />
+          <MasterCategoryTable
+            categories={result.items}
+            sort={query.sort}
+            order={query.order}
+            baseUrl={baseUrl}
+          />
 
           <nav aria-label="マスタ分類一覧のページ移動" className="flex justify-end gap-2">
             {result.page > 1 ? (
               <Button asChild variant="outline" size="sm">
-                <Link href={`/master/categories?page=${result.page - 1}`}>前へ</Link>
+                <Link
+                  href={`/master/categories?sort=${query.sort}&order=${query.order}&page=${result.page - 1}`}
+                >
+                  前へ
+                </Link>
               </Button>
             ) : (
               <Button variant="outline" size="sm" disabled>
@@ -60,7 +71,11 @@ export default async function MasterCategoriesPage({
             )}
             {result.page < result.totalPages ? (
               <Button asChild variant="outline" size="sm">
-                <Link href={`/master/categories?page=${result.page + 1}`}>次へ</Link>
+                <Link
+                  href={`/master/categories?sort=${query.sort}&order=${query.order}&page=${result.page + 1}`}
+                >
+                  次へ
+                </Link>
               </Button>
             ) : (
               <Button variant="outline" size="sm" disabled>

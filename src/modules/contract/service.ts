@@ -1,7 +1,7 @@
 import { contractRepository, type ContractWithParty } from "@/modules/contract/repository";
-import type { ContractSummary } from "@/modules/contract/types";
+import type { ContractSortField, ContractSummary } from "@/modules/contract/types";
 import type { CreateContractInput, UpdateContractInput } from "@/modules/contract/validation";
-import { toSkipTake, paginated, type Paginated } from "@/shared/api/pagination";
+import { toSkipTake, paginated, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { Errors } from "@/shared/errors/app-error";
 
 function toSummary(c: ContractWithParty): ContractSummary {
@@ -17,9 +17,14 @@ function toSummary(c: ContractWithParty): ContractSummary {
 }
 
 export const contractService = {
-  async list(page: number, pageSize: number): Promise<Paginated<ContractSummary>> {
+  async list(
+    page: number,
+    pageSize: number,
+    sort: ContractSortField = "title",
+    order: SortOrder = "asc",
+  ): Promise<Paginated<ContractSummary>> {
     const { skip, take } = toSkipTake({ page, pageSize });
-    const [contracts, total] = await contractRepository.listAndCount(skip, take);
+    const [contracts, total] = await contractRepository.listAndCount(skip, take, sort, order);
     return paginated(contracts.map(toSummary), total, { page, pageSize });
   },
 

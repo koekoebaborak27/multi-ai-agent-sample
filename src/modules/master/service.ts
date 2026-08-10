@@ -2,13 +2,23 @@ import {
   masterRepository,
   type MasterCategoryDetailRecord,
   type MasterCategoryListRecord,
+  type MasterListRecord,
 } from "@/modules/master/repository";
-import type { MasterCategoryDetail, MasterCategorySummary } from "@/modules/master/types";
+import type {
+  MasterCategoryDetail,
+  MasterCategoryOption,
+  MasterCategorySortField,
+  MasterCategorySummary,
+  MasterSearchCriteria,
+  MasterSortField,
+  MasterSummary,
+} from "@/modules/master/types";
 import type {
   CreateMasterCategoryInput,
+  CreateMasterInput,
   UpdateMasterCategoryInput,
 } from "@/modules/master/validation";
-import { paginated, toSkipTake, type Paginated } from "@/shared/api/pagination";
+import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError } from "@/shared/errors/app-error";
 import { Prisma } from "@prisma/client";
 
@@ -40,6 +50,16 @@ function toCategoryDetail(category: MasterCategoryDetailRecord): MasterCategoryD
   };
 }
 
+function toMasterSummary(master: MasterListRecord): MasterSummary {
+  return {
+    id: master.id,
+    categoryId: master.categoryId,
+    categoryName: master.category.name,
+    code: master.code,
+    content: master.content,
+  };
+}
+
 function masterCategoryConflict(name: string): AppError {
   return new AppError("MASTER_CATEGORY_CONFLICT", 409, "同じ名前のマスタ分類が登録されています", {
     name,
@@ -59,21 +79,108 @@ function masterCategoryConcurrentUpdate(id: number): AppError {
   );
 }
 
+function masterCodeConflict(categoryId: number, code: string): AppError {
+  return new AppError(
+    "MASTER_CODE_CONFLICT",
+    409,
+    "同じマスタ分類に同じマスタコードが登録されています",
+    { categoryId, code },
+  );
+}
+
 async function assertCategoryNameAvailable(name: string, excludeId?: number): Promise<void> {
   const existing = await masterRepository.findCategoryByName(name);
   if (existing && existing.id !== excludeId) throw masterCategoryConflict(name);
 }
 
+async function assertCategoryExists(categoryId: number): Promise<void> {
+  const category = await masterRepository.findCategoryById(categoryId);
+  if (!category) throw masterCategoryNotFound(categoryId);
+}
+
+async function assertMasterCodeAvailable(
+  categoryId: number,
+  code: string,
+  excludeId?: number,
+): Promise<void> {
+  const existing = await masterRepository.findMasterByCategoryAndCode(categoryId, code);
+  if (existing && existing.id !== excludeId) throw masterCodeConflict(categoryId, code);
+}
+
 export const masterService = {
-  async listCategories(page: number, pageSize: number): Promise<Paginated<MasterCategorySummary>> {
+  async listMasters(
+    criteria: MasterSearchCriteria,
+    page: number,
+    pageSize: number,
+    sort: MasterSortField = "category",
+    order: SortOrder = "asc",
+  ): Promise<Paginated<MasterSummary>> {
     const { skip, take } = toSkipTake({ page, pageSize });
-    const [categories, total] = await masterRepository.listCategoriesAndCount(skip, take);
+    const keyword = criteria.keyword?.trim() || undefined;
+    const [masters, total] = await masterRepository.listMastersAndCount(
+      { categoryId: criteria.categoryId, keyword },
+      skip,
+      take,
+      sort,
+      order,
+    );
+    return paginated(masters.map(toMasterSummary), total, { page, pageSize });
+  },
+
+  async listCategoryOptions(): Promise<MasterCategoryOption[]> {
+    const categories = await masterRepository.listCategoryOptions();
+    return categories.map((category) => ({
+      id: category.id,
+      code: formatMasterCategoryCode(category.id),
+      name: category.name,
+    }));
+  },
+
+  async listCategories(
+    page: number,
+    pageSize: number,
+    sort: MasterCategorySortField = "code",
+    order: SortOrder = "asc",
+  ): Promise<Paginated<MasterCategorySummary>> {
+    const { skip, take } = toSkipTake({ page, pageSize });
+    const [categories, total] = await masterRepository.listCategoriesAndCount(
+      skip,
+      take,
+      sort,
+      order,
+    );
     return paginated(categories.map(toCategorySummary), total, { page, pageSize });
   },
 
   async findCategoryDetail(id: number): Promise<MasterCategoryDetail | null> {
     const category = await masterRepository.findCategoryByIdWithCount(id);
     return category ? toCategoryDetail(category) : null;
+  },
+
+  assertCategoryExists,
+
+  assertMasterCodeAvailable,
+
+  async createMaster(input: CreateMasterInput, userId: string): Promise<MasterSummary> {
+    await assertCategoryExists(input.categoryId);
+    await assertMasterCodeAvailable(input.categoryId, input.code);
+
+    try {
+      const master = await masterRepository.createMaster({
+        categoryId: input.categoryId,
+        code: input.code,
+        content: input.content,
+        createdBy: userId,
+        updatedBy: userId,
+      });
+      return toMasterSummary(master);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2002") throw masterCodeConflict(input.categoryId, input.code);
+        if (error.code === "P2003") throw masterCategoryNotFound(input.categoryId);
+      }
+      throw error;
+    }
   },
 
   assertCategoryNameAvailable,

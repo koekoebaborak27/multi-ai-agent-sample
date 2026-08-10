@@ -1,14 +1,23 @@
 import { prisma } from "@/shared/db/prisma";
+import type { ContractSortField } from "@/modules/contract/types";
+import type { SortOrder } from "@/shared/api/pagination";
 import type { Contract, Party, Prisma } from "@prisma/client";
 
 export type ContractWithParty = Contract & { party: Party };
 
 export const contractRepository = {
-  async listAndCount(skip: number, take: number): Promise<[ContractWithParty[], number]> {
+  async listAndCount(
+    skip: number,
+    take: number,
+    sort: ContractSortField,
+    order: SortOrder,
+  ): Promise<[ContractWithParty[], number]> {
+    const orderBy: Prisma.ContractOrderByWithRelationInput =
+      sort === "partyName" ? { party: { name: order } } : { [sort]: order };
     return Promise.all([
       prisma.contract.findMany({
         include: { party: true },
-        orderBy: { createdAt: "desc" },
+        orderBy: [orderBy, { id: "asc" }],
         skip,
         take,
       }),

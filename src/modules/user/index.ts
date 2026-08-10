@@ -7,4 +7,4 @@ export {
   deleteUserAction,
   type UserFormState,
 } from "@/modules/user/actions";
-export type { UserSummary } from "@/modules/user/types";
+export { USER_SORT_FIELDS, type UserSortField, type UserSummary } from "@/modules/user/types";

@@ -1,12 +1,158 @@
 /**
- * 対象: master/validation マスタ分類の登録・更新
- * 目的: 分類名の入力仕様と、更新対象ID・更新時点の変換を担保する
+ * 対象: master/validation マスタ検索、マスタの登録およびマスタ分類の登録・更新
+ * 目的: URL検索条件、戻り先URL、コード・内容・分類名の入力仕様、更新対象ID・更新時点の変換を担保する
  */
 import {
   createMasterCategorySchema,
+  createMasterSchema,
+  masterSearchQuerySchema,
+  parseMasterReturnTo,
   updateMasterCategorySchema,
 } from "@/modules/master/validation";
 import { describe, expect, it } from "vitest";
+
+describe("master/validation masterSearchQuerySchema", () => {
+  describe("有効なURLクエリの場合", () => {
+    it("分類IDとページ番号をnumberへ変換し、検索文字列の前後空白を除去する", () => {
+      expect(
+        masterSearchQuerySchema.parse({
+          categoryId: "12",
+          keyword: "  契約  ",
+          page: "2",
+          sort: "content",
+          order: "desc",
+        }),
+      ).toEqual({ categoryId: 12, keyword: "契約", page: 2, sort: "content", order: "desc" });
+    });
+
+    it("すべての分類を選ぶクエリを明示的な検索条件として保持する", () => {
+      expect(masterSearchQuerySchema.parse({ categoryId: "all" })).toEqual({
+        categoryId: "all",
+        keyword: undefined,
+        page: 1,
+        sort: "category",
+        order: "asc",
+      });
+    });
+  });
+
+  describe("検索条件が空または不正な場合", () => {
+    it("検索条件を未指定、ページ番号を1として扱う", () => {
+      expect(
+        masterSearchQuerySchema.parse({
+          categoryId: "invalid",
+          keyword: "   ",
+          page: "0",
+          sort: "invalid",
+          order: "invalid",
+        }),
+      ).toEqual({
+        categoryId: undefined,
+        keyword: undefined,
+        page: 1,
+        sort: "category",
+        order: "asc",
+      });
+    });
+  });
+});
+
+describe("master/validation parseMasterReturnTo", () => {
+  describe("マスタ検索一覧のURLが指定された場合", () => {
+    it("検索条件を含むURLをそのまま戻り先とする", () => {
+      expect(parseMasterReturnTo("/master?categoryId=12&page=2")).toBe(
+        "/master?categoryId=12&page=2",
+      );
+      expect(parseMasterReturnTo("/master")).toBe("/master");
+    });
+  });
+
+  describe("マスタ検索一覧以外が指定された場合", () => {
+    it("マスタ検索一覧を戻り先とする", () => {
+      expect(parseMasterReturnTo("https://example.com/master")).toBe("/master");
+      expect(parseMasterReturnTo("//example.com")).toBe("/master");
+      expect(parseMasterReturnTo("/masters")).toBe("/master");
+      expect(parseMasterReturnTo("/admin/users")).toBe("/master");
+      expect(parseMasterReturnTo(undefined)).toBe("/master");
+      expect(parseMasterReturnTo("")).toBe("/master");
+    });
+  });
+});
+
+describe("master/validation createMasterSchema", () => {
+  const valid = { categoryId: "12", code: "CON-01", content: "月額契約" };
+
+  describe("正常系", () => {
+    it("分類IDをnumberへ変換し、コードと内容の前後空白を除去する", () => {
+      expect(
+        createMasterSchema.parse({ categoryId: "12", code: "  CON-01  ", content: "  月額契約  " }),
+      ).toEqual({ categoryId: 12, code: "CON-01", content: "月額契約" });
+    });
+
+    it("8文字のマスタコードとUnicodeコードポイントで30文字のマスタ内容を受け付ける", () => {
+      const content = "😀".repeat(30);
+      expect(createMasterSchema.parse({ ...valid, code: "A_1-B2C3", content })).toEqual({
+        categoryId: 12,
+        code: "A_1-B2C3",
+        content,
+      });
+    });
+  });
+
+  describe("マスタ分類が未選択の場合", () => {
+    it("選択を促すエラーとして拒否する", () => {
+      const result = createMasterSchema.safeParse({ ...valid, categoryId: "" });
+      expect(result.success).toBe(false);
+      if (!result.success)
+        expect(result.error.issues[0]?.message).toBe("マスタ分類を選択してください");
+    });
+  });
+
+  describe("マスタコードが9文字の場合", () => {
+    it("文字数上限エラーとして拒否する", () => {
+      const result = createMasterSchema.safeParse({ ...valid, code: "ABCDEFGHI" });
+      expect(result.success).toBe(false);
+      if (!result.success)
+        expect(result.error.issues[0]?.message).toBe("マスタコードは8文字以内です");
+    });
+  });
+
+  describe("マスタコードに許可されていない文字が含まれる場合", () => {
+    it("英小文字、日本語、空白および記号を文字種エラーとして拒否する", () => {
+      for (const code of ["con01", "契約", "CON 01", "CON@01"]) {
+        const result = createMasterSchema.safeParse({ ...valid, code });
+        expect(result.success).toBe(false);
+        if (!result.success)
+          expect(result.error.issues[0]?.message).toBe(
+            "マスタコードは英大文字、数字、ハイフン、アンダースコアだけで入力してください",
+          );
+      }
+    });
+  });
+
+  describe("マスタコードまたはマスタ内容が空白だけの場合", () => {
+    it("必須エラーとして拒否する", () => {
+      const emptyCode = createMasterSchema.safeParse({ ...valid, code: "   " });
+      expect(emptyCode.success).toBe(false);
+      if (!emptyCode.success)
+        expect(emptyCode.error.issues[0]?.message).toBe("マスタコードは必須です");
+
+      const emptyContent = createMasterSchema.safeParse({ ...valid, content: "   " });
+      expect(emptyContent.success).toBe(false);
+      if (!emptyContent.success)
+        expect(emptyContent.error.issues[0]?.message).toBe("マスタ内容は必須です");
+    });
+  });
+
+  describe("マスタ内容がUnicodeコードポイントで31文字の場合", () => {
+    it("文字数上限エラーとして拒否する", () => {
+      const result = createMasterSchema.safeParse({ ...valid, content: "😀".repeat(31) });
+      expect(result.success).toBe(false);
+      if (!result.success)
+        expect(result.error.issues[0]?.message).toBe("マスタ内容は30文字以内です");
+    });
+  });
+});
 
 describe("master/validation createMasterCategorySchema", () => {
   describe("正常系", () => {

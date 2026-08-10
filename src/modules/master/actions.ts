@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { masterService } from "@/modules/master/service";
 import {
   createMasterCategorySchema,
+  createMasterSchema,
+  parseMasterReturnTo,
   updateMasterCategorySchema,
 } from "@/modules/master/validation";
 import { getCurrentUser } from "@/shared/auth/session";
@@ -24,12 +26,75 @@ export interface MasterCategoryFormState {
   error?: string;
 }
 
+export interface MasterFormState {
+  mode: "create" | "update";
+  phase: "input" | "confirm";
+  categoryId?: number;
+  code?: string;
+  content?: string;
+  returnTo: string;
+  error?: string;
+}
+
 async function requireWriter() {
   const user = await getCurrentUser();
   if (!user) throw Errors.unauthorized();
   if (!canWrite(user.role)) throw Errors.forbidden("この操作を行う権限がありません");
   return user;
 }
+
+/** 未選択・不正な値は入力欄へ戻さず未選択として扱う */
+function toSelectedCategoryId(rawCategoryId: string): number | undefined {
+  const categoryId = Number(rawCategoryId.trim());
+  return Number.isInteger(categoryId) && categoryId > 0 ? categoryId : undefined;
+}
+
+export const createMasterAction = withOp(
+  "master.create",
+  async (_prev: MasterFormState, formData: FormData): Promise<MasterFormState> => {
+    const user = await requireWriter();
+    const intent = formData.get("intent") === "execute" ? "execute" : "confirm";
+    const rawCategoryId = String(formData.get("categoryId") ?? "");
+    const rawCode = String(formData.get("code") ?? "");
+    const rawContent = String(formData.get("content") ?? "");
+    const returnTo = parseMasterReturnTo(String(formData.get("returnTo") ?? ""));
+    const phase = intent === "execute" ? "confirm" : "input";
+    const parsed = createMasterSchema.safeParse({
+      categoryId: rawCategoryId,
+      code: rawCode,
+      content: rawContent,
+    });
+
+    if (!parsed.success) {
+      return {
+        mode: "create",
+        phase,
+        categoryId: toSelectedCategoryId(rawCategoryId),
+        code: rawCode,
+        content: rawContent,
+        returnTo,
+        error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
+      };
+    }
+
+    try {
+      if (intent === "confirm") {
+        await masterService.assertCategoryExists(parsed.data.categoryId);
+        await masterService.assertMasterCodeAvailable(parsed.data.categoryId, parsed.data.code);
+        return { mode: "create", phase: "confirm", ...parsed.data, returnTo };
+      }
+
+      const master = await masterService.createMaster(parsed.data, user.id);
+      revalidatePath("/master");
+      redirect(`/master/${master.id}?created=1&returnTo=${encodeURIComponent(returnTo)}`);
+    } catch (error) {
+      if (isAppError(error)) {
+        return { mode: "create", phase, ...parsed.data, returnTo, error: error.userMessage };
+      }
+      throw error;
+    }
+  },
+);
 
 export const createMasterCategoryAction = withOp(
   "master.category.create",

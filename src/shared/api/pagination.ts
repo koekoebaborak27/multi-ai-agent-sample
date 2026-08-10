@@ -10,6 +10,27 @@ export const paginationQuerySchema = z.object({
 });
 
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+export type SortOrder = PaginationQuery["order"];
+
+export interface ListQuery<TSort extends string> {
+  page: number;
+  sort: TSort;
+  order: SortOrder;
+}
+
+/** 一覧URLのページ・ソート条件を許可リストに基づいて安全な初期値へ補正する。 */
+export function parseListQuery<TSort extends string>(
+  query: { page?: string; sort?: string; order?: string },
+  allowedSorts: readonly TSort[],
+  defaultSort: TSort,
+  defaultOrder: SortOrder = "asc",
+): ListQuery<TSort> {
+  const parsedPage = Number(query.page ?? 1);
+  const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const sort = allowedSorts.includes(query.sort as TSort) ? (query.sort as TSort) : defaultSort;
+  const order = query.order === "asc" || query.order === "desc" ? query.order : defaultOrder;
+  return { page, sort, order };
+}
 
 /** Prisma の skip/take に変換 */
 export function toSkipTake(q: Pick<PaginationQuery, "page" | "pageSize">) {

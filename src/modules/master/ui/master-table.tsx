@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { MasterCategorySortField, MasterCategorySummary } from "@/modules/master/types";
+import type { MasterSortField, MasterSummary } from "@/modules/master/types";
 import type { SortOrder } from "@/shared/api/pagination";
 import { Button } from "@/shared/ui/button";
 import {
@@ -12,67 +12,63 @@ import {
   TableRow,
 } from "@/shared/ui/table";
 
-interface MasterCategoryTableProps {
-  categories: MasterCategorySummary[];
-  sort: MasterCategorySortField;
+interface MasterTableProps {
+  masters: MasterSummary[];
+  returnTo: string;
+  sort: MasterSortField;
   order: SortOrder;
-  baseUrl: string;
 }
 
-export function MasterCategoryTable({
-  categories,
-  sort,
-  order,
-  baseUrl,
-}: MasterCategoryTableProps) {
+export function MasterTable({ masters, returnTo, sort, order }: MasterTableProps) {
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <SortableTableHead
+            sortKey="category"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={returnTo}
+          >
+            マスタ分類
+          </SortableTableHead>
+          <SortableTableHead
             sortKey="code"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
-            マスタ分類コード
+            マスタコード
           </SortableTableHead>
           <SortableTableHead
-            sortKey="name"
+            sortKey="content"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
-            マスタ分類名
-          </SortableTableHead>
-          <SortableTableHead
-            sortKey="masterCount"
-            currentSort={sort}
-            currentOrder={order}
-            baseUrl={baseUrl}
-            align="right"
-          >
-            登録マスタ件数
+            マスタ内容
           </SortableTableHead>
           <TableHead className="text-right" aria-label="操作" />
         </TableRow>
       </TableHeader>
       <TableBody>
-        {categories.length === 0 ? (
+        {masters.length === 0 ? (
           <TableRow>
             <TableCell colSpan={4} className="text-center text-muted-foreground">
-              登録されているマスタ分類がありません
+              該当するマスタがありません
             </TableCell>
           </TableRow>
         ) : (
-          categories.map((category) => (
-            <TableRow key={category.id}>
-              <TableCell className="font-mono">{category.code}</TableCell>
-              <TableCell>{category.name}</TableCell>
-              <TableCell className="text-right tabular-nums">{category.masterCount}</TableCell>
+          masters.map((master) => (
+            <TableRow key={master.id}>
+              <TableCell>{master.categoryName}</TableCell>
+              <TableCell className="font-mono">{master.code}</TableCell>
+              <TableCell>{master.content}</TableCell>
               <TableCell className="text-right">
                 <Button asChild variant="outline" size="sm">
-                  <Link href={`/master/categories/${category.id}`}>詳細</Link>
+                  <Link href={`/master/${master.id}?returnTo=${encodeURIComponent(returnTo)}`}>
+                    詳細
+                  </Link>
                 </Button>
               </TableCell>
             </TableRow>
