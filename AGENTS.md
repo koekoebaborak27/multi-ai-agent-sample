@@ -15,7 +15,7 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 | `src/` | アプリ本体（`app/` ルーティング → `modules/<機能>` 縦割り → `shared/` 横断）。規約は `@src/AGENTS.md` |
 | `prisma/` | スキーマ・マイグレーション・seed。規約は `@prisma/AGENTS.md` |
 | `docker/` | Dockerfile（app/worker 共用）+ docker-compose（ローカル開発用 DB） |
-| `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/`、残タスク一式は `docs/todo/`（本編 `TODO.md` + 補足 + 履歴） |
+| `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/`、開発フローは `docs/development/git.md`、残タスク一式は `docs/todo/`（本編 `TODO.md` + 補足 `notes/` + 履歴 `history/`）。設計書と手順書は機能・手順ごとに分割してあり、各ディレクトリの `README.md` が索引 |
 | `.github/` | Copilot 指示（`copilot-instructions.md`）+ Copilot プロンプト（`prompts/`）+ CI ワークフロー（`workflows/ci.yml`） |
 | `.agents/` | Codex が読むリポジトリ内スキル（`skills/<name>/SKILL.md`） |
 | `.codex/` | Codex CLI のプロジェクト設定（`config.toml`。サンドボックス / 承認ポリシー）+ 権限ルール（`rules/*.rules`） |
@@ -40,6 +40,8 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 - コミット/PR には「何を・なぜ・どう検証したか」を記載する。
 - **エージェントが確認なしで実行してよいコマンドと、単独で実行してはならない操作は `@docs/agent_permissions.md` が正本。** `.env` の読み取り、`pnpm db:reset` / `prisma migrate reset` / `git push --force` / `git reset --hard` は設定ファイルでも禁止しているが、強制には穴があるため**規約としても実行しない**。
 - `docs/todo/TODO.md` と `README.md` / `README_SIMPLE.md` の更新は、`@docs/skills/update-todo.md` の手順に従う。
+- **ドキュメントは必要な範囲だけ読む。** まずディレクトリの `README.md`（索引）か見出し検索で該当箇所を特定し、そのうえで必要な節だけを開く。20KB を超えるファイルを最初から全文読まない。読む前に `rg -n "^#{1,3} " <file>` で見出しを出せば、どこを読むべきか判断できる。
+- **ドキュメントを分割・移動したら、参照元のリンクを必ず張り替える。** 移動先が 1 階層深くなる場合は本文中の相対リンク（`../`）も繰り上げる。作業後にリポジトリ全体の `.md` を走査してリンク切れが無いことを確認する。
 
 ## 主要コマンド
 
@@ -58,6 +60,9 @@ pnpm prisma:seed    # 初期データ投入（初期 ADMIN）
 ## 参照
 
 - 設計・確定方針: `@docs/foundation_plan.md`
+- 開発フロー（ブランチ → PR → CI → マージ）: `@docs/development/git.md`
+- マスタ機能の基本設計（機能ごとに分割）: `@docs/specs/02_basic-design/master/README.md`
+- インフラ構築手順（手順ごとに分割）: `@docs/specs/99_infra/README.md`
 - Prisma マイグレーション運用: `@docs/prisma_operations.md`
 - UI / デザイン規約: `DESIGN.md`
 - コミット / PR レビュー観点: `REVIEW.md`

@@ -438,7 +438,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 
 ## 本番デプロイ（Google Cloud Run + Supabase）
 
-> **本番環境をゼロから構築する場合は [`docs/specs/99_infra/READ_ME_INFRA.md`](docs/specs/99_infra/README.md)（インフラ構築手順書）を参照してください。** アカウント作成から動作確認まで、画面操作と用語の説明を含めて手順化してあります。以下はその要約です。
+> **本番環境をゼロから構築する場合は [`docs/specs/99_infra/`](docs/specs/99_infra/README.md)（インフラ構築手順書）を参照してください。** アカウント作成から動作確認まで、画面操作と用語の説明を含めて手順化してあります。以下はその要約です。
 
 - **本番DB / ストレージ**: [Supabase](https://supabase.com/) の PostgreSQL + Storage を使用。`STORAGE_TYPE=supabase`に切り替える。接続文字列は **Session pooler** のものを使う（Direct connection は IPv6 専用で Cloud Run から到達できず、Transaction pooler は `prisma migrate deploy` が通らない）。
 - **ホスティング**: [Google Cloud Run](https://cloud.google.com/run) に GitHub リポジトリを連携し、`main` ブランチへの push を契機に Cloud Build が [`docker/Dockerfile`](docker/Dockerfile) をビルドして自動デプロイする。リージョンは Always Free 対象の **us-central1**、最小インスタンス数は **0**、**最大インスタンス数は 2**（既定の 100 のままだと想定外のアクセスで無料枠を超えるため必ず絞る）。メモリは既定の **512MiB** で足りる（実測 77MB）。
@@ -449,7 +449,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 - **マイグレーション**: Cloud Run にはデプロイ前フックがないため、**ローカルから本番 DB に対して `prisma migrate deploy` を手動実行**する。
 - **初期データ**: `prisma migrate deploy` は seed を実行しないため、初回のみローカルから `pnpm prisma:seed` を本番 DB に対して実行する（`SEED_ADMIN_PASSWORD` を必ず指定する）。
 
-> ポートは Cloud Run が `PORT=8080` を注入し `next start` がそれを読むため、設定は不要です（`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されません）。進捗と残タスクは [`docs/todo/TODO.md`](docs/todo/TODO.md)、コマンド単位の手順（接続文字列の選び方・`migrate deploy` / seed の実行・本番の環境変数一覧）は [`docs/todo/TODO_補足.md`](docs/todo/notes/README.md) を参照してください。
+> ポートは Cloud Run が `PORT=8080` を注入し `next start` がそれを読むため、設定は不要です（`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されません）。進捗と残タスクは [`docs/todo/TODO.md`](docs/todo/TODO.md)、コマンド単位の手順（接続文字列の選び方・`migrate deploy` / seed の実行・本番の環境変数一覧）は [`docs/todo/notes/`](docs/todo/notes/README.md) を参照してください。
 
 技術選定の背景・段階的な拡張方針は [`docs/foundation_plan.md`](docs/foundation_plan.md) を参照。
 
@@ -532,7 +532,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code 向けの入口（`AGENTS.md` + Claude 固有の補足） |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot 向けの入口（`AGENTS.md` + Copilot 固有の補足） |
 | [`docs/foundation_plan.md`](docs/foundation_plan.md) | 設計・確定方針（設計の正本） |
-| [`docs/specs/99_infra/READ_ME_INFRA.md`](docs/specs/99_infra/README.md) | **インフラ構築手順書**（本番環境をゼロから構築する手順の正本） |
+| [`docs/specs/99_infra/`](docs/specs/99_infra/README.md) | **インフラ構築手順書**（本番環境をゼロから構築する手順の正本） |
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
 | [`docs/development/git.md`](docs/development/git.md) | **開発フロー**（ブランチ → Pull Request → CI → マージ。`main` へ直接 push する例外を含む） |

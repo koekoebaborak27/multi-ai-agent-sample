@@ -59,8 +59,8 @@
 | [`docs/foundation_plan.md`](../../foundation_plan.md)     | 設計・技術選定の正本                     |
 | [`docs/prisma_operations.md`](../../prisma_operations.md) | マイグレーションの運用フロー                 |
 | [`docs/todo/TODO.md`](../../todo/TODO.md)                 | 残タスクと現在の状態                     |
-| [`docs/todo/TODO_補足.md`](../../todo/notes/README.md)           | **このプロジェクトを構築したときの実測値と設定値の記録** |
-| [`docs/todo/TODO_履歴.md`](../../todo/history/README.md)           | **構築時の作業記録と判断の経緯**（失敗した過程を含む）  |
+| [`docs/todo/notes/`](../../todo/notes/README.md)           | **このプロジェクトを構築したときの実測値と設定値の記録** |
+| [`docs/todo/history/`](../../todo/history/README.md)           | **構築時の作業記録と判断の経緯**（失敗した過程を含む）  |
 | [`AGENTS.md`](../../../AGENTS.md)                         | 開発方針の正本                        |
 
-> **本書と TODO 系ドキュメントの違い**: 本書は**これから構築する人のための手順**です。TODO_補足.md と TODO_履歴.md は**このプロジェクトを構築したときの記録**であり、実測値や当時の判断の経緯が残されています。手順どおりに進まない場合は、そちらに同じ状況の記録がある場合があります。
+> **本書と TODO 系ドキュメントの違い**: 本書は**これから構築する人のための手順**です。`docs/todo/notes/` と `docs/todo/history/` は**このプロジェクトを構築したときの記録**であり、実測値や当時の判断の経緯が残されています。手順どおりに進まない場合は、そちらに同じ状況の記録がある場合があります。
