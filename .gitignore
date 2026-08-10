@@ -66,7 +66,3 @@ uploads/
 current_system/*
 doc/todo*.txt
 
-# 契約システム（参考版）の過去資料。
-# Git管理下には置かない。
-docs/legacy-contract-reference/
-

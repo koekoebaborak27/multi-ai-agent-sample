@@ -698,7 +698,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 - **マイグレーション**: Cloud Run にはデプロイ前フックがないため、**ローカルから本番 DB に対して `prisma migrate deploy` を手動実行**する。
 - **初期データ**: `prisma migrate deploy` は seed を実行しないため、初回のみローカルから `pnpm prisma:seed` を本番 DB に対して実行する（`SEED_ADMIN_PASSWORD` を必ず指定する）。
 
-> ポートは Cloud Run が `PORT=8080` を注入し `next start` がそれを読むため、設定は不要です（`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されません）。進捗と残タスクは [`docs/todo/TODO.md`](docs/todo/TODO.md)、コマンド単位の手順（接続文字列の選び方・`migrate deploy` / seed の実行・本番の環境変数一覧）は [`docs/todo/TODO_補足.md`](docs/todo/TODO_補足.md) を参照してください。
+> ポートは Cloud Run が `PORT=8080` を注入し `next start` がそれを読むため、設定は不要です（`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されません）。進捗と残タスクは [`docs/todo/TODO.md`](docs/todo/TODO.md)、コマンド単位の手順（接続文字列の選び方・`migrate deploy` / seed の実行・本番の環境変数一覧）は [`docs/todo/TODO_補足.md`](docs/todo/notes/README.md) を参照してください。
 
 技術選定の背景・段階的な拡張方針は [`docs/foundation_plan.md`](docs/foundation_plan.md) を参照。
 
@@ -785,8 +785,8 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
 | [`docs/todo/TODO.md`](docs/todo/TODO.md) | 残タスク一覧・進捗・現在の状態 |
-| [`docs/todo/TODO_補足.md`](docs/todo/TODO_補足.md) | 残タスクの補足（Supabase / Cloud Run の設定値・手順・落とし穴） |
-| [`docs/todo/TODO_履歴.md`](docs/todo/TODO_履歴.md) | セッションごとの作業記録（引き継ぎメモ） |
+| [`docs/todo/TODO_補足.md`](docs/todo/notes/README.md) | 残タスクの補足（Supabase / Cloud Run の設定値・手順・落とし穴） |
+| [`docs/todo/TODO_履歴.md`](docs/todo/history/README.md) | セッションごとの作業記録（引き継ぎメモ） |
 | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) | TODO / README の更新手順（スキルの正本・全エージェント共通） |
 | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) | CI をスキップして push する手順（スキルの正本・全エージェント共通） |
 | [`docs/agent_permissions.md`](docs/agent_permissions.md) | エージェント権限ポリシー（許可 / 禁止コマンドの正本・全エージェント共通） |
