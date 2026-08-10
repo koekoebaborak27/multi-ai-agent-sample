@@ -13,7 +13,7 @@
 |---|---|
 | **残タスク・進捗・次の一手** | [`docs/todo/TODO.md`](../todo/TODO.md) |
 | 設計・仕様の決定（画面項目・データモデル・採用/不採用の理由） | [`docs/specs/`](../specs/) の設計書。マスタ機能は [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md) |
-| 本番構築の手順 | [`docs/specs/99_infra/READ_ME_INFRA.md`](../specs/99_infra/READ_ME_INFRA.md) |
+| 本番構築の手順 | [`docs/specs/99_infra/READ_ME_INFRA.md`](../specs/99_infra/README.md) |
 | 設定値・落とし穴・実測値（コピペできるコマンド付き） | [`docs/todo/TODO_補足.md`](../todo/notes/README.md) |
 | 何をやったか・なぜそうしたか・どこで詰まったか | [`docs/todo/TODO_履歴.md`](../todo/history/README.md) |
 | UI / デザイン規約 | [`DESIGN.md`](../../DESIGN.md) |
@@ -105,7 +105,7 @@
   (Get-Content docs/todo/TODO.md | Measure-Object -Line).Lines
   ```
 
-- **`TODO.md` の見出しを変えないこと。** `#次にやること` / `#マスタ機能の製造工程` / `#残っているタスク` / `#完了済みの作業` へは、[`docs/todo/history/`](../todo/history/README.md)・[`docs/todo/notes/`](../todo/notes/README.md)・[`README.md`](../../README.md)・[`READ_ME_INFRA.md`](../specs/99_infra/READ_ME_INFRA.md) からアンカーリンクが張られている。節を作り替える場合は参照元も直す
+- **`TODO.md` の見出しを変えないこと。** `#次にやること` / `#マスタ機能の製造工程` / `#残っているタスク` / `#完了済みの作業` へは、[`docs/todo/history/`](../todo/history/README.md)・[`docs/todo/notes/`](../todo/notes/README.md)・[`README.md`](../../README.md)・[`docs/specs/99_infra/`](../specs/99_infra/README.md) からアンカーリンクが張られている。節を作り替える場合は参照元も直す
 
   ```powershell
   rg -n "TODO\.md#" docs README.md

@@ -9,7 +9,7 @@
 | **残タスク・進捗・次の一手** | **このファイル** |
 | マスタ機能の設計・仕様の決定 | [`basic_design_master.md`](../specs/02_basic-design/basic_design_master.md)（`docs/specs/` が設計の正本） |
 | 土台の設計・確定方針 | [`foundation_plan.md`](../foundation_plan.md) |
-| 本番構築の手順・本番構成・環境変数 | [`READ_ME_INFRA.md`](../specs/99_infra/READ_ME_INFRA.md) |
+| 本番構築の手順・本番構成・環境変数 | [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | 設定値・落とし穴・実測値 | [`docs/todo/notes/`](notes/README.md)（冒頭に節ごとの目次がある） |
 | 何をやったか・なぜ・どこで詰まったか | [`docs/todo/history/`](history/README.md)（古い順。新しい記録は末尾へ） |
 | UI / デザイン規約 | [`DESIGN.md`](../../DESIGN.md)（一覧テーブル・検索条件を含む） |
@@ -53,7 +53,7 @@ git status --porcelain                                   # 何も出なければ
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
 
-本番の疎通確認は [`READ_ME_INFRA.md` §10](../specs/99_infra/READ_ME_INFRA.md#10-手順5-動作を確認する)、`main` への push の進め方は [`README.md`](../../README.md#変更をgitに反映する開発フロー) を参照する。**`main` への push は本番デプロイを引き起こす。**
+本番の疎通確認は [`docs/specs/99_infra/` §10](../specs/99_infra/infra_design_06_動作確認.md#10-手順5-動作を確認する)、`main` への push の進め方は [`git.md`](../development/git.md) を参照する。**`main` への push は本番デプロイを引き起こす。**
 
 ## マスタ機能の製造工程
 
@@ -94,16 +94,16 @@ CSV は画面機能の完成後に着手する（設計書 §13）。
 
 ### 第5段階 本番構成と最終確認
 
-- [ ] **18. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §13.7、手順は [`READ_ME_INFRA.md` §11](../specs/99_infra/READ_ME_INFRA.md#11-構築後の運用)
+- [ ] **18. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §13.7、手順は [`docs/specs/99_infra/` §11](../specs/99_infra/infra_design_07_構築後の運用.md#11-構築後の運用)
 
 ## 残っているタスク
 
 いずれも**期限のない宿題**。判断材料は各リンク先にまとまっている。
 
-- [ ] **`main` のブランチ保護をどうするか決める** — 当面は運用ルールで守る。選択肢 3 つと確認コマンドは [`READ_ME_INFRA.md` §6.6](../specs/99_infra/READ_ME_INFRA.md#66-ブランチ保護を設定する)
-- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`READ_ME_INFRA.md` §11.1](../specs/99_infra/READ_ME_INFRA.md#111-本番へ反映する)
+- [ ] **`main` のブランチ保護をどうするか決める** — 当面は運用ルールで守る。選択肢 3 つと確認コマンドは [`docs/specs/99_infra/` §6.6](../specs/99_infra/infra_design_02_GitHubリポジトリ.md#66-ブランチ保護を設定する)
+- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §11.1](../specs/99_infra/infra_design_07_構築後の運用.md#111-本番へ反映する)
 - [ ] **`output: "standalone"` 化を検討する** — 着手の適時は工程 18 で worker 用イメージを分離するとき。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
-- [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`READ_ME_INFRA.md` §11.2](../specs/99_infra/READ_ME_INFRA.md#112-データベースの構造を変更する)
+- [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §11.2](../specs/99_infra/infra_design_07_構築後の運用.md#112-データベースの構造を変更する)
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 
 ## 現在の状態
@@ -118,7 +118,7 @@ CSV は画面機能の完成後に着手する（設計書 §13）。
 | ローカル DB | Docker Compose の PostgreSQL 16 は**停止中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
 | ブラウザ検証 | ローカル管理者パスワードが不明なため、ADMIN でのブラウザ操作は工程 6・7 分が未実施。**工程 12 の全画面検証に含める** |
 | 直近の検証 | 工程 7 完了時点で `lint` / `format:check` / `typecheck` / 9 ファイル 102 テスト / `build` が成功 |
-| 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。構成・設定値・URL は [`READ_ME_INFRA.md`](../specs/99_infra/READ_ME_INFRA.md) |
+| 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 
 ## 完了済みの作業
