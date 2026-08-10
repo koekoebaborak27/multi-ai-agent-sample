@@ -53,7 +53,7 @@ git status --porcelain                                   # 何も出なければ
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する場合
 ```
 
-本番の疎通確認は [`docs/specs/99_infra/` §10](../specs/99_infra/infra_design_06_動作確認.md#10-手順5-動作を確認する)、`main` への push の進め方は [`git.md`](../development/git.md) を参照する。**`main` への push は本番デプロイを引き起こす。**
+本番の疎通確認は [`docs/specs/99_infra/` §10](../specs/99_infra/infra_design_06_動作確認.md#10-手順5-動作を確認する)、`main` への push の進め方は [`gitの操作ルール.md`](../development/gitの操作ルール.md) を参照する。**`main` への push は本番デプロイを引き起こす。**
 
 ## マスタ機能の製造工程
 

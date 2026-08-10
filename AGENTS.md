@@ -15,7 +15,7 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 | `src/` | アプリ本体（`app/` ルーティング → `modules/<機能>` 縦割り → `shared/` 横断）。規約は `@src/AGENTS.md` |
 | `prisma/` | スキーマ・マイグレーション・seed。規約は `@prisma/AGENTS.md` |
 | `docker/` | Dockerfile（app/worker 共用）+ docker-compose（ローカル開発用 DB） |
-| `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/`、開発フローは `docs/development/git.md`、残タスク一式は `docs/todo/`（本編 `TODO.md` + 補足 `notes/` + 履歴 `history/`）。設計書と手順書は機能・手順ごとに分割してあり、各ディレクトリの `README.md` が索引 |
+| `docs/` | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/`、開発フローは `docs/development/gitの操作ルール.md`、残タスク一式は `docs/todo/`（本編 `TODO.md` + 補足 `notes/` + 履歴 `history/`）。設計書と手順書は機能・手順ごとに分割してあり、各ディレクトリの `README.md` が索引 |
 | `.github/` | Copilot 指示（`copilot-instructions.md`）+ Copilot プロンプト（`prompts/`）+ CI ワークフロー（`workflows/ci.yml`） |
 | `.agents/` | Codex が読むリポジトリ内スキル（`skills/<name>/SKILL.md`） |
 | `.codex/` | Codex CLI のプロジェクト設定（`config.toml`。サンドボックス / 承認ポリシー）+ 権限ルール（`rules/*.rules`） |
@@ -60,7 +60,7 @@ pnpm prisma:seed    # 初期データ投入（初期 ADMIN）
 ## 参照
 
 - 設計・確定方針: `@docs/foundation_plan.md`
-- 開発フロー（ブランチ → PR → CI → マージ）: `@docs/development/git.md`
+- 開発フロー（ブランチ → PR → CI → マージ）: `@docs/development/gitの操作ルール.md`
 - マスタ機能の基本設計（機能ごとに分割）: `@docs/specs/02_basic-design/master/README.md`
 - インフラ構築手順（手順ごとに分割）: `@docs/specs/99_infra/README.md`
 - Prisma マイグレーション運用: `@docs/prisma_operations.md`

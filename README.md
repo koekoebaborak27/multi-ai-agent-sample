@@ -432,7 +432,7 @@ Docker で起動している場合は、`docker compose -f docker/docker-compose
 
 PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグレーションを適用して検証します。デプロイ自体は Cloud Build に任せるため、GitHub Actions からは行いません。
 
-ドキュメントだけを変更した場合など、この検証が不要なときの進め方は [`docs/development/git.md`](docs/development/git.md#ドキュメントだけの変更でciを実行しないmainへ直接push) を参照してください。
+ドキュメントだけを変更した場合など、この検証が不要なときの進め方は [`docs/development/gitの操作ルール.md`](docs/development/gitの操作ルール.md#ドキュメントだけの変更でciを実行しないmainへ直接push) を参照してください。
 
 > **`prisma generate` が `typecheck` より前にある理由**: Prisma Client（`@prisma/client` の型）は`prisma/schema.prisma`から生成されるコードであり、`node_modules`配下に作られるため Git では管理していません。生成前に`tsc`を走らせると`Module '"@prisma/client"' has no exported member 'Party'`のように型が見つからず失敗します。ローカルで同じエラーが出たときも`pnpm prisma:generate`で解決します。
 
@@ -535,7 +535,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/specs/99_infra/`](docs/specs/99_infra/README.md) | **インフラ構築手順書**（本番環境をゼロから構築する手順の正本） |
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
-| [`docs/development/git.md`](docs/development/git.md) | **開発フロー**（ブランチ → Pull Request → CI → マージ。`main` へ直接 push する例外を含む） |
+| [`docs/development/gitの操作ルール.md`](docs/development/gitの操作ルール.md) | **開発フロー**（ブランチ → Pull Request → CI → マージ。`main` へ直接 push する例外を含む） |
 | [`docs/todo/TODO.md`](docs/todo/TODO.md) | 残タスク一覧・進捗・現在の状態 |
 | [`docs/todo/notes/`](docs/todo/notes/README.md) | 残タスクの補足（Supabase / Cloud Run の設定値・手順・落とし穴） |
 | [`docs/todo/history/`](docs/todo/history/README.md) | セッションごとの作業記録（引き継ぎメモ） |
