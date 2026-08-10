@@ -11,6 +11,7 @@ export { MasterCategoryCreateForm } from "@/modules/master/ui/master-category-cr
 export { MasterCategoryDetailView } from "@/modules/master/ui/master-category-detail-view";
 export { MasterCategoryUpdateForm } from "@/modules/master/ui/master-category-update-form";
 export { MasterCategoryTable } from "@/modules/master/ui/master-category-table";
+export { MasterDetailView } from "@/modules/master/ui/master-detail-view";
 export { MasterSearchForm } from "@/modules/master/ui/master-search-form";
 export { MasterTable } from "@/modules/master/ui/master-table";
 export { masterSearchQuerySchema, parseMasterReturnTo } from "@/modules/master/validation";
@@ -21,6 +22,7 @@ export {
   type MasterCategoryDetail,
   type MasterCategoryOption,
   type MasterCategorySummary,
+  type MasterDetail,
   type MasterSearchCriteria,
   type MasterSortField,
   type MasterSummary,

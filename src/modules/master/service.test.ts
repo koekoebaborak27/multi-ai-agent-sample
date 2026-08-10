@@ -13,6 +13,7 @@ vi.mock("@/modules/master/repository", () => ({
     listMastersAndCount: vi.fn(),
     listCategoryOptions: vi.fn(),
     listCategoriesAndCount: vi.fn(),
+    findMasterById: vi.fn(),
     findMasterByCategoryAndCode: vi.fn(),
     createMaster: vi.fn(),
     findCategoryById: vi.fn(),
@@ -386,6 +387,68 @@ describe("master/service createCategory", () => {
         code: "MASTER_CATEGORY_CONFLICT",
         httpStatus: 409,
       } satisfies Partial<AppError>);
+    });
+  });
+});
+
+describe("master/service findMasterDetail", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("対象のマスタが存在する場合", () => {
+    it("マスタ分類名と監査項目を含む詳細を返す", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue({
+        id: 41,
+        categoryId: 3,
+        code: "CON00001",
+        content: "月額契約",
+        createdAt: new Date("2026-08-08T00:00:00.000Z"),
+        createdBy: "creator",
+        updatedAt,
+        updatedBy: "updater",
+        category: { name: "契約種別" },
+      });
+
+      await expect(masterService.findMasterDetail(41)).resolves.toEqual({
+        id: 41,
+        categoryId: 3,
+        categoryName: "契約種別",
+        code: "CON00001",
+        content: "月額契約",
+        createdAt: new Date("2026-08-08T00:00:00.000Z"),
+        createdBy: "creator",
+        updatedAt,
+        updatedBy: "updater",
+      });
+    });
+  });
+
+  describe("登録者と最終更新者が記録されていない場合", () => {
+    it("nullのまま返し、表示側の判断に委ねる", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue({
+        id: 41,
+        categoryId: 3,
+        code: "CON00001",
+        content: "月額契約",
+        createdAt: new Date("2026-08-08T00:00:00.000Z"),
+        createdBy: null,
+        updatedAt,
+        updatedBy: null,
+        category: { name: "契約種別" },
+      });
+
+      await expect(masterService.findMasterDetail(41)).resolves.toMatchObject({
+        createdBy: null,
+        updatedBy: null,
+      });
+    });
+  });
+
+  describe("対象のマスタが存在しない場合", () => {
+    it("nullを返す", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(null);
+      await expect(masterService.findMasterDetail(999)).resolves.toBeNull();
     });
   });
 });

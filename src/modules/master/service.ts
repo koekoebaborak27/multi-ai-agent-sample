@@ -2,6 +2,7 @@ import {
   masterRepository,
   type MasterCategoryDetailRecord,
   type MasterCategoryListRecord,
+  type MasterDetailRecord,
   type MasterListRecord,
 } from "@/modules/master/repository";
 import type {
@@ -9,6 +10,7 @@ import type {
   MasterCategoryOption,
   MasterCategorySortField,
   MasterCategorySummary,
+  MasterDetail,
   MasterSearchCriteria,
   MasterSortField,
   MasterSummary,
@@ -57,6 +59,20 @@ function toMasterSummary(master: MasterListRecord): MasterSummary {
     categoryName: master.category.name,
     code: master.code,
     content: master.content,
+  };
+}
+
+function toMasterDetail(master: MasterDetailRecord): MasterDetail {
+  return {
+    id: master.id,
+    categoryId: master.categoryId,
+    categoryName: master.category.name,
+    code: master.code,
+    content: master.content,
+    createdAt: master.createdAt,
+    createdBy: master.createdBy,
+    updatedAt: master.updatedAt,
+    updatedBy: master.updatedBy,
   };
 }
 
@@ -125,6 +141,11 @@ export const masterService = {
       order,
     );
     return paginated(masters.map(toMasterSummary), total, { page, pageSize });
+  },
+
+  async findMasterDetail(id: number): Promise<MasterDetail | null> {
+    const master = await masterRepository.findMasterById(id);
+    return master ? toMasterDetail(master) : null;
   },
 
   async listCategoryOptions(): Promise<MasterCategoryOption[]> {

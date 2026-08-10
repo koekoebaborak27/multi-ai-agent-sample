@@ -26,23 +26,23 @@
 | ------------------------- | ------------------- |
 | 土台（ローカル環境 / Git / Supabase / 署名 URL / Docker 軽量化 / Cloud Run） | 48 / 48 |
 | マスタ機能（設計） | 6 / 6 |
-| **マスタ機能（製造）** | **7 / 18 工程** |
+| **マスタ機能（製造）** | **8 / 18 工程** |
 | 残っているタスク | 4 / 9（未対応 5 件・期限なし） |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
 
 ## 次にやること
 
-**工程 8 のマスタ詳細（MST-04）を実装する。** `/master/{id}` が未実装で、マスタ一覧の「詳細」リンクと登録完了後の遷移先が 404 になっているため、ここで解消する。設計書 §6.4 を正本とし、工程 5 のマスタ分類詳細（MST-07）の構成を踏襲する。
+**工程 9 のマスタ更新（MST-05 / MST-03）を実装する。** `/master/{id}/edit` が未実装で、マスタ詳細の「更新する」ボタンが 404 になっているため、ここで解消する。設計書 §6.5・§9.2 を正本とし、工程 5 のマスタ分類更新（MST-10）の楽観ロックと、工程 7 のマスタ登録の「入力 → 確認 → 実行」を踏襲する。
 
 最初に打つコマンド:
 
 ```powershell
-rg -N "^" "docs/specs/02_basic-design/master/12_マスタ詳細.md"
-rg -N "^" "src/app/(main)/master/categories/[categoryId]/page.tsx"
-rg -N "^" src/modules/master/ui/master-category-detail-view.tsx
-rg -n "findCategoryDetail|MasterCategoryDetail" src/modules/master/service.ts src/modules/master/repository.ts src/modules/master/types.ts
-rg -n "returnTo" "src/app/(main)/master/page.tsx" src/modules/master/ui/master-table.tsx src/modules/master/validation.ts
+rg -N "^" "docs/specs/02_basic-design/master/13_マスタ更新.md"
+rg -N "^" "src/app/(main)/master/categories/[categoryId]/edit/page.tsx"
+rg -N "^" src/modules/master/ui/master-category-update-form.tsx
+rg -n "updateCategory|updateCategoryIfUnchanged|MASTER_CONCURRENT_UPDATE" src/modules/master/service.ts src/modules/master/repository.ts src/modules/master/actions.ts
+rg -n "findMasterDetail|MasterDetail|assertMasterCodeAvailable" src/modules/master/service.ts src/modules/master/types.ts
 ```
 
 手元の状態を確認するコマンド:
@@ -76,7 +76,7 @@ docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を
 
 - [x] **6. マスタ検索一覧（MST-01）を実装する**（2026-08-10）→ [履歴](history/2026-08-w2.md#2026-08-10-マスタ検索一覧を実装)
 - [x] **7. マスタの新規登録と確認（MST-02 / MST-03）を実装する**（2026-08-10）→ [履歴](history/2026-08-w2.md#2026-08-10-マスタの新規登録と確認を実装)
-- [ ] **8. マスタ詳細（MST-04）を実装する** — 設計書 §6.4
+- [x] **8. マスタ詳細（MST-04）を実装する**（2026-08-11）→ [履歴](history/2026-08-w2.md#2026-08-11-マスタ詳細を実装)
 - [ ] **9. マスタ更新（MST-05 / MST-03）を実装する** — 設計書 §6.5・§9.2
 - [ ] **10. マスタ削除（MST-04）を実装する** — 設計書 §6.6・§9.3・§10.1
 - [ ] **11. マスタ分類削除（MST-07）を実装する** — 設計書 §6.8・§9.3
@@ -112,12 +112,12 @@ CSV は画面機能の完成後に着手する（設計書 §13）。
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `feat/master-management`。未コミットの変更なし。`origin` へ push 済みで CI は成功 |
-| 未接続の導線 | **`/master/{id}`（MST-04）が未実装**。マスタ一覧の「詳細」リンクと登録完了後の遷移先が 404 → 工程 8 で解消。マスタ分類削除は工程 11 |
+| 作業ブランチ | `feat/master-management`。工程 8 の変更が未コミット。直近の push 分の CI は成功 |
+| 未接続の導線 | **`/master/{id}/edit`（MST-05）が未実装**。マスタ詳細の「更新する」ボタンが 404 → 工程 9 で解消。マスタ削除は工程 10、マスタ分類削除は工程 11 |
 | 本番 DB | **マスタのマイグレーションは未適用**（`20260723125616_init` のみ）。ローカルは `20260809125243_add_master_tables` まで適用済み。本番への適用は工程 18 |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**停止中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
-| ブラウザ検証 | ローカル管理者パスワードが不明なため、ADMIN でのブラウザ操作は工程 6・7 分が未実施。**工程 12 の全画面検証に含める** |
-| 直近の検証 | 工程 7 完了時点で `lint` / `format:check` / `typecheck` / 9 ファイル 102 テスト / `build` が成功 |
+| ブラウザ検証 | ローカル管理者パスワードが不明なため、ADMIN でのブラウザ操作は工程 6・7・8 分が未実施。**工程 12 の全画面検証に含める** |
+| 直近の検証 | 工程 8 完了時点で `lint` / `format:check` / `typecheck` / 9 ファイル 105 テスト / `build` が成功 |
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 

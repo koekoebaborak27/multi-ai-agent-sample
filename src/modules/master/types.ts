@@ -30,6 +30,14 @@ export interface MasterSearchCriteria {
   keyword?: string;
 }
 
+/** マスタ詳細・更新画面に表示する情報 */
+export interface MasterDetail extends MasterSummary {
+  createdAt: Date;
+  createdBy: string | null;
+  updatedAt: Date;
+  updatedBy: string | null;
+}
+
 /** マスタ分類詳細・更新画面に表示する情報 */
 export interface MasterCategoryDetail extends MasterCategorySummary {
   createdAt: Date;

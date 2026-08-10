@@ -21,7 +21,7 @@
 | 契約先管理 | `/parties` | [`src/modules/party/`](src/modules/party/) | 契約先の一覧（ページング）・登録・編集・削除 |
 | ユーザー管理 | `/admin/users` | [`src/modules/user/`](src/modules/user/) | ユーザーの一覧・登録・編集・削除（**ADMIN 限定**） |
 | パスワード変更 | `/settings/password` | [`src/modules/auth/`](src/modules/auth/) | 初回ログイン時は変更するまで他画面へ進めない |
-| マスタ検索一覧 | `/master` | [`src/modules/master/`](src/modules/master/) | 先頭分類を初期選択（「すべて」へ切替可）、分類・コード・内容による検索、検索条件の開閉、列見出しによるソート、URLクエリ、ページング、新規登録（`/master/new`）と確認。詳細・更新・削除は製造中 |
+| マスタ検索一覧 | `/master` | [`src/modules/master/`](src/modules/master/) | 先頭分類を初期選択（「すべて」へ切替可）、分類・コード・内容による検索、検索条件の開閉、列見出しによるソート、URLクエリ、ページング、新規登録（`/master/new`）と確認、詳細（`/master/{id}`）。更新・削除は製造中 |
 | マスタ分類管理 | `/master/categories` | [`src/modules/master/`](src/modules/master/) | 分類の一覧（採番順・ページング）、新規登録・確認・詳細・更新。削除は製造中 |
 
 加えて、横断機能として認証セッション（`src/shared/auth/`）、DB 接続（`src/shared/db/`）、ジョブキュー（`src/shared/jobs/` + `src/worker/`）、ファイルストレージ抽象（`src/shared/storage/`）、構造化ログ（`src/shared/observability/`）、UI コンポーネント（`src/shared/ui/`）を用意しています。

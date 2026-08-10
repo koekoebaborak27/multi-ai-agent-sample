@@ -34,6 +34,20 @@ export type MasterListRecord = Prisma.MasterGetPayload<{
   };
 }>;
 
+export type MasterDetailRecord = Prisma.MasterGetPayload<{
+  select: {
+    id: true;
+    categoryId: true;
+    code: true;
+    content: true;
+    createdAt: true;
+    createdBy: true;
+    updatedAt: true;
+    updatedBy: true;
+    category: { select: { name: true } };
+  };
+}>;
+
 export interface MasterListFilters {
   categoryId?: number;
   keyword?: string;
@@ -116,6 +130,23 @@ export const masterRepository = {
       }),
       prisma.masterCategory.count(),
     ]);
+  },
+
+  findMasterById(id: number): Promise<MasterDetailRecord | null> {
+    return prisma.master.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        categoryId: true,
+        code: true,
+        content: true,
+        createdAt: true,
+        createdBy: true,
+        updatedAt: true,
+        updatedBy: true,
+        category: { select: { name: true } },
+      },
+    });
   },
 
   findMasterByCategoryAndCode(
