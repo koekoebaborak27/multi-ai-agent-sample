@@ -8,6 +8,7 @@ import {
   createMasterSchema,
   parseMasterReturnTo,
   updateMasterCategorySchema,
+  updateMasterSchema,
 } from "@/modules/master/validation";
 import { getCurrentUser } from "@/shared/auth/session";
 import { canWrite } from "@/shared/constants/roles";
@@ -29,10 +30,16 @@ export interface MasterCategoryFormState {
 export interface MasterFormState {
   mode: "create" | "update";
   phase: "input" | "confirm";
+  masterId?: number;
   categoryId?: number;
   code?: string;
   content?: string;
   returnTo: string;
+  updatedAt?: string;
+  originalCategoryId?: number;
+  originalCategoryName?: string;
+  originalCode?: string;
+  originalContent?: string;
   error?: string;
 }
 
@@ -177,6 +184,93 @@ export const updateMasterCategoryAction = withOp(
       revalidatePath("/master/categories");
       revalidatePath(`/master/categories/${parsed.data.categoryId}`);
       redirect(`/master/categories/${parsed.data.categoryId}?updated=1`);
+    } catch (error) {
+      if (isAppError(error)) {
+        return { ...nextState, error: error.userMessage };
+      }
+      throw error;
+    }
+  },
+  { includeArgsInSuccessLog: true },
+);
+
+export const updateMasterAction = withOp(
+  "master.update",
+  async (prev: MasterFormState, formData: FormData): Promise<MasterFormState> => {
+    const user = await requireWriter();
+    const intent = formData.get("intent") === "execute" ? "execute" : "confirm";
+    const rawCategoryId = String(formData.get("categoryId") ?? "");
+    const rawCode = String(formData.get("code") ?? "");
+    const rawContent = String(formData.get("content") ?? "");
+    const returnTo = parseMasterReturnTo(String(formData.get("returnTo") ?? prev.returnTo));
+    const originalCategoryId = Number(
+      formData.get("originalCategoryId") ?? prev.originalCategoryId,
+    );
+    const originalCategoryName = String(
+      formData.get("originalCategoryName") ?? prev.originalCategoryName ?? "",
+    );
+    const originalCode = String(formData.get("originalCode") ?? prev.originalCode ?? "");
+    const originalContent = String(formData.get("originalContent") ?? prev.originalContent ?? "");
+    const phase = intent === "execute" ? "confirm" : "input";
+
+    const parsed = updateMasterSchema.safeParse({
+      masterId: formData.get("masterId"),
+      categoryId: rawCategoryId,
+      code: rawCode,
+      content: rawContent,
+      updatedAt: formData.get("updatedAt"),
+    });
+
+    if (!parsed.success) {
+      return {
+        ...prev,
+        mode: "update",
+        phase,
+        returnTo,
+        categoryId: toSelectedCategoryId(rawCategoryId),
+        code: rawCode,
+        content: rawContent,
+        originalCategoryId,
+        originalCategoryName,
+        originalCode,
+        originalContent,
+        error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
+      };
+    }
+
+    const nextState: MasterFormState = {
+      ...prev,
+      mode: "update",
+      phase,
+      returnTo,
+      masterId: parsed.data.masterId,
+      categoryId: parsed.data.categoryId,
+      code: parsed.data.code,
+      content: parsed.data.content,
+      updatedAt: parsed.data.updatedAt.toISOString(),
+      originalCategoryId,
+      originalCategoryName,
+      originalCode,
+      originalContent,
+    };
+
+    try {
+      if (intent === "confirm") {
+        await masterService.assertCategoryExists(parsed.data.categoryId);
+        await masterService.assertMasterCodeAvailable(
+          parsed.data.categoryId,
+          parsed.data.code,
+          parsed.data.masterId,
+        );
+        return { ...nextState, phase: "confirm" };
+      }
+
+      await masterService.updateMaster(parsed.data, user.id);
+      revalidatePath("/master");
+      revalidatePath(`/master/${parsed.data.masterId}`);
+      redirect(
+        `/master/${parsed.data.masterId}?updated=1&returnTo=${encodeURIComponent(returnTo)}`,
+      );
     } catch (error) {
       if (isAppError(error)) {
         return { ...nextState, error: error.userMessage };

@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import {
   createMasterAction,
   createMasterCategoryAction,
+  updateMasterAction,
   updateMasterCategoryAction,
   type MasterCategoryFormState,
   type MasterFormState,
@@ -21,6 +22,7 @@ vi.mock("@/modules/master/service", () => ({
     assertCategoryExists: vi.fn(),
     assertMasterCodeAvailable: vi.fn(),
     createMaster: vi.fn(),
+    updateMaster: vi.fn(),
     assertCategoryNameAvailable: vi.fn(),
     createCategory: vi.fn(),
     updateCategory: vi.fn(),
@@ -78,6 +80,7 @@ function resetMasterServiceMocks(): void {
   vi.mocked(masterService.assertCategoryExists).mockReset();
   vi.mocked(masterService.assertMasterCodeAvailable).mockReset();
   vi.mocked(masterService.createMaster).mockReset();
+  vi.mocked(masterService.updateMaster).mockReset();
   vi.mocked(masterService.assertCategoryNameAvailable).mockReset();
   vi.mocked(masterService.createCategory).mockReset();
   vi.mocked(masterService.updateCategory).mockReset();
@@ -107,6 +110,54 @@ function createMasterFormData(
   formData.set("code", overrides.code ?? "CON-01");
   formData.set("content", overrides.content ?? "月額契約");
   formData.set("returnTo", overrides.returnTo ?? masterReturnTo);
+  return formData;
+}
+
+const masterUpdateInitialState: MasterFormState = {
+  mode: "update",
+  phase: "input",
+  masterId: 41,
+  categoryId: 12,
+  code: "CON-01",
+  content: "月額契約",
+  returnTo: masterReturnTo,
+  updatedAt,
+  originalCategoryId: 12,
+  originalCategoryName: "契約種別",
+  originalCode: "CON-01",
+  originalContent: "月額契約",
+};
+
+function createMasterUpdateFormData(
+  intent: "confirm" | "execute",
+  overrides: Partial<
+    Record<
+      | "masterId"
+      | "categoryId"
+      | "code"
+      | "content"
+      | "returnTo"
+      | "updatedAt"
+      | "originalCategoryId"
+      | "originalCategoryName"
+      | "originalCode"
+      | "originalContent",
+      string
+    >
+  > = {},
+): FormData {
+  const formData = new FormData();
+  formData.set("intent", intent);
+  formData.set("masterId", overrides.masterId ?? "41");
+  formData.set("categoryId", overrides.categoryId ?? "12");
+  formData.set("code", overrides.code ?? "CON-01");
+  formData.set("content", overrides.content ?? "月額契約");
+  formData.set("updatedAt", overrides.updatedAt ?? updatedAt);
+  formData.set("returnTo", overrides.returnTo ?? masterReturnTo);
+  formData.set("originalCategoryId", overrides.originalCategoryId ?? "12");
+  formData.set("originalCategoryName", overrides.originalCategoryName ?? "契約種別");
+  formData.set("originalCode", overrides.originalCode ?? "CON-01");
+  formData.set("originalContent", overrides.originalContent ?? "月額契約");
   return formData;
 }
 
@@ -520,6 +571,177 @@ describe("master/actions updateMasterCategoryAction", () => {
         error:
           "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
       });
+    });
+  });
+});
+
+describe("master/actions updateMasterAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMasterServiceMocks();
+  });
+
+  describe("ADMINが更新内容を確認する場合", () => {
+    it("対象自身を除外して重複を確認し、変更前後の値を保持した確認状態を返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+
+      await expect(
+        updateMasterAction(
+          masterUpdateInitialState,
+          createMasterUpdateFormData("confirm", { code: "  CON-02  ", content: "  年額契約  " }),
+        ),
+      ).resolves.toEqual({
+        ...masterUpdateInitialState,
+        phase: "confirm",
+        code: "CON-02",
+        content: "年額契約",
+      });
+      expect(masterService.assertCategoryExists).toHaveBeenCalledWith(12);
+      expect(masterService.assertMasterCodeAvailable).toHaveBeenCalledWith(12, "CON-02", 41);
+      expect(masterService.updateMaster).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("OPERATORが確認状態から実行する場合", () => {
+    it("更新時点と実行者IDを渡し、一覧と詳細のキャッシュを無効化して詳細画面へ遷移する", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: "operator",
+        role: "OPERATOR",
+        mustChangePassword: false,
+        authMethod: "credentials",
+      });
+      const confirmState: MasterFormState = {
+        ...masterUpdateInitialState,
+        phase: "confirm",
+        code: "CON-02",
+        content: "年額契約",
+      };
+
+      await expect(
+        updateMasterAction(
+          confirmState,
+          createMasterUpdateFormData("execute", { code: "CON-02", content: "年額契約" }),
+        ),
+      ).rejects.toThrow("NEXT_REDIRECT");
+      expect(masterService.updateMaster).toHaveBeenCalledWith(
+        {
+          masterId: 41,
+          categoryId: 12,
+          code: "CON-02",
+          content: "年額契約",
+          updatedAt: new Date(updatedAt),
+        },
+        "operator",
+      );
+      expect(revalidatePath).toHaveBeenNthCalledWith(1, "/master");
+      expect(revalidatePath).toHaveBeenNthCalledWith(2, "/master/41");
+      expect(redirect).toHaveBeenCalledWith(
+        `/master/41?updated=1&returnTo=${encodeURIComponent(masterReturnTo)}`,
+      );
+    });
+  });
+
+  describe("VIEWERが更新内容を確認しようとした場合", () => {
+    it("AppError(FORBIDDEN) を投げ、重複確認も更新も行わない", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: "viewer",
+        role: "VIEWER",
+        mustChangePassword: false,
+        authMethod: "credentials",
+      });
+
+      await expect(
+        updateMasterAction(masterUpdateInitialState, createMasterUpdateFormData("confirm")),
+      ).rejects.toMatchObject({ code: "FORBIDDEN", httpStatus: 403 });
+      expect(masterService.assertCategoryExists).not.toHaveBeenCalled();
+      expect(masterService.updateMaster).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("マスタ分類が未選択の場合", () => {
+    it("入力値を保持したまま入力状態へ戻し、事前検査を行わない", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+
+      await expect(
+        updateMasterAction(
+          masterUpdateInitialState,
+          createMasterUpdateFormData("confirm", { categoryId: "" }),
+        ),
+      ).resolves.toEqual({
+        ...masterUpdateInitialState,
+        phase: "input",
+        categoryId: undefined,
+        error: "マスタ分類を選択してください",
+      });
+      expect(masterService.assertCategoryExists).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("確認時に別のマスタが変更後の分類とコードを使用している場合", () => {
+    it("重複メッセージと変更前後の値を入力状態へ返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.assertMasterCodeAvailable).mockRejectedValue(
+        new AppError(
+          "MASTER_CODE_CONFLICT",
+          409,
+          "同じマスタ分類に同じマスタコードが登録されています",
+        ),
+      );
+
+      await expect(
+        updateMasterAction(
+          masterUpdateInitialState,
+          createMasterUpdateFormData("confirm", { code: "CON-99" }),
+        ),
+      ).resolves.toEqual({
+        ...masterUpdateInitialState,
+        phase: "input",
+        code: "CON-99",
+        error: "同じマスタ分類に同じマスタコードが登録されています",
+      });
+    });
+  });
+
+  describe("実行時にほかの利用者が先に更新していた場合", () => {
+    it("同時更新メッセージと変更前後の値を確認状態へ返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.updateMaster).mockRejectedValue(
+        new AppError(
+          "MASTER_CONCURRENT_UPDATE",
+          409,
+          "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
+        ),
+      );
+      const confirmState: MasterFormState = {
+        ...masterUpdateInitialState,
+        phase: "confirm",
+        code: "CON-02",
+        content: "年額契約",
+      };
+
+      await expect(
+        updateMasterAction(
+          confirmState,
+          createMasterUpdateFormData("execute", { code: "CON-02", content: "年額契約" }),
+        ),
+      ).resolves.toEqual({
+        ...confirmState,
+        error:
+          "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
+      });
+    });
+  });
+
+  describe("戻り先URLが改ざんされた場合", () => {
+    it("マスタ検索一覧を戻り先として保持する", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+
+      await expect(
+        updateMasterAction(
+          masterUpdateInitialState,
+          createMasterUpdateFormData("confirm", { returnTo: "https://example.com" }),
+        ),
+      ).resolves.toMatchObject({ returnTo: "/master" });
     });
   });
 });

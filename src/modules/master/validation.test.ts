@@ -8,6 +8,7 @@ import {
   masterSearchQuerySchema,
   parseMasterReturnTo,
   updateMasterCategorySchema,
+  updateMasterSchema,
 } from "@/modules/master/validation";
 import { describe, expect, it } from "vitest";
 
@@ -212,6 +213,53 @@ describe("master/validation updateMasterCategorySchema", () => {
           updatedAt: "not-a-date",
         }).success,
       ).toBe(false);
+    });
+  });
+});
+
+describe("master/validation updateMasterSchema", () => {
+  const valid = {
+    masterId: "41",
+    categoryId: "12",
+    code: "CON-01",
+    content: "月額契約",
+    updatedAt: "2026-08-09T00:00:00.000Z",
+  };
+
+  describe("正常系", () => {
+    it("マスタID・分類IDと更新時点をnumberとDateへ変換し、コードと内容の前後空白を除去する", () => {
+      expect(
+        updateMasterSchema.parse({ ...valid, code: "  CON-01  ", content: "  月額契約  " }),
+      ).toEqual({
+        masterId: 41,
+        categoryId: 12,
+        code: "CON-01",
+        content: "月額契約",
+        updatedAt: new Date("2026-08-09T00:00:00.000Z"),
+      });
+    });
+  });
+
+  describe("マスタIDが不正な場合", () => {
+    it("入力エラーとして拒否する", () => {
+      expect(updateMasterSchema.safeParse({ ...valid, masterId: "0" }).success).toBe(false);
+    });
+  });
+
+  describe("マスタ分類が未選択の場合", () => {
+    it("選択を促すエラーとして拒否する", () => {
+      const result = updateMasterSchema.safeParse({ ...valid, categoryId: "" });
+      expect(result.success).toBe(false);
+      if (!result.success)
+        expect(result.error.issues[0]?.message).toBe("マスタ分類を選択してください");
+    });
+  });
+
+  describe("更新時点が不正な場合", () => {
+    it("入力エラーとして拒否する", () => {
+      expect(updateMasterSchema.safeParse({ ...valid, updatedAt: "not-a-date" }).success).toBe(
+        false,
+      );
     });
   });
 });

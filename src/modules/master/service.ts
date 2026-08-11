@@ -19,6 +19,7 @@ import type {
   CreateMasterCategoryInput,
   CreateMasterInput,
   UpdateMasterCategoryInput,
+  UpdateMasterInput,
 } from "@/modules/master/validation";
 import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError } from "@/shared/errors/app-error";
@@ -87,6 +88,19 @@ function masterCategoryNotFound(id: number): AppError {
 }
 
 function masterCategoryConcurrentUpdate(id: number): AppError {
+  return new AppError(
+    "MASTER_CONCURRENT_UPDATE",
+    409,
+    "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
+    { id },
+  );
+}
+
+function masterNotFound(id: number): AppError {
+  return new AppError("MASTER_NOT_FOUND", 404, "対象のマスタが見つかりません", { id });
+}
+
+function masterConcurrentUpdate(id: number): AppError {
   return new AppError(
     "MASTER_CONCURRENT_UPDATE",
     409,
@@ -195,6 +209,42 @@ export const masterService = {
         updatedBy: userId,
       });
       return toMasterSummary(master);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2002") throw masterCodeConflict(input.categoryId, input.code);
+        if (error.code === "P2003") throw masterCategoryNotFound(input.categoryId);
+      }
+      throw error;
+    }
+  },
+
+  async updateMaster(input: UpdateMasterInput, userId: string): Promise<void> {
+    const existing = await masterRepository.findMasterById(input.masterId);
+    if (!existing) throw masterNotFound(input.masterId);
+
+    if (existing.updatedAt.getTime() !== input.updatedAt.getTime()) {
+      throw masterConcurrentUpdate(input.masterId);
+    }
+
+    await assertCategoryExists(input.categoryId);
+    await assertMasterCodeAvailable(input.categoryId, input.code, input.masterId);
+
+    try {
+      const updated = await masterRepository.updateMasterIfUnchanged(
+        input.masterId,
+        input.updatedAt,
+        {
+          categoryId: input.categoryId,
+          code: input.code,
+          content: input.content,
+          updatedBy: userId,
+        },
+      );
+      if (!updated) {
+        const current = await masterRepository.findMasterById(input.masterId);
+        if (!current) throw masterNotFound(input.masterId);
+        throw masterConcurrentUpdate(input.masterId);
+      }
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === "P2002") throw masterCodeConflict(input.categoryId, input.code);

@@ -21,6 +21,7 @@ vi.mock("@/modules/master/repository", () => ({
     findCategoryByIdWithCount: vi.fn(),
     createCategory: vi.fn(),
     updateCategoryIfUnchanged: vi.fn(),
+    updateMasterIfUnchanged: vi.fn(),
   },
 }));
 
@@ -261,6 +262,33 @@ function makeCategoryDetail(
     updatedAt,
     updatedBy: "updater",
     _count: { masters: 3 },
+    ...overrides,
+  };
+}
+
+function makeMasterDetail(
+  overrides: Partial<{
+    id: number;
+    categoryId: number;
+    code: string;
+    content: string;
+    createdAt: Date;
+    createdBy: string | null;
+    updatedAt: Date;
+    updatedBy: string | null;
+    category: { name: string };
+  }> = {},
+) {
+  return {
+    id: 41,
+    categoryId: 12,
+    code: "CON-01",
+    content: "月額契約",
+    createdAt: new Date("2026-08-08T00:00:00.000Z"),
+    createdBy: "creator",
+    updatedAt,
+    updatedBy: "updater",
+    category: { name: "契約種別" },
     ...overrides,
   };
 }
@@ -616,6 +644,168 @@ describe("master/service updateCategory", () => {
       ).rejects.toMatchObject({
         code: "MASTER_CATEGORY_CONFLICT",
         httpStatus: 409,
+      } satisfies Partial<AppError>);
+    });
+  });
+});
+
+describe("master/service updateMaster", () => {
+  const updateInput = {
+    masterId: 41,
+    categoryId: 12,
+    code: "CON-02",
+    content: "年額契約",
+    updatedAt,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("対象が存在し、更新時点と重複が競合しない場合", () => {
+    it("対象自身を重複判定から除外し、実行者を監査項目へ設定して更新する", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(makeMasterDetail());
+      vi.mocked(masterRepository.findCategoryById).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterByCategoryAndCode).mockResolvedValue(null);
+      vi.mocked(masterRepository.updateMasterIfUnchanged).mockResolvedValue(true);
+
+      await expect(masterService.updateMaster(updateInput, "operator")).resolves.toBeUndefined();
+      expect(masterRepository.updateMasterIfUnchanged).toHaveBeenCalledWith(41, updatedAt, {
+        categoryId: 12,
+        code: "CON-02",
+        content: "年額契約",
+        updatedBy: "operator",
+      });
+    });
+  });
+
+  describe("対象のマスタが存在しない場合", () => {
+    it("AppError(MASTER_NOT_FOUND) を投げ、以降の検証も更新も行わない", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(null);
+
+      await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
+        code: "MASTER_NOT_FOUND",
+        httpStatus: 404,
+        userMessage: "対象のマスタが見つかりません",
+      } satisfies Partial<AppError>);
+      expect(masterRepository.findCategoryById).not.toHaveBeenCalled();
+      expect(masterRepository.updateMasterIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("画面表示後にほかの利用者が更新していた場合", () => {
+    it("AppError(MASTER_CONCURRENT_UPDATE) を投げ、以降の検証も更新も行わない", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(
+        makeMasterDetail({ updatedAt: new Date("2026-08-09T01:00:00.000Z") }),
+      );
+
+      await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
+        code: "MASTER_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.findCategoryById).not.toHaveBeenCalled();
+      expect(masterRepository.updateMasterIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("変更後のマスタ分類が存在しない場合", () => {
+    it("AppError(MASTER_CATEGORY_NOT_FOUND) を投げ、コード重複確認も更新も行わない", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(makeMasterDetail());
+      vi.mocked(masterRepository.findCategoryById).mockResolvedValue(null);
+
+      await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.findMasterByCategoryAndCode).not.toHaveBeenCalled();
+      expect(masterRepository.updateMasterIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("変更後のマスタ分類に同じコードの別マスタが存在する場合", () => {
+    it("AppError(MASTER_CODE_CONFLICT) を投げ、更新は行わない", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(makeMasterDetail());
+      vi.mocked(masterRepository.findCategoryById).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterByCategoryAndCode).mockResolvedValue({ id: 99 });
+
+      await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
+        code: "MASTER_CODE_CONFLICT",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.updateMasterIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("事前検査後から更新までの間にほかの利用者が更新した場合", () => {
+    it("データベースの条件付き更新で検出してAppError(MASTER_CONCURRENT_UPDATE) を投げる", async () => {
+      vi.mocked(masterRepository.findMasterById)
+        .mockResolvedValueOnce(makeMasterDetail())
+        .mockResolvedValueOnce(
+          makeMasterDetail({ updatedAt: new Date("2026-08-09T01:00:00.000Z") }),
+        );
+      vi.mocked(masterRepository.findCategoryById).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterByCategoryAndCode).mockResolvedValue(null);
+      vi.mocked(masterRepository.updateMasterIfUnchanged).mockResolvedValue(false);
+
+      await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
+        code: "MASTER_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("事前検査後から更新までの間に対象が削除された場合", () => {
+    it("AppError(MASTER_NOT_FOUND) を投げる", async () => {
+      vi.mocked(masterRepository.findMasterById)
+        .mockResolvedValueOnce(makeMasterDetail())
+        .mockResolvedValueOnce(null);
+      vi.mocked(masterRepository.findCategoryById).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterByCategoryAndCode).mockResolvedValue(null);
+      vi.mocked(masterRepository.updateMasterIfUnchanged).mockResolvedValue(false);
+
+      await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
+        code: "MASTER_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("事前確認後に複合一意制約違反が発生した場合", () => {
+    it("AppError(MASTER_CODE_CONFLICT) へ変換する", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(makeMasterDetail());
+      vi.mocked(masterRepository.findCategoryById).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterByCategoryAndCode).mockResolvedValue(null);
+      vi.mocked(masterRepository.updateMasterIfUnchanged).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "6.19.3",
+          meta: { target: ["categoryId", "code"] },
+        }),
+      );
+
+      await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
+        code: "MASTER_CODE_CONFLICT",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("事前確認後に変更後の分類が削除された場合", () => {
+    it("外部キー制約違反をAppError(MASTER_CATEGORY_NOT_FOUND) へ変換する", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(makeMasterDetail());
+      vi.mocked(masterRepository.findCategoryById).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterByCategoryAndCode).mockResolvedValue(null);
+      vi.mocked(masterRepository.updateMasterIfUnchanged).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Foreign key constraint failed", {
+          code: "P2003",
+          clientVersion: "6.19.3",
+          meta: { field_name: "categoryId" },
+        }),
+      );
+
+      await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_NOT_FOUND",
+        httpStatus: 404,
       } satisfies Partial<AppError>);
     });
   });

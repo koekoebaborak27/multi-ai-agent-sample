@@ -211,4 +211,16 @@ export const masterRepository = {
     });
     return result.count === 1;
   },
+
+  async updateMasterIfUnchanged(
+    id: number,
+    expectedUpdatedAt: Date,
+    data: { categoryId: number; code: string; content: string; updatedBy: string },
+  ): Promise<boolean> {
+    const result = await prisma.master.updateMany({
+      where: { id, updatedAt: expectedUpdatedAt },
+      data,
+    });
+    return result.count === 1;
+  },
 };

@@ -2,11 +2,13 @@ export { masterService } from "@/modules/master/service";
 export {
   createMasterAction,
   createMasterCategoryAction,
+  updateMasterAction,
   updateMasterCategoryAction,
   type MasterCategoryFormState,
   type MasterFormState,
 } from "@/modules/master/actions";
 export { MasterCreateForm } from "@/modules/master/ui/master-create-form";
+export { MasterUpdateForm } from "@/modules/master/ui/master-update-form";
 export { MasterCategoryCreateForm } from "@/modules/master/ui/master-category-create-form";
 export { MasterCategoryDetailView } from "@/modules/master/ui/master-category-detail-view";
 export { MasterCategoryUpdateForm } from "@/modules/master/ui/master-category-update-form";

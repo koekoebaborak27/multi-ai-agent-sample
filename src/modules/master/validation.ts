@@ -99,3 +99,13 @@ export const createMasterSchema = z.object({
 });
 
 export type CreateMasterInput = z.infer<typeof createMasterSchema>;
+
+export const updateMasterSchema = z.object({
+  masterId: z.coerce.number().int().positive("マスタIDが不正です"),
+  categoryId: masterCategoryIdSchema,
+  code: masterCodeSchema,
+  content: masterContentSchema,
+  updatedAt: z.coerce.date(),
+});
+
+export type UpdateMasterInput = z.infer<typeof updateMasterSchema>;
