@@ -1,6 +1,12 @@
+/**
+ * 対象: shared/observability withOp 処理を包んで記録を残す仕組み
+ * 目的: 成功・失敗それぞれで意図した記録が残ること、
+ *       とくに失敗の記録が1件だけであること、
+ *       画面移動の指示を失敗として記録しないことを担保する
+ */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// logger をモックして出力を捕捉する
+// 実際に記録を出力すると内容を確認できないため、記録係を差し替えて中身を捕まえる
 const { errorMock, infoMock, debugMock, childLoggerMock } = vi.hoisted(() => {
   const errorMock = vi.fn();
   const infoMock = vi.fn();

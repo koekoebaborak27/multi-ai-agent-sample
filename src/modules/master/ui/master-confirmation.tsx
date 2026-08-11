@@ -10,8 +10,11 @@ interface MasterConfirmationProps {
   onEdit: () => void;
 }
 
+// 更新のとき、変更前と同じ値の項目に添える文言
 const UNCHANGED_SUFFIX = "（変更なし）";
 
+// 保存前に入力内容を確認してもらう画面。新規登録と更新の両方で使う。
+// 更新のときは変更前と変更後を並べて表示し、値が変わっていない項目には「（変更なし）」を添える。
 export function MasterConfirmation({
   state,
   categoryName,
@@ -20,6 +23,7 @@ export function MasterConfirmation({
   onEdit,
 }: MasterConfirmationProps) {
   const isUpdate = state.mode === "update";
+  // キャンセルの戻り先。更新なら元の詳細画面、新規登録ならもともと居た一覧画面に戻す
   const cancelHref = isUpdate ? `/master/${state.masterId}` : state.returnTo;
   const categoryUnchanged = isUpdate && state.originalCategoryId === state.categoryId;
   const codeUnchanged = isUpdate && state.originalCode === state.code;
@@ -88,6 +92,10 @@ export function MasterConfirmation({
       ) : null}
 
       <div className="flex flex-wrap gap-3">
+        {/*
+          この確認画面には入力欄が無いため、そのまま送信すると入力内容が失われる。
+          そこで、確認した内容を見えない項目として持たせ、実行時に改めて送信している。
+        */}
         <form action={formAction}>
           <input type="hidden" name="categoryId" value={state.categoryId ?? ""} />
           <input type="hidden" name="code" value={state.code ?? ""} />

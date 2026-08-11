@@ -7,8 +7,15 @@ import { MESSAGES } from "@/shared/constants/messages";
 import { isRole, type Role } from "@/shared/constants/roles";
 import type { User } from "@prisma/client";
 
+// パスワードを変換して保存するときの設定値。
+// わざと計算に時間とメモリを使わせることで、万一保存内容が流出しても
+// 総当たりで元のパスワードを割り出しにくくしている。
 const ARGON2_OPTS = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
 
+/**
+ * データベースの利用者情報を、ログイン状態として持ち回る形に詰め替える。
+ * 役割の値が想定外だった場合は、いちばん権限の弱い閲覧のみの役割として扱う。
+ */
 function toAuthUser(u: User, authMethod: "entra" | "credentials"): AuthenticatedUser {
   return {
     id: u.id,
@@ -21,31 +28,34 @@ function toAuthUser(u: User, authMethod: "entra" | "credentials"): Authenticated
 }
 
 export const authService = {
-  /** Argon2id ハッシュ生成 */
+  /** パスワードを、そのままでは元に戻せない形に変換する（保存前に必ず通す） */
   hashPassword(plain: string): Promise<string> {
     return hash(plain, ARGON2_OPTS);
   },
 
   /**
-   * ID/PW 認証:
-   * 存在チェック → ロック判定 → ハッシュ照合 → 失敗回数/ロック更新 → 成功時リセット
+   * 入力された ID とパスワードが正しいかを確かめ、正しければ利用者の情報を返す。
+   * 利用者の存在確認 → 利用停止の確認 → パスワードの照合、の順に調べ、
+   * 失敗した場合は失敗回数を数え、既定の回数に達したらアカウントを利用停止にする。
    */
   async verifyCredentials(userId: string, password: string): Promise<AuthenticatedUser> {
     const user = await authRepository.findById(userId);
-    // 存在しない/削除済みでも詳細は明かさない
+    // 利用者が存在しない場合も、退職などで削除済みの場合も、同じメッセージで返す。
+    // どちらなのかを伝えると、存在する ID を探り当てる手がかりを与えてしまうため。
     if (!user || user.deleted) {
       throw Errors.unauthorized(MESSAGES.auth.invalidCredentials);
     }
     if (user.lockedAt) {
       throw new AppError("ACCOUNT_LOCKED", 403, MESSAGES.auth.locked, { userId });
     }
-    // Entra 専用ユーザ（PWなし）は Credentials ログイン不可
+    // Microsoft アカウント専用の利用者はパスワードを持たないため、この方法ではログインできない
     if (!user.passwordHash) {
       throw Errors.unauthorized(MESSAGES.auth.invalidCredentials);
     }
 
     const okPassword = await verify(user.passwordHash, password).catch(() => false);
     if (!okPassword) {
+      // パスワードの総当たりを防ぐため、失敗のたびに回数を数え、上限に達したら利用停止にする
       const attempts = await authRepository.incrementFailedAttempts(userId);
       if (attempts >= env.MAX_ATTEMPTS) {
         await authRepository.lock(userId);
@@ -54,11 +64,16 @@ export const authService = {
       throw Errors.unauthorized(MESSAGES.auth.invalidCredentials);
     }
 
+    // ログインできたら、それまでの失敗回数を消す（連続失敗でのみ利用停止になるようにするため）
     await authRepository.resetFailedAttempts(userId);
     return toAuthUser(user, "credentials");
   },
 
-  /** Entra ログイン時の突合/自動プロビジョン（初期ロール VIEWER） */
+  /**
+   * Microsoft アカウントでログインした利用者を、このアプリの利用者情報と結び付ける。
+   * 初めてのログインなら利用者情報を新しく作る（そのときの役割は閲覧のみ）。
+   * すでに削除済み・利用停止中の場合はログインさせない。
+   */
   async provisionEntraUser(input: {
     externalId: string;
     email?: string | null;
@@ -73,7 +88,10 @@ export const authService = {
     return toAuthUser(user, "entra");
   },
 
-  /** パスワード変更（初回強制変更にも使用） */
+  /**
+   * パスワードを変更する。初回ログイン時の変更でも同じ処理を使う。
+   * 本人以外が勝手に変更できないよう、現在のパスワードの入力を必須にしている。
+   */
   async changePassword(
     userId: string,
     currentPassword: string,
@@ -81,6 +99,7 @@ export const authService = {
   ): Promise<void> {
     const user = await authRepository.findById(userId);
     if (!user) throw Errors.notFound();
+    // Microsoft アカウント専用の利用者はこのアプリでパスワードを管理していない
     if (!user.passwordHash) {
       throw Errors.forbidden("このアカウントはパスワード変更の対象外です");
     }

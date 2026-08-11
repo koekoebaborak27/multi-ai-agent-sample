@@ -9,6 +9,8 @@ interface MasterCategoryConfirmationProps {
   onEdit: () => void;
 }
 
+// マスタ分類を保存する前に、入力内容を確認してもらう画面。新規登録と更新の両方で使う。
+// 更新のときは、変更前の名前・分類コード・登録マスタ件数も一緒に表示する。
 export function MasterCategoryConfirmation({
   state,
   pending,
@@ -17,6 +19,7 @@ export function MasterCategoryConfirmation({
 }: MasterCategoryConfirmationProps) {
   const name = state.name ?? "";
   const isUpdate = state.mode === "update";
+  // キャンセルの戻り先。更新なら元の詳細画面、新規登録なら分類一覧に戻す
   const cancelHref = isUpdate ? `/master/categories/${state.categoryId}` : "/master/categories";
 
   return (
@@ -58,6 +61,10 @@ export function MasterCategoryConfirmation({
       ) : null}
 
       <div className="flex flex-wrap gap-3">
+        {/*
+          この確認画面には入力欄が無いため、そのまま送信すると入力内容が失われる。
+          そこで、確認した内容を見えない項目として持たせ、実行時に改めて送信している。
+        */}
         <form action={formAction}>
           <input type="hidden" name="name" value={name} />
           {isUpdate ? (

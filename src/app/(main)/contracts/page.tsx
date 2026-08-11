@@ -11,9 +11,12 @@ import {
 import { partyService } from "@/modules/party";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
-// 認証必須・DB アクセスありのため常に動的レンダリング
+// ページを毎回サーバー側で作り直す設定。
+// ログインの確認とデータベースからの取得が必要なため、あらかじめページを作っておく仕組みは使わない。
 export const dynamic = "force-dynamic";
 
+// 契約管理画面を表示する。
+// 上に新規登録フォーム、下に契約一覧を並べた 1 画面構成になっている。
 export default async function ContractsPage({
   searchParams,
 }: {
@@ -22,11 +25,15 @@ export default async function ContractsPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // リクエストで渡されたページ番号・並び順を使いやすく変換する。
+  // 指定が無い場合や、おかしな値が入っていた場合は契約名順にする。
   const query = parseListQuery(await searchParams, CONTRACT_SORT_FIELDS, "title");
+  // 契約一覧と、登録フォームの契約先プルダウン用の一覧を同時に取得する（待ち時間を短くするため）
   const [result, partyList] = await Promise.all([
     contractService.list(query.page, env.PAGE_SIZE, query.sort, query.order),
     partyService.list(1, env.PAGE_SIZE),
   ]);
+  // 見出しをクリックして並び替えるときの、リンク先の元になるURL
   const baseUrl = `/contracts?sort=${query.sort}&order=${query.order}${query.page > 1 ? `&page=${query.page}` : ""}`;
 
   return (

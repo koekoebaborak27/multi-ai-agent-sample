@@ -10,6 +10,7 @@ import { Label } from "@/shared/ui/label";
 import { SearchConditionCard } from "@/shared/ui/search-condition-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
+// 分類の選択肢は空の文字列を扱えないため、「すべて」を表す専用の文字列を用意する
 const ALL_CATEGORIES = "all";
 
 interface MasterSearchFormProps {
@@ -21,6 +22,10 @@ interface MasterSearchFormProps {
   currentOrder: SortOrder;
 }
 
+// マスタ一覧の検索条件フォーム。
+// 入力内容はこの画面の中だけで保持し、検索ボタンが押されたときにURLへ変換して画面遷移する。
+// こうすることで、検索結果を表示する側（page.tsx）はURLの内容を見るだけでよくなり、
+// 入力内容の管理を二重に持たずに済む。
 export function MasterSearchForm({
   categories,
   initialCategoryId,
@@ -30,12 +35,19 @@ export function MasterSearchForm({
   currentOrder,
 }: MasterSearchFormProps) {
   const router = useRouter();
+  // 入力欄の初期値。ページを開いたときのURLの内容をそのまま使う。
+  // page.tsx 側でこのコンポーネントに渡す key に分類・キーワードを含めているため、
+  // URLが変わるとこのコンポーネントが作り直され、初期値も最新のURLに合わせて更新される。
   const [categoryId, setCategoryId] = useState(
     initialCategoryId === undefined ? ALL_CATEGORIES : String(initialCategoryId),
   );
   const [keyword, setKeyword] = useState(initialKeyword ?? "");
+  // 画面遷移が終わるまでボタンを押せなくする。連続で押されて二重に検索が実行されるのを防ぐ。
   const [isPending, startTransition] = useTransition();
 
+  // 検索ボタンが押されたときの処理。
+  // 選んだ分類・入力したキーワードをURLに詰めて一覧画面へ移動する（ページ番号は指定しないので1ページ目から表示する）。
+  // 現在の並び順は変えたくないので、そのまま引き継ぐ。
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = new URLSearchParams();
@@ -49,6 +61,8 @@ export function MasterSearchForm({
     startTransition(() => router.push(queryString ? `/master?${queryString}` : "/master"));
   }
 
+  // 「条件をクリア」ボタンが押されたときの処理。
+  // 検索条件・並び順をすべて初期状態に戻し、条件なしの一覧画面へ移動する。
   function handleClear() {
     setCategoryId(defaultCategoryId === undefined ? ALL_CATEGORIES : String(defaultCategoryId));
     setKeyword("");

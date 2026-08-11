@@ -1,6 +1,11 @@
+/**
+ * 対象: api/health アプリの稼働確認の窓口
+ * 目的: 既定の確認ではデータベースへ問い合わせないこと、
+ *       データベースの確認を指定したときだけ問い合わせ、つながらなければ異常として返すことを担保する
+ */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// logger（withRoute が使う）と prisma をモックする
+// 記録係とデータベースを差し替える。実際のデータベースが無くても試験できるようにするため。
 const { childLoggerMock, queryRawMock } = vi.hoisted(() => {
   const noop = vi.fn();
   const childLoggerMock = vi.fn(() => ({ error: noop, info: noop, debug: noop, warn: noop }));
@@ -17,6 +22,7 @@ vi.mock("@/shared/db/prisma", () => ({
   prisma: { $queryRaw: queryRawMock },
 }));
 
+// 差し替えの設定が済んでから読み込む必要があるため、この位置で読み込んでいる
 import { GET } from "@/app/api/health/route";
 
 beforeEach(() => {

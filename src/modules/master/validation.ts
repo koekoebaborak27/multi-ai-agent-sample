@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { MASTER_SORT_FIELDS } from "@/modules/master/types";
 
+// マスタ一覧画面のURLパラメータ（すべて文字列で渡ってくる）を、画面で使いやすい形に変換するチェックの定義。
+// URLは利用者が手で書き換えたり、古いお気に入りから開いたりすることがあるため、
+// おかしな値が来てもエラーにはせず、決まった初期値を使って画面を表示できるようにしている。
 export const masterSearchQuerySchema = z.object({
+  // 分類の指定を数値に変換する。
+  // 「all」は「分類を指定しない」ことを表す特別な値としてそのまま残す。
+  // 数値でも「all」でもない値、または値がないときは「未指定」として扱う。
   categoryId: z
     .string()
     .optional()
@@ -11,10 +17,12 @@ export const masterSearchQuerySchema = z.object({
       const categoryId = Number(value);
       return Number.isInteger(categoryId) && categoryId > 0 ? categoryId : undefined;
     }),
+  // 前後の空白だけのキーワードは「入力なし」として扱う
   keyword: z
     .string()
     .optional()
     .transform((value) => value?.trim() || undefined),
+  // ページ番号を数値に変換する。0以下・数字でない等のおかしな値は1ページ目にする
   page: z
     .string()
     .optional()
@@ -22,17 +30,20 @@ export const masterSearchQuerySchema = z.object({
       const page = Number(value ?? 1);
       return Number.isInteger(page) && page > 0 ? page : 1;
     }),
+  // 並び順の指定がおかしな値のときは、決まった並び順（分類名順・昇順）にする
   sort: z.enum(MASTER_SORT_FIELDS).catch("category").default("category"),
   order: z.enum(["asc", "desc"]).catch("asc").default("asc"),
 });
 
 export type MasterSearchQuery = z.infer<typeof masterSearchQuerySchema>;
 
+// マスタ一覧画面のURL。戻り先として認めるかどうかの判定基準に使う
 const MASTER_LIST_PATH = "/master";
 
 /**
- * 遷移元のマスタ検索一覧URLを検証する。
- * 検索条件を復元するためにURLを持ち回るが、外部URLや別画面へは戻さない。
+ * 「一覧に戻るためのURL」として渡された値を確認し、問題があれば一覧画面のURLに置き換える。
+ * 検索条件を保つためにURLを画面間で持ち回るが、その値を書き換えられても
+ * 外部のサイトや別の画面へ移動させられないよう、マスタ一覧のURLだけを通す。
  */
 export function parseMasterReturnTo(value: string | null | undefined): string {
   if (!value) return MASTER_LIST_PATH;
@@ -41,10 +52,14 @@ export function parseMasterReturnTo(value: string | null | undefined): string {
     : MASTER_LIST_PATH;
 }
 
+// 文字数を数える。
+// 絵文字や一部の漢字は内部的に2文字分として扱われ、length では見た目より多く数えられてしまう。
+// 利用者の感覚どおりの文字数で判定するため、1文字ずつに分解してから数える。
 function countUnicodeCodePoints(value: string): number {
   return Array.from(value).length;
 }
 
+// マスタ分類名の入力チェック。新規作成と更新の両方で使う
 const masterCategoryNameSchema = z
   .string()
   .trim()
@@ -53,10 +68,16 @@ const masterCategoryNameSchema = z
     message: "マスタ分類名は30文字以内です",
   });
 
+/** マスタ分類の新規登録フォームの入力チェック */
 export const createMasterCategorySchema = z.object({
   name: masterCategoryNameSchema,
 });
 
+/**
+ * マスタ分類の更新フォームの入力チェック。
+ * updatedAt は更新画面を開いた時点の最終更新日時で、
+ * 保存時に他の利用者が先に更新していないかを確かめるために画面から一緒に送られてくる。
+ */
 export const updateMasterCategorySchema = z.object({
   categoryId: z.coerce.number().int().positive("マスタ分類IDが不正です"),
   name: masterCategoryNameSchema,
@@ -66,7 +87,9 @@ export const updateMasterCategorySchema = z.object({
 export type CreateMasterCategoryInput = z.infer<typeof createMasterCategorySchema>;
 export type UpdateMasterCategoryInput = z.infer<typeof updateMasterCategorySchema>;
 
-/** プルダウンは未選択の場合に空文字を送るため、数値変換の前段で文字列として受ける */
+// 分類プルダウンの選択内容のチェック。
+// 未選択のときは空の文字列が送られてくるため、いきなり数値として受け取らず、
+// 文字列で受けてから数値に変換し、変換できなければ「選択してください」と案内する。
 const masterCategoryIdSchema = z
   .string()
   .transform((value) => Number(value.trim()))
@@ -74,6 +97,8 @@ const masterCategoryIdSchema = z
     message: "マスタ分類を選択してください",
   });
 
+// マスタコードの入力チェック。
+// 検索や並び替えで表記ゆれが起きないよう、使える文字を英大文字・数字・ハイフン・アンダースコアに限定する。
 const masterCodeSchema = z
   .string()
   .trim()
@@ -84,6 +109,7 @@ const masterCodeSchema = z
     "マスタコードは英大文字、数字、ハイフン、アンダースコアだけで入力してください",
   );
 
+// マスタ内容の入力チェック
 const masterContentSchema = z
   .string()
   .trim()
@@ -92,6 +118,7 @@ const masterContentSchema = z
     message: "マスタ内容は30文字以内です",
   });
 
+/** マスタの新規登録フォームの入力チェック */
 export const createMasterSchema = z.object({
   categoryId: masterCategoryIdSchema,
   code: masterCodeSchema,
@@ -100,6 +127,11 @@ export const createMasterSchema = z.object({
 
 export type CreateMasterInput = z.infer<typeof createMasterSchema>;
 
+/**
+ * マスタの更新フォームの入力チェック。
+ * updatedAt は更新画面を開いた時点の最終更新日時で、
+ * 保存時に他の利用者が先に更新していないかを確かめるために画面から一緒に送られてくる。
+ */
 export const updateMasterSchema = z.object({
   masterId: z.coerce.number().int().positive("マスタIDが不正です"),
   categoryId: masterCategoryIdSchema,

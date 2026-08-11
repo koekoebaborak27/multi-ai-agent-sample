@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/shared/ui/table";
 
+/** 日付を「2026-08-12」の形にする。開始日・終了日が未定の場合は「-」を表示する */
 function formatDate(d: Date | null): string {
   return d ? d.toISOString().slice(0, 10) : "-";
 }
@@ -23,6 +24,8 @@ interface ContractTableProps {
   baseUrl: string;
 }
 
+// 契約の一覧テーブル。
+// 見出しをクリックしたときの並び替えは、並び順を変えたURLへのリンクとして実現している。
 export function ContractTable({ contracts, sort, order, baseUrl }: ContractTableProps) {
   return (
     <Table>
@@ -68,6 +71,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
           >
             状態
           </SortableTableHead>
+          {/* 「操作」列には見出しの文字を表示しない。目の不自由な方向けの読み上げ用にラベルだけ付けている */}
           <TableHead className="text-right" aria-label="操作" />
         </TableRow>
       </TableHeader>
@@ -87,6 +91,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
               <TableCell>{formatDate(c.endDate)}</TableCell>
               <TableCell>{c.status}</TableCell>
               <TableCell className="text-right">
+                {/* 削除する契約を伝えるため、行ごとに識別子を持たせた小さなフォームにしている */}
                 <form action={deleteContractAction} className="inline">
                   <input type="hidden" name="id" value={c.id} />
                   <Button type="submit" variant="ghost" size="sm">

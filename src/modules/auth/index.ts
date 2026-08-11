@@ -1,4 +1,5 @@
-// auth モジュールの公開 API（他モジュール/appはここ経由でのみ利用する）
+// このモジュールを外部へ公開する窓口。
+// 他の機能や画面はここに書かれているものだけを使い、モジュール内部のファイルを直接使わない。
 export { auth, signIn, signOut, handlers } from "@/modules/auth/auth";
 export { rbac } from "@/modules/auth/rbac";
 export { authService } from "@/modules/auth/service";

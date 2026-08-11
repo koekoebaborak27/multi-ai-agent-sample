@@ -19,6 +19,8 @@ interface MasterCategoryTableProps {
   baseUrl: string;
 }
 
+// マスタ分類の一覧テーブル。
+// マスタ一覧のテーブルと同じく、見出しをクリックすると並び順を変えたURLへ移動して表示し直す。
 export function MasterCategoryTable({
   categories,
   sort,
@@ -54,6 +56,7 @@ export function MasterCategoryTable({
           >
             登録マスタ件数
           </SortableTableHead>
+          {/* 「操作」列には見出しの文字を表示しない。目の不自由な方向けの読み上げ用にラベルだけ付けている */}
           <TableHead className="text-right" aria-label="操作" />
         </TableRow>
       </TableHeader>

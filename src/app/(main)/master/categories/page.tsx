@@ -8,8 +8,13 @@ import { canWrite } from "@/shared/constants/roles";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
+// ページを毎回サーバー側で作り直す設定。
+// 一覧を常に最新の状態で見せたいため、あらかじめページを作っておく仕組みは使わない。
 export const dynamic = "force-dynamic";
 
+// マスタ分類一覧画面を表示する。
+// ログイン確認 → URLのページ・並び順を読み取り → 分類一覧をデータベースから取得、
+// という順に処理して画面を組み立てる。マスタ一覧と違い、検索条件による絞り込みは無い。
 export default async function MasterCategoriesPage({
   searchParams,
 }: {
@@ -18,6 +23,8 @@ export default async function MasterCategoriesPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // リクエストで渡されたページ番号・並び順を使いやすく変換する。
+  // 指定が無い場合や、おかしな値が入っていた場合は分類コード順にする。
   const query = parseListQuery(await searchParams, MASTER_CATEGORY_SORT_FIELDS, "code");
   const result = await masterService.listCategories(
     query.page,
@@ -25,6 +32,8 @@ export default async function MasterCategoriesPage({
     query.sort,
     query.order,
   );
+  // 見出しをクリックして並び替えるときの、リンク先の元になるURL。
+  // 今の並び順とページ番号を保った状態を表す。
   const baseUrl = `/master/categories?sort=${query.sort}&order=${query.order}${query.page > 1 ? `&page=${query.page}` : ""}`;
 
   return (

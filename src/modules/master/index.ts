@@ -1,3 +1,5 @@
+// このモジュールを外部へ公開する窓口。
+// 他の機能や画面はここに書かれているものだけを使い、service.ts などモジュール内部のファイルを直接使わない。
 export { masterService } from "@/modules/master/service";
 export {
   createMasterAction,

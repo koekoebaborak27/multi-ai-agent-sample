@@ -17,6 +17,8 @@ import { getCurrentUser } from "@/shared/auth/session";
 import { AppError } from "@/shared/errors/app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// 業務処理そのものは別の試験で確認しているため、ここでは差し替える。
+// この試験で見たいのは「権限の確認・入力チェック・呼び出しの内容・移動先」だけ。
 vi.mock("@/modules/master/service", () => ({
   masterService: {
     assertCategoryExists: vi.fn(),
@@ -29,18 +31,24 @@ vi.mock("@/modules/master/service", () => ({
   },
 }));
 
+// ログイン中の利用者を試験ごとに自由に差し替えられるようにする（権限の違いを試すため）
 vi.mock("@/shared/auth/session", () => ({
   getCurrentUser: vi.fn(),
 }));
 
+// 記録を残す包みは、中身をそのまま返すだけにする。
+// 記録の内容はこの試験の対象ではなく、包んだままだと確認したい処理に届きにくいため。
 vi.mock("@/shared/observability/with-op", () => ({
   withOp: (_op: string, fn: unknown) => fn,
 }));
 
+// 表示内容の更新指示は、呼ばれたかどうかだけを確認したいので中身を差し替える
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+// 画面移動は試験環境では実行できないため、代わりにエラーを発生させる。
+// 本来の動きも「その場で処理を打ち切る」ものなので、以降の処理が走らない点は同じになる。
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(() => {
     throw new Error("NEXT_REDIRECT");

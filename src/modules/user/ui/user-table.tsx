@@ -19,6 +19,8 @@ interface UserTableProps {
   baseUrl: string;
 }
 
+// 利用者の一覧テーブル（管理者向け画面）。
+// 見出しをクリックしたときの並び替えは、並び順を変えたURLへのリンクとして実現している。
 export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
   return (
     <Table>
@@ -64,6 +66,7 @@ export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
           >
             状態
           </SortableTableHead>
+          {/* 「操作」列には見出しの文字を表示しない。目の不自由な方向けの読み上げ用にラベルだけ付けている */}
           <TableHead className="text-right" aria-label="操作" />
         </TableRow>
       </TableHeader>
@@ -81,6 +84,11 @@ export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
               <TableCell>{u.displayName ?? "-"}</TableCell>
               <TableCell>{u.role}</TableCell>
               <TableCell>{u.authMethod}</TableCell>
+              {/*
+                「状態」はデータベースの項目そのままではなく、
+                利用停止中かどうか・初回パスワード変更が必要かを見て表示を切り替えている。
+                利用停止のほうが利用者に伝えるべき度合いが高いため、先に判定する。
+              */}
               <TableCell>
                 {u.locked ? (
                   <span className="text-destructive">ロック中</span>
@@ -91,6 +99,7 @@ export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
                 )}
               </TableCell>
               <TableCell className="text-right">
+                {/* 削除する利用者を伝えるため、行ごとに識別子を持たせた小さなフォームにしている */}
                 <form action={deleteUserAction} className="inline">
                   <input type="hidden" name="userId" value={u.userId} />
                   <Button type="submit" variant="ghost" size="sm">

@@ -9,10 +9,13 @@ import { Label } from "@/shared/ui/label";
 
 const initialState: UserFormState = {};
 
+// 利用者の新規登録フォーム（管理者向け画面）。
+// 一覧画面の中に置かれ、登録すると同じ画面のまま一覧へ反映される。
 export function UserForm() {
   const [state, formAction, pending] = useActionState(createUserAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // 登録に成功したら入力欄を空に戻す。続けて別の利用者を登録しやすくするため。
   useEffect(() => {
     if (state.success) formRef.current?.reset();
   }, [state.success]);

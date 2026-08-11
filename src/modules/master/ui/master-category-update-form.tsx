@@ -18,6 +18,8 @@ interface MasterCategoryUpdateFormProps {
   };
 }
 
+// マスタ分類の更新フォーム。
+// 変更できるのは分類名だけで、分類コードと登録マスタ件数は参考情報として表示するだけ。
 export function MasterCategoryUpdateForm({ category }: MasterCategoryUpdateFormProps) {
   const initialState: MasterCategoryFormState = {
     mode: "update",
@@ -30,8 +32,11 @@ export function MasterCategoryUpdateForm({ category }: MasterCategoryUpdateFormP
     updatedAt: category.updatedAt,
   };
   const [state, formAction, pending] = useActionState(updateMasterCategoryAction, initialState);
+  // 確認画面で「入力内容を修正」が押されたときの状態を覚えておく。
+  // 修正を押した時点の状態と現在の状態が同じ間は、入力画面へ戻したままにする。
   const [editingState, setEditingState] = useState<MasterCategoryFormState | null>(null);
 
+  // 確認の段階になったら、入力欄の代わりに確認画面を表示する
   if (state.phase === "confirm" && editingState !== state) {
     return (
       <MasterCategoryConfirmation
@@ -45,6 +50,11 @@ export function MasterCategoryUpdateForm({ category }: MasterCategoryUpdateFormP
 
   return (
     <form action={formAction} className="space-y-6">
+      {/*
+        入力欄として表示しないが処理に必要な値を、見えない項目として一緒に送る。
+        updatedAt は他の利用者が先に更新していないかの判断に、
+        originalName は確認画面で変更前の名前を表示するために使う。
+      */}
       <input type="hidden" name="categoryId" value={category.id} />
       <input type="hidden" name="updatedAt" value={state.updatedAt} />
       <input type="hidden" name="originalName" value={state.originalName} />

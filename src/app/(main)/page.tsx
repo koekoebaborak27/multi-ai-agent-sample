@@ -2,9 +2,11 @@ import { Megaphone } from "lucide-react";
 import { announcementService } from "@/modules/announcement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
-// 認証必須・DB アクセスありのため常に動的レンダリング（ビルド時の事前生成を行わない）
+// ページを毎回サーバー側で作り直す設定。
+// ログインの確認とデータベースからの取得が必要なため、あらかじめページを作っておく仕組みは使わない。
 export const dynamic = "force-dynamic";
 
+// ログイン後に最初に表示される画面。公開中のお知らせを新しい順に並べる。
 export default async function DashboardPage() {
   const announcements = await announcementService.listLatest();
 
@@ -13,6 +15,7 @@ export default async function DashboardPage() {
       <h1 className="text-2xl font-bold">ダッシュボード</h1>
 
       <Card className="relative overflow-hidden">
+        {/* 右上に置く同心円の飾り。操作の対象ではないため、読み上げの対象からも外している */}
         <svg
           className="pointer-events-none absolute -top-10 -right-6 size-48 text-accent"
           viewBox="0 0 200 200"

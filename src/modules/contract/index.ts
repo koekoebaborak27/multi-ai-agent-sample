@@ -1,3 +1,5 @@
+// このモジュールを外部へ公開する窓口。
+// 他の機能や画面はここに書かれているものだけを使い、モジュール内部のファイルを直接使わない。
 export { contractService } from "@/modules/contract/service";
 export { ContractTable } from "@/modules/contract/ui/contract-table";
 export { ContractForm } from "@/modules/contract/ui/contract-form";

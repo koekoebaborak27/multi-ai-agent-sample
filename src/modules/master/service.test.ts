@@ -1,6 +1,7 @@
 /**
  * 対象: master/service マスタ検索・登録とマスタ分類一覧・詳細・登録・更新
- * 目的: 検索条件、表示形式、重複防止、監査項目および楽観的排他制御を担保する
+ * 目的: 検索条件の扱い、画面用の表示形式、コード・名前の重複防止、登録者などの記録、
+ *       および他の利用者が先に更新していたときに上書きしないことを担保する
  */
 import { masterRepository } from "@/modules/master/repository";
 import { formatMasterCategoryCode, masterService } from "@/modules/master/service";
@@ -8,6 +9,8 @@ import { AppError } from "@/shared/errors/app-error";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// データベースへの読み書きは差し替える。
+// 実際のデータベースを用意しなくても、業務ルールの判定だけを取り出して確認できるようにするため。
 vi.mock("@/modules/master/repository", () => ({
   masterRepository: {
     listMastersAndCount: vi.fn(),
@@ -25,10 +28,13 @@ vi.mock("@/modules/master/repository", () => ({
   },
 }));
 
+// 環境変数の内容によって結果が変わらないよう、1ページの件数を固定する
 vi.mock("@/shared/config/env", () => ({
   env: { PAGE_SIZE: 30 },
 }));
 
+// 更新の試験で使う「画面を開いた時点の最終更新日時」。
+// 他の利用者が先に更新していたかの判定に使うため、値を固定しておく。
 const updatedAt = new Date("2026-08-09T00:00:00.000Z");
 
 describe("master/service listMasters", () => {

@@ -14,8 +14,13 @@ import { canWrite } from "@/shared/constants/roles";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
+// ページを毎回サーバー側で作り直す設定。
+// 検索結果を常に最新の状態で見せたいため、あらかじめページを作っておく仕組みは使わない。
 export const dynamic = "force-dynamic";
 
+// 検索条件・ページ番号・並び順を1本のURLにまとめる。
+// 一覧画面に戻るリンクや、並び替え・ページ送りのリンク先を作るために使う。
+// 最初の状態（1ページ目・分類名順）と同じ内容はURLに含めず、URLを短く保つ。
 function buildListUrl(
   categoryId: number | "all" | undefined,
   keyword: string | undefined,
@@ -33,6 +38,9 @@ function buildListUrl(
   return queryString ? `/master?${queryString}` : "/master";
 }
 
+// マスタ一覧画面を表示する。
+// ログイン確認 → URLの検索条件を読み取り → マスタ一覧をデータベースから取得、
+// という順に処理して画面を組み立てる。
 export default async function MasterPage({
   searchParams,
 }: {
@@ -44,11 +52,20 @@ export default async function MasterPage({
     order?: string;
   }>;
 }) {
+  // ログインしていなければログイン画面へ移動させる。
+  // この画面自体は、見るだけなら権限を問わない。
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // リクエストで渡された検索条件を使いやすく変換する。
+  // 文字列のまま渡ってくるので、数値に変換する・値が入っていない項目には初期値を入れる、等を行う。
   const query = masterSearchQuerySchema.parse(await searchParams);
+  // 検索条件の分類プルダウン用に、分類の一覧を取得する。
+  // 毎回最新の内容にしたいので、都度データベースから取得する。
   const categories = await masterService.listCategoryOptions();
+  // URLで指定された分類を選択状態にする。
+  // 「all」ならそのまま「すべて」として扱う。指定された分類が実際には存在しない場合
+  // （分類が削除された後の古いリンクなど）は、代わりに分類一覧の一番先頭の分類を選択状態にする。
   const selectedCategoryId =
     query.categoryId === "all"
       ? "all"
@@ -66,6 +83,8 @@ export default async function MasterPage({
     query.sort,
     query.order,
   );
+  // 詳細画面へ渡す「一覧に戻るためのURL」を組み立てる。
+  // 今の検索条件・ページ・並び順を保ったまま一覧に戻れるよう、確定した検索結果のページ番号を使う。
   const returnTo = buildListUrl(
     selectedCategoryId,
     query.keyword,

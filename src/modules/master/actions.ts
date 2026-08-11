@@ -15,6 +15,14 @@ import { canWrite } from "@/shared/constants/roles";
 import { Errors, isAppError } from "@/shared/errors/app-error";
 import { withOp } from "@/shared/observability/with-op";
 
+// このファイルの各処理は、画面から送られた入力を受け取って登録・更新を行う。
+// マスタの登録・更新はどれも「入力 → 確認 → 実行」の順で進むため、
+// 1 回の送信で完了させず、次のどちらを行うかを画面からの intent で判断している。
+//   intent が "confirm": 入力内容を確認し、確認画面を表示する（まだ保存しない）
+//   intent が "execute": 実際に保存し、完了後に詳細画面へ移動する
+// 入力に誤りがあった場合は、入力し直せるよう入力内容を保持したまま画面へ返す。
+
+/** マスタ分類の登録・更新フォームの状態。画面と処理の間で往復する */
 export interface MasterCategoryFormState {
   mode: "create" | "update";
   phase: "input" | "confirm";
@@ -27,6 +35,10 @@ export interface MasterCategoryFormState {
   error?: string;
 }
 
+/**
+ * マスタの登録・更新フォームの状態。画面と処理の間で往復する。
+ * original で始まる項目は更新前の値で、確認画面で変更前後を並べて表示するために保持する。
+ */
 export interface MasterFormState {
   mode: "create" | "update";
   phase: "input" | "confirm";
@@ -43,6 +55,8 @@ export interface MasterFormState {
   error?: string;
 }
 
+// ログインしていて、かつ登録・更新の権限を持つ利用者かどうかを確認し、その利用者を返す。
+// 画面側でボタンを隠していても直接呼び出される可能性があるため、保存処理の入口で必ず確認する。
 async function requireWriter() {
   const user = await getCurrentUser();
   if (!user) throw Errors.unauthorized();
@@ -50,12 +64,15 @@ async function requireWriter() {
   return user;
 }
 
-/** 未選択・不正な値は入力欄へ戻さず未選択として扱う */
+/** 選択された分類を数値に変換する。未選択やおかしな値は、入力欄へ戻さず未選択として扱う */
 function toSelectedCategoryId(rawCategoryId: string): number | undefined {
   const categoryId = Number(rawCategoryId.trim());
   return Number.isInteger(categoryId) && categoryId > 0 ? categoryId : undefined;
 }
 
+// マスタを新規登録する。
+// 確認画面の表示（intent が "confirm"）と、実際の登録（intent が "execute"）の両方をこの処理で受け持つ。
+// withOp で包むことで、処理の開始・終了・失敗の記録が自動的に残る。
 export const createMasterAction = withOp(
   "master.create",
   async (_prev: MasterFormState, formData: FormData): Promise<MasterFormState> => {
@@ -65,6 +82,8 @@ export const createMasterAction = withOp(
     const rawCode = String(formData.get("code") ?? "");
     const rawContent = String(formData.get("content") ?? "");
     const returnTo = parseMasterReturnTo(String(formData.get("returnTo") ?? ""));
+    // エラーになったときに戻す画面。確認画面から実行した場合は確認画面に、
+    // 入力画面から進もうとした場合は入力画面にとどめる。
     const phase = intent === "execute" ? "confirm" : "input";
     const parsed = createMasterSchema.safeParse({
       categoryId: rawCategoryId,
@@ -72,6 +91,7 @@ export const createMasterAction = withOp(
       content: rawContent,
     });
 
+    // 入力に誤りがあれば、入力し直せるよう入力内容をそのまま画面へ返す
     if (!parsed.success) {
       return {
         mode: "create",
@@ -85,16 +105,21 @@ export const createMasterAction = withOp(
     }
 
     try {
+      // 確認画面を出す前に、分類の存在とコードの重複だけ先に確認しておく。
+      // 確認画面で「はい」を押してから初めてエラーになるのを避けるため。
       if (intent === "confirm") {
         await masterService.assertCategoryExists(parsed.data.categoryId);
         await masterService.assertMasterCodeAvailable(parsed.data.categoryId, parsed.data.code);
         return { mode: "create", phase: "confirm", ...parsed.data, returnTo };
       }
 
+      // 登録したあと、一覧の表示内容を最新にしてから、登録したマスタの詳細画面へ移動する
       const master = await masterService.createMaster(parsed.data, user.id);
       revalidatePath("/master");
       redirect(`/master/${master.id}?created=1&returnTo=${encodeURIComponent(returnTo)}`);
     } catch (error) {
+      // 重複や権限などの想定内のエラーは、画面にメッセージとして表示する。
+      // それ以外の想定外のエラーはここで扱わず、そのまま上位へ渡してエラー画面に任せる。
       if (isAppError(error)) {
         return { mode: "create", phase, ...parsed.data, returnTo, error: error.userMessage };
       }
@@ -103,6 +128,7 @@ export const createMasterAction = withOp(
   },
 );
 
+// マスタ分類を新規登録する（マスタの新規登録と同じ「確認 → 実行」の流れ）。
 export const createMasterCategoryAction = withOp(
   "master.category.create",
   async (_prev: MasterCategoryFormState, formData: FormData): Promise<MasterCategoryFormState> => {
@@ -121,11 +147,13 @@ export const createMasterCategoryAction = withOp(
     }
 
     try {
+      // 確認画面を出す前に、同じ名前の分類が無いことを先に確認しておく
       if (intent === "confirm") {
         await masterService.assertCategoryNameAvailable(parsed.data.name);
         return { mode: "create", phase: "confirm", name: parsed.data.name };
       }
 
+      // 登録したあと、一覧の表示内容を最新にしてから、登録した分類の詳細画面へ移動する
       const category = await masterService.createCategory(parsed.data, user.id);
       revalidatePath("/master/categories");
       redirect(`/master/categories/${category.id}?created=1`);
@@ -143,6 +171,9 @@ export const createMasterCategoryAction = withOp(
   },
 );
 
+// マスタ分類を更新する。
+// 新規登録と違い、更新画面を開いた時点の最終更新日時（updatedAt）を画面から受け取り、
+// 他の利用者が先に更新していないかの判断に使う。
 export const updateMasterCategoryAction = withOp(
   "master.category.update",
   async (prev: MasterCategoryFormState, formData: FormData): Promise<MasterCategoryFormState> => {
@@ -165,6 +196,9 @@ export const updateMasterCategoryAction = withOp(
       };
     }
 
+    // 確認画面の表示にもエラー時の再表示にも使うため、入力後の状態をここで組み立てておく。
+    // prev を引き継ぐのは、コード・変更前の名前など画面の表示に必要で
+    // フォームからは送られてこない項目を保つため。
     const nextState: MasterCategoryFormState = {
       ...prev,
       mode: "update",
@@ -175,11 +209,13 @@ export const updateMasterCategoryAction = withOp(
     };
 
     try {
+      // 確認画面を出す前に、変更後の名前が他の分類と重複しないことを先に確認しておく
       if (intent === "confirm") {
         await masterService.assertCategoryNameAvailable(parsed.data.name, parsed.data.categoryId);
         return { ...nextState, phase: "confirm" };
       }
 
+      // 更新したあと、一覧と詳細の両方の表示内容を最新にしてから、詳細画面へ移動する
       await masterService.updateCategory(parsed.data, user.id);
       revalidatePath("/master/categories");
       revalidatePath(`/master/categories/${parsed.data.categoryId}`);
@@ -191,9 +227,13 @@ export const updateMasterCategoryAction = withOp(
       throw error;
     }
   },
+  // 更新は「誰がいつ何を変えたか」を後から追えるようにしたいので、成功時の記録にも入力内容を残す
   { includeArgsInSuccessLog: true },
 );
 
+// マスタを更新する。
+// 分類の更新と同じく最終更新日時を受け取るほか、確認画面で変更前後を並べて表示するため、
+// 変更前の値（originalCategoryId など）も画面から受け取って持ち回る。
 export const updateMasterAction = withOp(
   "master.update",
   async (prev: MasterFormState, formData: FormData): Promise<MasterFormState> => {
@@ -203,6 +243,7 @@ export const updateMasterAction = withOp(
     const rawCode = String(formData.get("code") ?? "");
     const rawContent = String(formData.get("content") ?? "");
     const returnTo = parseMasterReturnTo(String(formData.get("returnTo") ?? prev.returnTo));
+    // 変更前の値。確認画面では入力欄が無く送信されないため、その場合は前回の状態から引き継ぐ
     const originalCategoryId = Number(
       formData.get("originalCategoryId") ?? prev.originalCategoryId,
     );
@@ -238,6 +279,7 @@ export const updateMasterAction = withOp(
       };
     }
 
+    // 確認画面の表示にもエラー時の再表示にも使うため、入力後の状態をここで組み立てておく
     const nextState: MasterFormState = {
       ...prev,
       mode: "update",
@@ -255,6 +297,8 @@ export const updateMasterAction = withOp(
     };
 
     try {
+      // 確認画面を出す前に、分類の存在とコードの重複を先に確認しておく。
+      // 自分自身のコードは重複と見なさないよう、対象のマスタを除外して確認する。
       if (intent === "confirm") {
         await masterService.assertCategoryExists(parsed.data.categoryId);
         await masterService.assertMasterCodeAvailable(
@@ -265,6 +309,7 @@ export const updateMasterAction = withOp(
         return { ...nextState, phase: "confirm" };
       }
 
+      // 更新したあと、一覧と詳細の両方の表示内容を最新にしてから、詳細画面へ移動する
       await masterService.updateMaster(parsed.data, user.id);
       revalidatePath("/master");
       revalidatePath(`/master/${parsed.data.masterId}`);
@@ -278,5 +323,6 @@ export const updateMasterAction = withOp(
       throw error;
     }
   },
+  // 更新は「誰がいつ何を変えたか」を後から追えるようにしたいので、成功時の記録にも入力内容を残す
   { includeArgsInSuccessLog: true },
 );

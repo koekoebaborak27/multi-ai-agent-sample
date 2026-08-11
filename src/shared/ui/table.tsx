@@ -74,6 +74,10 @@ interface SortableTableHeadProps extends React.ThHTMLAttributes<HTMLTableCellEle
   align?: "left" | "right";
 }
 
+/**
+ * 見出しをクリックしたときの移動先URLを組み立てる。
+ * 今の検索条件はそのまま保ち、並び替えの指定だけを差し替える。
+ */
 function buildSortUrl(
   baseUrl: string,
   sortKey: string,
@@ -83,13 +87,21 @@ function buildSortUrl(
   const [pathname, queryString = ""] = baseUrl.split("?");
   const query = new URLSearchParams(queryString);
   query.set("sort", sortKey);
+  // すでにその項目の昇順で並んでいる場合だけ降順にし、それ以外は昇順にする
   query.set("order", currentSort === sortKey && currentOrder === "asc" ? "desc" : "asc");
+  // 並び替えると表示される内容が変わるため、ページ番号は消して1ページ目から見せる
   query.delete("page");
   const nextQuery = query.toString();
   return nextQuery ? `${pathname}?${nextQuery}` : pathname;
 }
 
-/** 現在の並び順を示し、クリックで昇順・降順を切り替える一覧見出し。 */
+/**
+ * 並び替えができる一覧の見出し。
+ * 今どの順で並んでいるかを矢印で示し、クリックすると昇順と降順が切り替わる。
+ *
+ * 画面内で並び替えるのではなく、並び順を変えたURLへのリンクにしている。
+ * こうすると、並び替えた状態のURLをそのまま共有したり、お気に入りに登録したりできる。
+ */
 function SortableTableHead({
   sortKey,
   currentSort,
@@ -101,10 +113,12 @@ function SortableTableHead({
   ...props
 }: SortableTableHeadProps) {
   const active = currentSort === sortKey;
+  // 押したときにどうなるかを読み上げで伝えるための文言
   const nextOrder = active && currentOrder === "asc" ? "降順" : "昇順";
 
   return (
     <TableHead
+      // 読み上げ機能に、この列が今どの順で並んでいるかを伝える
       aria-sort={active ? (currentOrder === "asc" ? "ascending" : "descending") : "none"}
       className={cn(align === "right" && "text-right", className)}
       {...props}
@@ -118,6 +132,7 @@ function SortableTableHead({
         )}
       >
         {children}
+        {/* 並び替えの対象になっている列は向きが分かる矢印、それ以外は上下両向きの印を出す */}
         {active ? (
           currentOrder === "asc" ? (
             <ArrowUp className="size-4 shrink-0" aria-hidden="true" />

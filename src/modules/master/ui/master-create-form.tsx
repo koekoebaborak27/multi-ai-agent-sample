@@ -15,13 +15,19 @@ interface MasterCreateFormProps {
   returnTo: string;
 }
 
+// マスタの新規登録フォーム。
+// 「確認する」を押すと同じ画面が確認表示へ切り替わり、そこで「実行」を押すと登録される。
 export function MasterCreateForm({ categories, returnTo }: MasterCreateFormProps) {
   const initialState: MasterFormState = { mode: "create", phase: "input", returnTo };
   const [state, formAction, pending] = useActionState(createMasterAction, initialState);
+  // 確認画面で「入力内容を修正」が押されたときの状態を覚えておく。
+  // 修正を押した時点の状態と現在の状態が同じ間は、入力画面へ戻したままにする。
   const [editingState, setEditingState] = useState<MasterFormState | null>(null);
   const [categoryId, setCategoryId] = useState("");
+  // 分類が1件も登録されていないとマスタを登録できないため、その場合は案内を表示する
   const hasCategories = categories.length > 0;
 
+  // 確認の段階になったら、入力欄の代わりに確認画面を表示する
   if (state.phase === "confirm" && editingState !== state) {
     const selected = categories.find((category) => category.id === state.categoryId);
     return (
@@ -43,6 +49,7 @@ export function MasterCreateForm({ categories, returnTo }: MasterCreateFormProps
         <Label htmlFor={hasCategories ? "categoryId" : undefined}>マスタ分類</Label>
         {hasCategories ? (
           <>
+            {/* プルダウン部品は選択内容を送信しないため、見えない項目に写して一緒に送る */}
             <input type="hidden" name="categoryId" value={categoryId} />
             <Select value={categoryId || undefined} onValueChange={setCategoryId}>
               <SelectTrigger

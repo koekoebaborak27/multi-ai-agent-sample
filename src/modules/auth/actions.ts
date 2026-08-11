@@ -9,11 +9,14 @@ import { withOp } from "@/shared/observability/with-op";
 import { isAppError } from "@/shared/errors/app-error";
 import { MESSAGES } from "@/shared/constants/messages";
 
+/** ログイン・パスワード変更フォームの状態。エラーがあればメッセージを入れて画面へ返す */
 export interface FormState {
   error?: string;
 }
 
-/** ID/PW ログイン。成功時は "/" にリダイレクト（proxy が初回PW変更へ誘導）。 */
+// ID とパスワードでログインする。
+// 成功したらトップ画面へ移動する。初回ログインの場合は、その後 src/proxy.ts が
+// パスワード変更画面へ案内するため、ここでは行き先を分けていない。
 export const loginWithCredentials = withOp(
   "auth.login",
   async (_prev: FormState, formData: FormData): Promise<FormState> => {
@@ -32,15 +35,18 @@ export const loginWithCredentials = withOp(
       });
       return {};
     } catch (e) {
+      // ID やパスワードの誤りは、どちらが違うのかを伝えず同じメッセージで返す。
+      // どちらなのかを伝えると、存在する ID を探り当てる手がかりを与えてしまうため。
       if (e instanceof AuthError) {
         return { error: MESSAGES.auth.invalidCredentials };
       }
-      throw e; // NEXT_REDIRECT 等は再スロー
+      // 画面移動の指示もエラーと同じ仕組みで通知されるため、ここで止めずにそのまま渡す
+      throw e;
     }
   },
 );
 
-/** パスワード変更（初回強制変更を含む）。成功時 "/" へ。 */
+// パスワードを変更する。初回ログイン時の変更でも同じ処理を使う。
 export const changePassword = withOp(
   "auth.change-password",
   async (_prev: FormState, formData: FormData): Promise<FormState> => {
@@ -66,18 +72,20 @@ export const changePassword = withOp(
       if (isAppError(e)) return { error: e.userMessage };
       throw e;
     }
-    // セッションのクレーム更新のため再ログインを促す
+    // ログイン状態を保つ引換券には「初回パスワード変更が必要」の情報が入っている。
+    // 変更後もその情報は古いままなので、いったんログアウトして入り直してもらう。
     await signOut({ redirectTo: "/login" });
     return {};
   },
 );
 
-/** Entra ID ログイン（OIDC リダイレクト開始） */
+// Microsoft アカウントでのログインを開始する。
+// この後は Microsoft 側のログイン画面へ移動し、完了するとこのアプリに戻ってくる。
 export const loginWithEntra = withOp("auth.login.entra", async (): Promise<void> => {
   await signIn("microsoft-entra-id", { redirectTo: "/" });
 });
 
-/** ログアウト */
+// ログアウトし、ログイン画面へ移動する。
 export const signOutAction = withOp("auth.logout", async (): Promise<void> => {
   await signOut({ redirectTo: "/login" });
 });

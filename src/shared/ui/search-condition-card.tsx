@@ -11,12 +11,18 @@ interface SearchConditionCardProps {
   defaultExpanded?: boolean;
 }
 
-/** 一覧画面の検索条件を、入力値を保持したまま開閉する共通カード。 */
+/**
+ * 一覧画面の検索条件を囲む共通の枠。開いたり閉じたりできる。
+ *
+ * 閉じるときも中身を消さずに隠しているだけなので、入力した内容はそのまま残る。
+ */
 export function SearchConditionCard({
   children,
   title = "検索条件",
   defaultExpanded = true,
 }: SearchConditionCardProps) {
+  // 開閉ボタンと中身を結び付けるための名前。
+  // 同じ画面にこの枠が複数あっても重ならないよう、自動で作られる番号を使う。
   const contentId = `search-condition-${useId()}`;
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 

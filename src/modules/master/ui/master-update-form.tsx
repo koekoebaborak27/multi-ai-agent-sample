@@ -23,6 +23,9 @@ interface MasterUpdateFormProps {
   returnTo: string;
 }
 
+// マスタの更新フォーム。
+// 新規登録フォームと同じく「確認する」で確認表示へ切り替わる。
+// 更新前の値を original で始まる項目として持ち、確認画面で変更前後を並べて表示する。
 export function MasterUpdateForm({ master, categories, returnTo }: MasterUpdateFormProps) {
   const initialState: MasterFormState = {
     mode: "update",
@@ -39,9 +42,12 @@ export function MasterUpdateForm({ master, categories, returnTo }: MasterUpdateF
     originalContent: master.content,
   };
   const [state, formAction, pending] = useActionState(updateMasterAction, initialState);
+  // 確認画面で「入力内容を修正」が押されたときの状態を覚えておく。
+  // 修正を押した時点の状態と現在の状態が同じ間は、入力画面へ戻したままにする。
   const [editingState, setEditingState] = useState<MasterFormState | null>(null);
   const [categoryId, setCategoryId] = useState(String(state.categoryId ?? master.categoryId));
 
+  // 確認の段階になったら、入力欄の代わりに確認画面を表示する
   if (state.phase === "confirm" && editingState !== state) {
     const selected = categories.find((category) => category.id === state.categoryId);
     return (
@@ -57,6 +63,11 @@ export function MasterUpdateForm({ master, categories, returnTo }: MasterUpdateF
 
   return (
     <form action={formAction} className="space-y-6">
+      {/*
+        入力欄として表示しないが処理に必要な値を、見えない項目として一緒に送る。
+        updatedAt は他の利用者が先に更新していないかの判断に、
+        original で始まる項目は確認画面で変更前後を並べて表示するために使う。
+      */}
       <input type="hidden" name="masterId" value={master.id} />
       <input type="hidden" name="updatedAt" value={state.updatedAt} />
       <input type="hidden" name="originalCategoryId" value={state.originalCategoryId} />
@@ -73,6 +84,7 @@ export function MasterUpdateForm({ master, categories, returnTo }: MasterUpdateF
 
       <div className="space-y-2">
         <Label htmlFor="categoryId">マスタ分類</Label>
+        {/* プルダウン部品は選択内容を送信しないため、見えない項目に写して一緒に送る */}
         <input type="hidden" name="categoryId" value={categoryId} />
         <Select value={categoryId} onValueChange={setCategoryId}>
           <SelectTrigger

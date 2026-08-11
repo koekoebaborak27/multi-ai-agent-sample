@@ -19,6 +19,8 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 
+// 画面右上の利用者メニュー。パスワード変更とログアウトを行える。
+// パスワード変更は画面を移動せず、その場に小窓を開いて入力してもらう。
 export function UserMenu() {
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
@@ -34,6 +36,10 @@ export function UserMenu() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {/*
+            選んだときの既定の動き（メニューを閉じる）を止めてから小窓を開く。
+            止めないと、メニューが閉じる動きと小窓が開く動きが重なり、小窓が正しく開かないため。
+          */}
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault();

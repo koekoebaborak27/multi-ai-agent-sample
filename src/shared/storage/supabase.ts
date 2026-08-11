@@ -3,7 +3,10 @@ import { env } from "@/shared/config/env";
 import { AppError } from "@/shared/errors/app-error";
 import { DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS, type StorageClient } from "@/shared/storage/types";
 
-/** Supabase Storage の REST API（`@supabase/supabase-js` 非依存の最小実装）。 */
+// Supabase のファイル保管場所とのやり取り。
+// 専用の追加ライブラリは使わず、必要な通信だけを自分で組み立てている（依存を増やさないため）。
+
+/** 接続に必要な設定が揃っているか確かめ、揃っていればその値を返す */
 function requireConfig() {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY が未設定です");
@@ -12,26 +15,31 @@ function requireConfig() {
 }
 
 /**
- * 認証ヘッダ。`Authorization` と `apikey` の両方を送る。
- * 新形式の API キー（`sb_secret_...`）は JWT ではないため、`Authorization` だけを送ると
- * Supabase 側が JWT としてパースに失敗し `Invalid Compact JWS`（HTTP 400）で全操作が拒否される。
- * `apikey` を併送すればキーが解決される。旧 `service_role`（JWT 形式）でも併送で問題なく動作する。
+ * 通信時に添える、自分が誰かを示す情報。
+ *
+ * 同じ鍵を Authorization と apikey の2か所に入れて送っている。
+ * 新しい形式の鍵は Authorization だけで送ると Supabase 側が読み取りに失敗し、
+ * すべての操作が拒否されてしまう。apikey も一緒に送ると正しく認識される。
+ * 古い形式の鍵でも、両方送って問題なく動く。
  */
 function authHeaders(key: string): Record<string, string> {
   return { Authorization: `Bearer ${key}`, apikey: key };
 }
 
+/** ファイルそのものを読み書きするための通信先を組み立てる */
 function objectUrl(path: string): string {
   const { url } = requireConfig();
   return `${url}/storage/v1/object/${env.SUPABASE_STORAGE_BUCKET}/${path}`;
 }
 
+/** 期限付きURLの発行を依頼するための通信先を組み立てる */
 function signUrl(path: string): string {
   const { url } = requireConfig();
   return `${url}/storage/v1/object/sign/${env.SUPABASE_STORAGE_BUCKET}/${path}`;
 }
 
 export const supabaseStorage: StorageClient = {
+  // ファイルを保存する。同じ場所に既にファイルがあれば上書きする。
   async upload(path, data, contentType) {
     const { key } = requireConfig();
     const res = await fetch(objectUrl(path), {
@@ -50,6 +58,7 @@ export const supabaseStorage: StorageClient = {
     }
   },
 
+  // ファイルの中身を取得する
   async download(path) {
     const { key } = requireConfig();
     const res = await fetch(objectUrl(path), {
@@ -63,6 +72,7 @@ export const supabaseStorage: StorageClient = {
     return Buffer.from(await res.arrayBuffer());
   },
 
+  // ファイルを削除する
   async remove(path) {
     const { key } = requireConfig();
     const res = await fetch(objectUrl(path), {
@@ -77,9 +87,11 @@ export const supabaseStorage: StorageClient = {
   },
 
   /**
-   * 有効期限付きの署名 URL を発行する。
-   * バケットは非公開で運用するため、公開 URL（`/object/public/...`）は HTTP 400 で拒否される。
-   * 応答の `signedURL` は `/storage/v1` を含まない相対パスなので、前置して完全な URL にする。
+   * ブラウザからファイルを開くための、期限付きURLを発行してもらう。
+   *
+   * 保管場所は外部から自由に見られない設定にしているため、
+   * 誰でも開ける形のURLを使おうとしても拒否される。必ずこの方法で発行する。
+   * 返ってくるURLは途中までしか含まれていないため、前半を補って完全な形にしてから返す。
    */
   async getSignedUrl(path, expiresInSeconds = DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS) {
     const { url, key } = requireConfig();
@@ -99,6 +111,7 @@ export const supabaseStorage: StorageClient = {
         reason: "signedURL が応答に含まれていません",
       });
     }
+    // 返ってくる値の先頭に「/」が付く場合と付かない場合があるため、どちらでも同じ形に整える
     const relative = body.signedURL.startsWith("/") ? body.signedURL : `/${body.signedURL}`;
     return `${url}/storage/v1${relative}`;
   },

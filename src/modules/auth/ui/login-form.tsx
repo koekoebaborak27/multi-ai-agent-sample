@@ -9,6 +9,9 @@ import { PasswordInput } from "@/shared/ui/password-input";
 
 const initialState: FormState = {};
 
+// ログインフォーム。
+// ID とパスワードによるログインは常に表示し、Microsoft アカウントによるログインは
+// この案件で使う設定になっている場合（entraEnabled）だけ表示する。
 export function LoginForm({ entraEnabled }: { entraEnabled: boolean }) {
   const [state, formAction, pending] = useActionState(loginWithCredentials, initialState);
 
@@ -22,6 +25,7 @@ export function LoginForm({ entraEnabled }: { entraEnabled: boolean }) {
         </form>
       )}
 
+      {/* 2 つのログイン方法を並べるときだけ、間に「または」の区切りを表示する */}
       {entraEnabled && (
         <div className="relative">
           <div className="absolute inset-0 flex items-center">

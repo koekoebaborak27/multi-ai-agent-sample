@@ -3,12 +3,14 @@ import { auth } from "@/modules/auth/auth";
 import { decideRedirect } from "@/modules/auth/route-guard";
 
 /**
- * 認証ガード + RBAC（§4）。
- * Next.js 16 で middleware.ts から proxy.ts に改名（Node.js ランタイムで動作）。
- * ロール判定は JWT クレームのみで完結させ、DB アクセスはしない。
+ * すべてのリクエストが最初に通る場所で、ログイン状態と権限を確認する。
  *
- * 判定そのものは route-guard.ts の純粋関数に委ね、ここはリクエストの読み取りと
- * レスポンスの組み立てに徹する（分岐の網羅テストを NextRequest 抜きで書けるようにするため）。
+ * 判断に使う情報はログイン状態を保つ引換券だけで完結させ、データベースには問い合わせない
+ * （全リクエストで問い合わせると負荷が大きくなるため）。
+ *
+ * 移動先を決める判断そのものは route-guard.ts に置き、ここではリクエストから必要な情報を
+ * 取り出すことと、判断結果を応答の形に組み立てることだけを行う。
+ * 判断部分を分けておくと、リクエストを組み立てなくても全ての分岐を試験できる。
  */
 export default auth((req) => {
   const { nextUrl } = req;
@@ -17,7 +19,7 @@ export default auth((req) => {
   const target = decideRedirect({
     path: nextUrl.pathname,
     isLoggedIn: !!user,
-    // Server Action は POST + next-action ヘッダで届く
+    // 保存などの処理の呼び出しは、この2つの特徴を持つリクエストとして届く
     isServerAction: req.method === "POST" && req.headers.has("next-action"),
     mustChangePassword: !!user?.mustChangePassword,
     role: user?.role ?? null,
@@ -27,6 +29,6 @@ export default auth((req) => {
 });
 
 export const config = {
-  // api / 静的アセットは対象外
+  // 画像やスタイルなどのファイルと、外部連携用の窓口は確認の対象外にする
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

@@ -3,7 +3,11 @@ import { auth, LoginForm } from "@/modules/auth";
 import { isEntraConfigured } from "@/shared/config/env";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
+// ログイン画面を表示する。
+// この案件で Microsoft アカウントによるログインを使う設定になっているかを調べ、
+// その結果をフォームへ渡して、表示するログイン方法を切り替える。
 export default async function LoginPage() {
+  // すでにログイン済みの利用者がこの画面を開いた場合は、トップ画面へ送る
   const session = await auth();
   if (session?.user) redirect("/");
 

@@ -2,12 +2,16 @@ import pino, { type Logger } from "pino";
 import { env } from "@/shared/config/env";
 
 /**
- * 構造化ログの中央設定。
- *  - 本番: stdout に JSON（Cloud Logging に集約）
- *  - ローカル: LOG_PRETTY=true で pino-pretty 整形
- *  - 機密情報は redact で中央集約マスキング（開発者が意識不要）
- * ※ app / worker 双方から共有する。`server-only` は付けない。
+ * 記録（ログ）の出力方法をまとめて決めている場所。
+ *  - 本番: 機械が読み取りやすい形で出力し、Google Cloud 側で集めて検索できるようにする
+ *  - ローカル: 環境変数 LOG_PRETTY を有効にすると、人が読みやすい形に整えて出力する
+ *  - 隠すべき項目は下の一覧に基づいて自動的に伏せ字にする
+ *
+ * ※ 画面側と定期実行の処理の両方から使うため、サーバー専用の印は付けない。
  */
+
+// 記録に残してはいけない項目の名前。
+// ここに書いておけば、各処理でうっかり渡してしまっても自動的に伏せ字になる。
 const REDACT_PATHS = [
   "password",
   "passwordHash",
@@ -27,7 +31,8 @@ export const logger: Logger = pino({
   level: env.LOG_LEVEL,
   redact: { paths: REDACT_PATHS, censor: "***" },
   serializers: { err: pino.stdSerializers.err },
-  base: undefined, // pid/hostname は CloudWatch 側で付与されるため抑制
+  // 実行中のプログラム番号やサーバー名は、ログを集める側が自動で付けるため、ここでは付けない
+  base: undefined,
   ...(env.LOG_PRETTY
     ? {
         transport: {
@@ -38,7 +43,10 @@ export const logger: Logger = pino({
     : {}),
 });
 
-/** 任意のバインドフィールドを持つ子ロガーを生成する */
+/**
+ * 決まった項目を毎回付けて出力する、専用の記録係を作る。
+ * 処理の名前や番号を渡しておけば、そこから出力する記録すべてに同じ項目が付く。
+ */
 export function childLogger(bindings: Record<string, unknown>): Logger {
   return logger.child(bindings);
 }

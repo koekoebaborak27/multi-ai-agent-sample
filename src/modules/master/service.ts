@@ -25,12 +25,21 @@ import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/
 import { AppError } from "@/shared/errors/app-error";
 import { Prisma } from "@prisma/client";
 
+// マスタ分類コードの桁数。
+// コードは分類ごとの連番をそのまま使うため、桁数はこの値だけで決まる。
+// 分類が 9999 件を超える見込みが出たら、この値と画面の表示幅を合わせて見直す。
 const MASTER_CATEGORY_CODE_LENGTH = 4;
 
+/** 分類の連番を「0042」のような表示用のコード文字列に変換する */
 export function formatMasterCategoryCode(id: number): string {
   return String(id).padStart(MASTER_CATEGORY_CODE_LENGTH, "0");
 }
 
+// ここから 4 つの関数は、データベースから取得したデータを画面用の形に詰め替える。
+// データベースの中身をそのまま画面へ渡さないことで、テーブルの項目が変わっても
+// 画面側の修正がこのファイルの中で済むようにしている。
+
+/** 分類一覧の1行分のデータを作る。表示用コードと、その分類に属するマスタの件数も一緒に持たせる */
 function toCategorySummary(category: MasterCategoryListRecord): MasterCategorySummary {
   return {
     id: category.id,
@@ -40,6 +49,7 @@ function toCategorySummary(category: MasterCategoryListRecord): MasterCategorySu
   };
 }
 
+/** 分類詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える */
 function toCategoryDetail(category: MasterCategoryDetailRecord): MasterCategoryDetail {
   return {
     id: category.id,
@@ -53,6 +63,7 @@ function toCategoryDetail(category: MasterCategoryDetailRecord): MasterCategoryD
   };
 }
 
+/** マスタ一覧の1行分のデータを作る。画面に分類名も表示するため、別テーブルにある分類名を同じ階層へ移す */
 function toMasterSummary(master: MasterListRecord): MasterSummary {
   return {
     id: master.id,
@@ -63,6 +74,7 @@ function toMasterSummary(master: MasterListRecord): MasterSummary {
   };
 }
 
+/** マスタ詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える */
 function toMasterDetail(master: MasterDetailRecord): MasterDetail {
   return {
     id: master.id,
@@ -77,16 +89,23 @@ function toMasterDetail(master: MasterDetailRecord): MasterDetail {
   };
 }
 
+// ここから 6 つの関数は、処理を続けられない理由ごとにエラーを組み立てる。
+// エラーの種類を表す名前・画面に出すメッセージをここへまとめておくことで、
+// 呼び出し側はエラーを発生させるだけでよく、メッセージを何度も書かずに済む。
+
+/** 同じ名前の分類がすでに登録されているときのエラー（新規作成・名前変更の両方で使う） */
 function masterCategoryConflict(name: string): AppError {
   return new AppError("MASTER_CATEGORY_CONFLICT", 409, "同じ名前のマスタ分類が登録されています", {
     name,
   });
 }
 
+/** 指定された分類が見つからないときのエラー（すでに削除された、URLの指定が誤っている、など） */
 function masterCategoryNotFound(id: number): AppError {
   return new AppError("MASTER_CATEGORY_NOT_FOUND", 404, "対象のマスタ分類が見つかりません", { id });
 }
 
+/** 分類の更新画面を開いてから保存するまでの間に、他の利用者が先に更新していたときのエラー */
 function masterCategoryConcurrentUpdate(id: number): AppError {
   return new AppError(
     "MASTER_CONCURRENT_UPDATE",
@@ -96,10 +115,12 @@ function masterCategoryConcurrentUpdate(id: number): AppError {
   );
 }
 
+/** 指定されたマスタが見つからないときのエラー（すでに削除された、URLの指定が誤っている、など） */
 function masterNotFound(id: number): AppError {
   return new AppError("MASTER_NOT_FOUND", 404, "対象のマスタが見つかりません", { id });
 }
 
+/** マスタの更新画面を開いてから保存するまでの間に、他の利用者が先に更新していたときのエラー */
 function masterConcurrentUpdate(id: number): AppError {
   return new AppError(
     "MASTER_CONCURRENT_UPDATE",
@@ -109,6 +130,7 @@ function masterConcurrentUpdate(id: number): AppError {
   );
 }
 
+/** 同じ分類の中にマスタコードが重複しているときのエラー（コードは分類ごとに重複しない決まり） */
 function masterCodeConflict(categoryId: number, code: string): AppError {
   return new AppError(
     "MASTER_CODE_CONFLICT",
@@ -118,16 +140,27 @@ function masterCodeConflict(categoryId: number, code: string): AppError {
   );
 }
 
+/**
+ * 分類名が他の分類と重複していないか確認し、重複していればエラーにする。
+ * 更新のときは自分自身の分類を excludeId で指定する。
+ * そうしないと、名前を変えずに保存しただけで「重複している」と判定されてしまうため。
+ */
 async function assertCategoryNameAvailable(name: string, excludeId?: number): Promise<void> {
   const existing = await masterRepository.findCategoryByName(name);
   if (existing && existing.id !== excludeId) throw masterCategoryConflict(name);
 }
 
+/** 指定された分類が実際に存在するか確認し、無ければエラーにする（マスタの作成・更新の前に使う） */
 async function assertCategoryExists(categoryId: number): Promise<void> {
   const category = await masterRepository.findCategoryById(categoryId);
   if (!category) throw masterCategoryNotFound(categoryId);
 }
 
+/**
+ * 同じ分類の中でマスタコードが重複していないか確認し、重複していればエラーにする。
+ * 更新のときは自分自身のマスタを excludeId で指定する。
+ * そうしないと、コードを変えずに保存しただけで「重複している」と判定されてしまうため。
+ */
 async function assertMasterCodeAvailable(
   categoryId: number,
   code: string,
@@ -138,6 +171,9 @@ async function assertMasterCodeAvailable(
 }
 
 export const masterService = {
+  // マスタの一覧を、指定されたページの分だけ取得する。
+  // 検索条件・ページ番号・並び順を受け取り、キーワードは前後の空白を取り除いてから使う
+  // （空になった場合は「条件なし」として扱う）。
   async listMasters(
     criteria: MasterSearchCriteria,
     page: number,
@@ -157,11 +193,15 @@ export const masterService = {
     return paginated(masters.map(toMasterSummary), total, { page, pageSize });
   },
 
+  // 詳細画面に表示するマスタ1件を取得する。
+  // 見つからない場合はエラーにせず「無し」を返し、その後どう扱うか（画面に何を出すか）は呼び出し側に任せる。
   async findMasterDetail(id: number): Promise<MasterDetail | null> {
     const master = await masterRepository.findMasterById(id);
     return master ? toMasterDetail(master) : null;
   },
 
+  // 分類プルダウン（検索条件・作成・更新フォームで使用）に表示する、すべての分類を返す。
+  // 件数が多くならない前提のため、ページに分けず全件返す。
   async listCategoryOptions(): Promise<MasterCategoryOption[]> {
     const categories = await masterRepository.listCategoryOptions();
     return categories.map((category) => ({
@@ -171,6 +211,7 @@ export const masterService = {
     }));
   },
 
+  // マスタ分類の一覧を、指定されたページの分だけ取得する（マスタ一覧の分類版）。
   async listCategories(
     page: number,
     pageSize: number,
@@ -187,15 +228,22 @@ export const masterService = {
     return paginated(categories.map(toCategorySummary), total, { page, pageSize });
   },
 
+  // 分類詳細画面に表示する分類1件を取得する（マスタ詳細の分類版）。
   async findCategoryDetail(id: number): Promise<MasterCategoryDetail | null> {
     const category = await masterRepository.findCategoryByIdWithCount(id);
     return category ? toCategoryDetail(category) : null;
   },
 
+  // 確認画面を出す前に入力内容の確認だけを行いたい場面があるため、
+  // 上で定義した確認用の関数を、そのまま外からも呼べるように公開している。
   assertCategoryExists,
 
   assertMasterCodeAvailable,
 
+  // マスタを新規登録する。
+  // 先に「分類が存在するか」「コードが重複していないか」を確認し、よくある入力ミスは分かりやすいメッセージで止める。
+  // それでも登録に失敗した場合（ほぼ同時に他の利用者が登録したときなど）は、
+  // データベースが返すエラーの種類を見て、同じく分かりやすいメッセージへ置き換える。
   async createMaster(input: CreateMasterInput, userId: string): Promise<MasterSummary> {
     await assertCategoryExists(input.categoryId);
     await assertMasterCodeAvailable(input.categoryId, input.code);
@@ -211,13 +259,22 @@ export const masterService = {
       return toMasterSummary(master);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        // P2002 は重複エラー。確認した直後に、他の利用者が同じコードを登録したことを意味する
         if (error.code === "P2002") throw masterCodeConflict(input.categoryId, input.code);
+        // P2003 は参照先が無いエラー。確認した直後に、登録先の分類が削除されたことを意味する
         if (error.code === "P2003") throw masterCategoryNotFound(input.categoryId);
       }
       throw error;
     }
   },
 
+  // マスタを更新する。
+  // 新規登録と違い、「更新画面を開いてから保存するまでの間に、他の利用者が先に更新していないか」を確認する。
+  // 確認は 2 段階に分かれている。
+  //   1 段階目: 保存前に最終更新日時を見比べ、すでに他の利用者が更新していればここで止める。
+  //   2 段階目: 実際の更新を「最終更新日時が画面を開いた時点のままなら更新する」という条件付きで行う。
+  //             1 段階目の確認から実際の更新までのわずかな間にも他の利用者が更新できてしまうため、
+  //             最終的な判断はデータベース側の条件に任せている。
   async updateMaster(input: UpdateMasterInput, userId: string): Promise<void> {
     const existing = await masterRepository.findMasterById(input.masterId);
     if (!existing) throw masterNotFound(input.masterId);
@@ -241,13 +298,17 @@ export const masterService = {
         },
       );
       if (!updated) {
+        // 1 件も更新されなかった場合、対象が削除されたのか、他の利用者に先に更新されたのかが分からない。
+        // どちらなのかを判断して適切なメッセージを出すため、もう一度取得して確かめる。
         const current = await masterRepository.findMasterById(input.masterId);
         if (!current) throw masterNotFound(input.masterId);
         throw masterConcurrentUpdate(input.masterId);
       }
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        // P2002 は重複エラー。確認した直後に、他の利用者が同じコードへ変更したことを意味する
         if (error.code === "P2002") throw masterCodeConflict(input.categoryId, input.code);
+        // P2003 は参照先が無いエラー。確認した直後に、変更先の分類が削除されたことを意味する
         if (error.code === "P2003") throw masterCategoryNotFound(input.categoryId);
       }
       throw error;
@@ -256,6 +317,8 @@ export const masterService = {
 
   assertCategoryNameAvailable,
 
+  // マスタ分類を新規登録する。
+  // マスタの新規登録と同じく、先に名前の重複を確認し、それでも失敗した場合はデータベースのエラーを見て判断する。
   async createCategory(
     input: CreateMasterCategoryInput,
     userId: string,
@@ -272,9 +335,11 @@ export const masterService = {
         id: category.id,
         code: formatMasterCategoryCode(category.id),
         name: category.name,
+        // 登録した直後の分類にはマスタが1件も属していないので、数え直さず 0 とする
         masterCount: 0,
       };
     } catch (error) {
+      // P2002 は重複エラー。確認した直後に、他の利用者が同じ名前で登録したことを意味する
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         throw masterCategoryConflict(input.name);
       }
@@ -282,6 +347,8 @@ export const masterService = {
     }
   },
 
+  // マスタ分類を更新する。
+  // マスタの更新と同じく、最終更新日時を見比べる確認と、条件付きの更新の 2 段階で他の利用者との重なりを防ぐ。
   async updateCategory(input: UpdateMasterCategoryInput, userId: string): Promise<void> {
     const existing = await masterRepository.findCategoryByIdWithCount(input.categoryId);
     if (!existing) throw masterCategoryNotFound(input.categoryId);
@@ -300,11 +367,14 @@ export const masterService = {
         userId,
       );
       if (!updated) {
+        // マスタの更新と同様、1 件も更新されなかった原因が「削除された」のか
+        // 「他の利用者に先に更新された」のかを、もう一度取得して確かめる
         const current = await masterRepository.findCategoryByIdWithCount(input.categoryId);
         if (!current) throw masterCategoryNotFound(input.categoryId);
         throw masterCategoryConcurrentUpdate(input.categoryId);
       }
     } catch (error) {
+      // P2002 は重複エラー。確認した直後に、他の利用者が同じ名前へ変更したことを意味する
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         throw masterCategoryConflict(input.name);
       }

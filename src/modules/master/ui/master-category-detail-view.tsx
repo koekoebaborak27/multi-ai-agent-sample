@@ -3,6 +3,9 @@ import type { MasterCategoryDetail } from "@/modules/master/types";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
+// 日時の表示形式。
+// 表示する端末の設定に左右されず、どの環境でも同じ日本時間・同じ書式で表示されるよう、
+// 言語とタイムゾーンを固定している。
 const dateTimeFormatter = new Intl.DateTimeFormat("ja-JP", {
   year: "numeric",
   month: "2-digit",
@@ -20,6 +23,9 @@ interface MasterCategoryDetailViewProps {
   successMessage?: string;
 }
 
+// マスタ分類1件の詳細を表示する。
+// 登録・更新の直後にもこの画面へ移動してくるため、その場合は successMessage に完了メッセージが入る。
+// 更新ボタンは、更新の権限を持つ利用者にだけ表示する。
 export function MasterCategoryDetailView({
   category,
   canWrite,

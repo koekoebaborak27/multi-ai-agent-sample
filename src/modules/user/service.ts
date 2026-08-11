@@ -7,6 +7,11 @@ import { Errors } from "@/shared/errors/app-error";
 import { isRole, type Role } from "@/shared/constants/roles";
 import type { User } from "@prisma/client";
 
+/**
+ * データベースの利用者情報を、画面に表示する形へ詰め替える。
+ * パスワードは画面に渡さず、代わりに「どの方法でログインできるか」だけを判定して持たせる。
+ * 役割の値が想定外だった場合は、いちばん権限の弱い閲覧のみの役割として扱う。
+ */
 function toSummary(u: User): UserSummary {
   return {
     userId: u.id,
@@ -20,6 +25,7 @@ function toSummary(u: User): UserSummary {
 }
 
 export const userService = {
+  // 利用者の一覧を、指定されたページの分だけ取得する。
   async list(
     page: number,
     pageSize: number,
@@ -31,10 +37,13 @@ export const userService = {
     return paginated(users.map(toSummary), total, { page, pageSize });
   },
 
+  // 利用者を新規登録する。
+  // 初期パスワードは任意で、入力しなかった場合は Microsoft アカウントでのログイン専用となる。
   async create(input: CreateUserInput): Promise<UserSummary> {
     const existing = await userRepository.findById(input.userId);
     if (existing) throw Errors.conflict("そのユーザーIDは既に存在します", { userId: input.userId });
 
+    // パスワードはそのまま保存せず、元に戻せない形に変換してから保存する
     const passwordHash =
       input.password && input.password.length > 0
         ? await authService.hashPassword(input.password)
@@ -46,11 +55,14 @@ export const userService = {
       displayName: input.displayName ?? null,
       email: input.email && input.email.length > 0 ? input.email : null,
       passwordHash,
-      mustChangePassword: passwordHash !== null, // 初期PW付与時は変更を強制
+      // 管理者が決めた初期パスワードを本人以外が知っている状態なので、初回ログイン時に変更させる
+      mustChangePassword: passwordHash !== null,
     });
     return toSummary(user);
   },
 
+  // 利用者の表示名と役割を更新する。
+  // パスワードとログインIDはここでは変更できない（パスワードは本人が変更する）。
   async update(input: UpdateUserInput): Promise<UserSummary> {
     const existing = await userRepository.findById(input.userId);
     if (!existing) throw Errors.notFound("ユーザーが見つかりません");
@@ -61,6 +73,9 @@ export const userService = {
     return toSummary(user);
   },
 
+  // 利用者を削除する。
+  // データそのものは消さず、削除済みの印を付けるだけにしている
+  // （その利用者が登録・更新した記録が残っているため、たどれなくならないようにする）。
   async remove(userId: string): Promise<void> {
     await userRepository.softDelete(userId);
   },

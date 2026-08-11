@@ -5,8 +5,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { parseListQuery } from "@/shared/api/pagination";
 
+// 環境変数の内容によって結果が変わらないよう、1ページの件数を固定する
 vi.mock("@/shared/config/env", () => ({ env: { PAGE_SIZE: 30 } }));
 
+// 試験用の「並び替えを許可する項目」。ここに無い項目を指定したときの動きを確認するために使う
 const SORT_FIELDS = ["name", "kind"] as const;
 
 describe("shared/api parseListQuery", () => {
