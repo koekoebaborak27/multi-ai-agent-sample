@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MASTER_CATEGORY_SORT_FIELDS, MasterCategoryTable, masterService } from "@/modules/master";
+import {
+  MASTER_CATEGORY_SORT_FIELDS,
+  MasterCategoryTable,
+  MasterDeletedToast,
+  masterService,
+} from "@/modules/master";
 import { parseListQuery } from "@/shared/api/pagination";
 import { getCurrentUser } from "@/shared/auth/session";
 import { env } from "@/shared/config/env";
@@ -38,6 +43,7 @@ export default async function MasterCategoriesPage({
 
   return (
     <div className="space-y-6">
+      <MasterDeletedToast />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">マスタ分類一覧</h1>
         <Button asChild variant="outline">

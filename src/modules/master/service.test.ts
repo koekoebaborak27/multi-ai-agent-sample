@@ -26,6 +26,7 @@ vi.mock("@/modules/master/repository", () => ({
     updateCategoryIfUnchanged: vi.fn(),
     updateMasterIfUnchanged: vi.fn(),
     deleteMasterIfUnchanged: vi.fn(),
+    deleteCategoryIfUnchanged: vi.fn(),
   },
 }));
 
@@ -891,6 +892,124 @@ describe("master/service deleteMaster", () => {
       await expect(masterService.deleteMaster(deleteInput)).rejects.toMatchObject({
         code: "MASTER_NOT_FOUND",
         httpStatus: 404,
+      } satisfies Partial<AppError>);
+    });
+  });
+});
+
+describe("master/service deleteCategory", () => {
+  const deleteInput = { categoryId: 12, updatedAt };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("対象が存在し、配下にマスタが無く、画面表示時点と最終更新日時が一致する場合", () => {
+    it("削除し、削除対象の分類コード・名前を返す", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(
+        makeCategoryDetail({ _count: { masters: 0 } }),
+      );
+      vi.mocked(masterRepository.deleteCategoryIfUnchanged).mockResolvedValue(true);
+
+      await expect(masterService.deleteCategory(deleteInput)).resolves.toEqual({
+        code: "0012",
+        name: "契約種別",
+      });
+      expect(masterRepository.deleteCategoryIfUnchanged).toHaveBeenCalledWith(12, updatedAt);
+    });
+  });
+
+  describe("配下にマスタが存在する場合", () => {
+    it("AppError(MASTER_CATEGORY_HAS_MASTERS) を件数付きで投げ、削除は行わない", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(
+        makeCategoryDetail({ _count: { masters: 3 } }),
+      );
+
+      await expect(masterService.deleteCategory(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_HAS_MASTERS",
+        httpStatus: 409,
+        context: { id: 12, masterCount: 3 },
+      } satisfies Partial<AppError>);
+      expect(masterRepository.deleteCategoryIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("対象のマスタ分類が存在しない場合", () => {
+    it("AppError(MASTER_CATEGORY_NOT_FOUND) を投げ、削除は行わない", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(null);
+
+      await expect(masterService.deleteCategory(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.deleteCategoryIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("画面表示後にほかの利用者が更新していた場合", () => {
+    it("AppError(MASTER_CONCURRENT_UPDATE) を投げ、削除は行わない", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(
+        makeCategoryDetail({ updatedAt: new Date("2026-08-09T01:00:00.000Z") }),
+      );
+
+      await expect(masterService.deleteCategory(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.deleteCategoryIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("事前検査後から削除までの間にほかの利用者が更新した場合", () => {
+    it("データベースの条件付き削除で検出してAppError(MASTER_CONCURRENT_UPDATE) を投げる", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount)
+        .mockResolvedValueOnce(makeCategoryDetail({ _count: { masters: 0 } }))
+        .mockResolvedValueOnce(
+          makeCategoryDetail({
+            _count: { masters: 0 },
+            updatedAt: new Date("2026-08-09T01:00:00.000Z"),
+          }),
+        );
+      vi.mocked(masterRepository.deleteCategoryIfUnchanged).mockResolvedValue(false);
+
+      await expect(masterService.deleteCategory(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("事前検査後から削除までの間に対象がすでに削除されていた場合", () => {
+    it("AppError(MASTER_CATEGORY_NOT_FOUND) を投げる", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount)
+        .mockResolvedValueOnce(makeCategoryDetail({ _count: { masters: 0 } }))
+        .mockResolvedValueOnce(null);
+      vi.mocked(masterRepository.deleteCategoryIfUnchanged).mockResolvedValue(false);
+
+      await expect(masterService.deleteCategory(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("事前検査後から削除までの間にほかの利用者が配下へマスタを登録した場合", () => {
+    it("外部キー制約違反をAppError(MASTER_CATEGORY_HAS_MASTERS) へ変換する", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount)
+        .mockResolvedValueOnce(makeCategoryDetail({ _count: { masters: 0 } }))
+        .mockResolvedValueOnce(makeCategoryDetail({ _count: { masters: 1 } }));
+      vi.mocked(masterRepository.deleteCategoryIfUnchanged).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Foreign key constraint failed", {
+          code: "P2003",
+          clientVersion: "6.19.3",
+          meta: { field_name: "categoryId" },
+        }),
+      );
+
+      await expect(masterService.deleteCategory(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_HAS_MASTERS",
+        httpStatus: 409,
+        context: { id: 12, masterCount: 1 },
       } satisfies Partial<AppError>);
     });
   });

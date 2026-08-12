@@ -8,8 +8,10 @@ import {
   createMasterAction,
   createMasterCategoryAction,
   deleteMasterAction,
+  deleteMasterCategoryAction,
   updateMasterAction,
   updateMasterCategoryAction,
+  type DeleteMasterCategoryFormState,
   type DeleteMasterFormState,
   type MasterCategoryFormState,
   type MasterFormState,
@@ -31,6 +33,7 @@ vi.mock("@/modules/master/service", () => ({
     assertCategoryNameAvailable: vi.fn(),
     createCategory: vi.fn(),
     updateCategory: vi.fn(),
+    deleteCategory: vi.fn(),
   },
 }));
 
@@ -96,6 +99,7 @@ function resetMasterServiceMocks(): void {
   vi.mocked(masterService.assertCategoryNameAvailable).mockReset();
   vi.mocked(masterService.createCategory).mockReset();
   vi.mocked(masterService.updateCategory).mockReset();
+  vi.mocked(masterService.deleteCategory).mockReset();
 }
 
 const admin = {
@@ -855,6 +859,143 @@ describe("master/actions deleteMasterAction", () => {
         error: "マスタIDが不正です",
       });
       expect(masterService.deleteMaster).not.toHaveBeenCalled();
+    });
+  });
+});
+
+const masterCategoryDeleteInitialState: DeleteMasterCategoryFormState = {
+  categoryId: 12,
+  code: "0012",
+  name: "契約種別",
+  updatedAt,
+};
+
+function createMasterCategoryDeleteFormData(
+  overrides: Partial<Record<"categoryId" | "updatedAt", string>> = {},
+): FormData {
+  const formData = new FormData();
+  formData.set("categoryId", overrides.categoryId ?? "12");
+  formData.set("updatedAt", overrides.updatedAt ?? updatedAt);
+  return formData;
+}
+
+describe("master/actions deleteMasterCategoryAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMasterServiceMocks();
+  });
+
+  describe("ADMINが削除する場合", () => {
+    it("更新時点を渡して削除し、分類一覧のキャッシュを無効化して、削除完了の印付きで一覧へ遷移する", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.deleteCategory).mockResolvedValue({
+        code: "0012",
+        name: "契約種別",
+      });
+
+      await expect(
+        deleteMasterCategoryAction(
+          masterCategoryDeleteInitialState,
+          createMasterCategoryDeleteFormData(),
+        ),
+      ).rejects.toThrow("NEXT_REDIRECT");
+      expect(masterService.deleteCategory).toHaveBeenCalledWith({
+        categoryId: 12,
+        updatedAt: new Date(updatedAt),
+      });
+      expect(revalidatePath).toHaveBeenCalledWith("/master/categories");
+      expect(redirect).toHaveBeenCalledWith("/master/categories?deleted=1");
+    });
+  });
+
+  describe("VIEWERが削除しようとした場合", () => {
+    it("AppError(FORBIDDEN) を投げ、削除は行わない", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: "viewer",
+        role: "VIEWER",
+        mustChangePassword: false,
+        authMethod: "credentials",
+      });
+
+      await expect(
+        deleteMasterCategoryAction(
+          masterCategoryDeleteInitialState,
+          createMasterCategoryDeleteFormData(),
+        ),
+      ).rejects.toMatchObject({ code: "FORBIDDEN", httpStatus: 403 });
+      expect(masterService.deleteCategory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("配下にマスタが存在する場合", () => {
+    it("削除できない旨のメッセージを保持した状態を返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.deleteCategory).mockRejectedValue(
+        new AppError(
+          "MASTER_CATEGORY_HAS_MASTERS",
+          409,
+          "配下にマスタが登録されているため削除できません。先に配下のマスタを削除してください。",
+          { id: 12, masterCount: 3 },
+        ),
+      );
+
+      await expect(
+        deleteMasterCategoryAction(
+          masterCategoryDeleteInitialState,
+          createMasterCategoryDeleteFormData(),
+        ),
+      ).resolves.toEqual({
+        ...masterCategoryDeleteInitialState,
+        categoryId: 12,
+        updatedAt,
+        error:
+          "配下にマスタが登録されているため削除できません。先に配下のマスタを削除してください。",
+      });
+      expect(redirect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("実行時にほかの利用者が先に更新・削除していた場合", () => {
+    it("同時更新メッセージを保持した状態を返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.deleteCategory).mockRejectedValue(
+        new AppError(
+          "MASTER_CONCURRENT_UPDATE",
+          409,
+          "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
+        ),
+      );
+
+      await expect(
+        deleteMasterCategoryAction(
+          masterCategoryDeleteInitialState,
+          createMasterCategoryDeleteFormData(),
+        ),
+      ).resolves.toEqual({
+        ...masterCategoryDeleteInitialState,
+        categoryId: 12,
+        updatedAt,
+        error:
+          "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
+      });
+      expect(redirect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("マスタ分類IDが不正な場合", () => {
+    it("入力エラーとして状態へ返し、削除は行わない", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+
+      await expect(
+        deleteMasterCategoryAction(
+          masterCategoryDeleteInitialState,
+          createMasterCategoryDeleteFormData({ categoryId: "0" }),
+        ),
+      ).resolves.toEqual({
+        ...masterCategoryDeleteInitialState,
+        error: "マスタ分類IDが不正です",
+      });
+      expect(masterService.deleteCategory).not.toHaveBeenCalled();
     });
   });
 });

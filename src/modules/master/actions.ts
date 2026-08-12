@@ -6,6 +6,7 @@ import { masterService } from "@/modules/master/service";
 import {
   createMasterCategorySchema,
   createMasterSchema,
+  deleteMasterCategorySchema,
   deleteMasterSchema,
   parseMasterReturnTo,
   updateMasterCategorySchema,
@@ -385,6 +386,63 @@ export const deleteMasterAction = withOp(
       await masterService.deleteMaster(parsed.data);
       revalidatePath("/master");
       redirect(appendDeletedFlag(returnTo));
+    } catch (error) {
+      if (isAppError(error)) {
+        return { ...nextState, error: error.userMessage };
+      }
+      throw error;
+    }
+  },
+  // 削除は元に戻せないため、「誰がいつ何を削除したか」を後から追えるようにログにも残す
+  { includeArgsInSuccessLog: true },
+);
+
+/**
+ * マスタ分類削除フォームの状態。画面と処理の間で往復する。
+ * code・name は削除対象の内容で、削除確認ダイアログの表示と、
+ * ログへ「何を削除したか」を残すために画面側から渡され、そのまま引き継がれる。
+ */
+export interface DeleteMasterCategoryFormState {
+  categoryId?: number;
+  code?: string;
+  name?: string;
+  updatedAt?: string;
+  error?: string;
+}
+
+// マスタ分類を削除する。
+// 削除確認ダイアログの「削除する」ボタンから呼ばれ、確認画面を挟まず1回の送信で完了する。
+// 配下にマスタが1件でも残っている場合は削除できず、その旨のエラーメッセージをダイアログへ返す。
+export const deleteMasterCategoryAction = withOp(
+  "master.category.delete",
+  async (
+    prev: DeleteMasterCategoryFormState,
+    formData: FormData,
+  ): Promise<DeleteMasterCategoryFormState> => {
+    await requireWriter();
+    const parsed = deleteMasterCategorySchema.safeParse({
+      categoryId: formData.get("categoryId"),
+      updatedAt: formData.get("updatedAt"),
+    });
+
+    if (!parsed.success) {
+      return {
+        ...prev,
+        error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
+      };
+    }
+
+    const nextState: DeleteMasterCategoryFormState = {
+      ...prev,
+      categoryId: parsed.data.categoryId,
+      updatedAt: parsed.data.updatedAt.toISOString(),
+    };
+
+    try {
+      // 削除したあと、分類一覧の表示内容を最新にしてから、削除完了の印を付けて一覧画面へ移動する
+      await masterService.deleteCategory(parsed.data);
+      revalidatePath("/master/categories");
+      redirect("/master/categories?deleted=1");
     } catch (error) {
       if (isAppError(error)) {
         return { ...nextState, error: error.userMessage };

@@ -153,3 +153,15 @@ export const deleteMasterSchema = z.object({
 });
 
 export type DeleteMasterInput = z.infer<typeof deleteMasterSchema>;
+
+/**
+ * マスタ分類の削除の入力チェック。
+ * updatedAt は詳細画面を開いた時点の最終更新日時で、削除実行時に他の利用者が先に
+ * 更新・削除していないかを確かめるために画面から一緒に送られてくる。
+ */
+export const deleteMasterCategorySchema = z.object({
+  categoryId: z.coerce.number().int().positive("マスタ分類IDが不正です"),
+  updatedAt: z.coerce.date(),
+});
+
+export type DeleteMasterCategoryInput = z.infer<typeof deleteMasterCategorySchema>;

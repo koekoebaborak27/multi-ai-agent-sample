@@ -5,13 +5,16 @@ export {
   createMasterAction,
   createMasterCategoryAction,
   deleteMasterAction,
+  deleteMasterCategoryAction,
   updateMasterAction,
   updateMasterCategoryAction,
+  type DeleteMasterCategoryFormState,
   type DeleteMasterFormState,
   type MasterCategoryFormState,
   type MasterFormState,
 } from "@/modules/master/actions";
 export { MasterCreateForm } from "@/modules/master/ui/master-create-form";
+export { MasterCategoryDeleteDialog } from "@/modules/master/ui/master-category-delete-dialog";
 export { MasterDeleteDialog } from "@/modules/master/ui/master-delete-dialog";
 export { MasterDeletedToast } from "@/modules/master/ui/master-deleted-toast";
 export { MasterUpdateForm } from "@/modules/master/ui/master-update-form";
@@ -23,9 +26,11 @@ export { MasterDetailView } from "@/modules/master/ui/master-detail-view";
 export { MasterSearchForm } from "@/modules/master/ui/master-search-form";
 export { MasterTable } from "@/modules/master/ui/master-table";
 export {
+  deleteMasterCategorySchema,
   deleteMasterSchema,
   masterSearchQuerySchema,
   parseMasterReturnTo,
+  type DeleteMasterCategoryInput,
   type DeleteMasterInput,
 } from "@/modules/master/validation";
 export {

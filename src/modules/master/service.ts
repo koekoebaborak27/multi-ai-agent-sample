@@ -18,6 +18,7 @@ import type {
 import type {
   CreateMasterCategoryInput,
   CreateMasterInput,
+  DeleteMasterCategoryInput,
   DeleteMasterInput,
   UpdateMasterCategoryInput,
   UpdateMasterInput,
@@ -128,6 +129,16 @@ function masterConcurrentUpdate(id: number): AppError {
     409,
     "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
     { id },
+  );
+}
+
+/** 配下にマスタが1件でも残っているマスタ分類を削除しようとしたときのエラー（件数は利用者への案内に使う） */
+function masterCategoryHasMasters(id: number, masterCount: number): AppError {
+  return new AppError(
+    "MASTER_CATEGORY_HAS_MASTERS",
+    409,
+    "配下にマスタが登録されているため削除できません。先に配下のマスタを削除してください。",
+    { id, masterCount },
   );
 }
 
@@ -411,5 +422,45 @@ export const masterService = {
       }
       throw error;
     }
+  },
+
+  // マスタ分類を削除する。物理削除であり、元に戻せない。
+  // 配下にマスタが1件でも存在する場合は削除できない。件数確認と削除は同じトランザクション内で行うが、
+  // それでも競合が起きた場合は、Master.categoryId の外部キー制約が最終的な歯止めとなる
+  // （P2003 を検知して MASTER_CATEGORY_HAS_MASTERS へ変換する）。
+  async deleteCategory(input: DeleteMasterCategoryInput): Promise<{ code: string; name: string }> {
+    const existing = await masterRepository.findCategoryByIdWithCount(input.categoryId);
+    if (!existing) throw masterCategoryNotFound(input.categoryId);
+
+    if (existing.updatedAt.getTime() !== input.updatedAt.getTime()) {
+      throw masterCategoryConcurrentUpdate(input.categoryId);
+    }
+
+    if (existing._count.masters > 0) {
+      throw masterCategoryHasMasters(input.categoryId, existing._count.masters);
+    }
+
+    try {
+      const deleted = await masterRepository.deleteCategoryIfUnchanged(
+        input.categoryId,
+        input.updatedAt,
+      );
+      if (!deleted) {
+        // 1件も削除されなかった場合、対象がすでに削除されたのか、他の利用者に先に更新されたのかが分からない。
+        // 物理削除では「存在しない」と「既に削除された」を区別できないため、両者を同一のエラーとして扱う。
+        const current = await masterRepository.findCategoryByIdWithCount(input.categoryId);
+        if (!current) throw masterCategoryNotFound(input.categoryId);
+        throw masterCategoryConcurrentUpdate(input.categoryId);
+      }
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+        // 件数確認の直後に、他の利用者が同じ分類へマスタを登録したことを意味する
+        const current = await masterRepository.findCategoryByIdWithCount(input.categoryId);
+        throw masterCategoryHasMasters(input.categoryId, current?._count.masters ?? 1);
+      }
+      throw error;
+    }
+
+    return { code: formatMasterCategoryCode(existing.id), name: existing.name };
   },
 };

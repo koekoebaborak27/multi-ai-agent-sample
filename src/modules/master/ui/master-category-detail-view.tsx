@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { MasterCategoryDetail } from "@/modules/master/types";
+import { MasterCategoryDeleteDialog } from "@/modules/master/ui/master-category-delete-dialog";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -74,6 +75,14 @@ export function MasterCategoryDetailView({
               <Button asChild>
                 <Link href={`/master/categories/${category.id}/edit`}>更新する</Link>
               </Button>
+            ) : null}
+            {canWrite ? (
+              <MasterCategoryDeleteDialog
+                categoryId={category.id}
+                code={category.code}
+                name={category.name}
+                updatedAt={category.updatedAt.toISOString()}
+              />
             ) : null}
           </div>
         </CardContent>

@@ -21,8 +21,8 @@
 | 契約先管理 | `/parties` | [`src/modules/party/`](src/modules/party/) | 契約先の一覧（ページング）・登録・編集・削除 |
 | ユーザー管理 | `/admin/users` | [`src/modules/user/`](src/modules/user/) | ユーザーの一覧・登録・編集・削除（**ADMIN 限定**） |
 | パスワード変更 | `/settings/password` | [`src/modules/auth/`](src/modules/auth/) | 初回ログイン時は変更するまで他画面へ進めない |
-| マスタ検索一覧 | `/master` | [`src/modules/master/`](src/modules/master/) | 先頭分類を初期選択（「すべて」へ切替可）、分類・コード・内容による検索、検索条件の開閉、列見出しによるソート、URLクエリ、ページング、新規登録（`/master/new`）と確認、詳細（`/master/{id}`）、更新（`/master/{id}/edit`）と確認。削除は製造中 |
-| マスタ分類管理 | `/master/categories` | [`src/modules/master/`](src/modules/master/) | 分類の一覧（採番順・ページング）、新規登録・確認・詳細・更新。削除は製造中 |
+| マスタ検索一覧 | `/master` | [`src/modules/master/`](src/modules/master/) | 先頭分類を初期選択（「すべて」へ切替可）、分類・コード・内容による検索、検索条件の開閉、列見出しによるソート、URLクエリ、ページング、新規登録（`/master/new`）と確認、詳細（`/master/{id}`）、更新（`/master/{id}/edit`）と確認、削除確認ダイアログ |
+| マスタ分類管理 | `/master/categories` | [`src/modules/master/`](src/modules/master/) | 分類の一覧（採番順・ページング）、新規登録・確認・詳細・更新・削除確認ダイアログ（配下にマスタが残っている場合は削除不可） |
 
 加えて、横断機能として認証セッション（`src/shared/auth/`）、DB 接続（`src/shared/db/`）、ジョブキュー（`src/shared/jobs/` + `src/worker/`）、ファイルストレージ抽象（`src/shared/storage/`）、構造化ログ（`src/shared/observability/`）、UI コンポーネント（`src/shared/ui/`）を用意しています。
 
@@ -488,6 +488,8 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 |---|---|---|
 | `update-todo` | [`docs/todo/TODO.md`](docs/todo/TODO.md) を更新し、影響があれば `README.md` / `README_SIMPLE.md` も更新する | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) |
 | `push-skip-ci` | CIを起動させずに変更をpushする。ドキュメントに限らずソースコードでも使えるが、**実行前に必ず確認を求める** | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) |
+| `markdown-unit-test-spec` | コード・設計書・DBスキーマからMarkdown形式の単体テスト仕様書を作成する | [`docs/skills/markdown-unit-test-spec.md`](docs/skills/markdown-unit-test-spec.md) |
+| `playwright-evidence-test` | 単体テスト仕様書に沿ってPlaywrightで画面操作テストを行い、スクリーンショットとDB状態をエビデンスとして保存する。**DB書き込み・ファイル生成前に必ず確認を求める** | [`docs/skills/playwright-evidence-test.md`](docs/skills/playwright-evidence-test.md) |
 
 | エージェント | 入口ファイル | 起動方法 |
 |---|---|---|
@@ -541,6 +543,8 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/todo/history/`](docs/todo/history/README.md) | セッションごとの作業記録（引き継ぎメモ） |
 | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) | TODO / README の更新手順（スキルの正本・全エージェント共通） |
 | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) | CI をスキップして push する手順（スキルの正本・全エージェント共通） |
+| [`docs/skills/markdown-unit-test-spec.md`](docs/skills/markdown-unit-test-spec.md) | 単体テスト仕様書（Markdown）の作成手順（スキルの正本・全エージェント共通） |
+| [`docs/skills/playwright-evidence-test.md`](docs/skills/playwright-evidence-test.md) | Playwrightによる画面操作テストとエビデンス保存の手順（スキルの正本・全エージェント共通） |
 | [`docs/agent_permissions.md`](docs/agent_permissions.md) | エージェント権限ポリシー（許可 / 禁止コマンドの正本・全エージェント共通） |
 | [`src/AGENTS.md`](src/AGENTS.md) | アーキテクチャ規約（feature-modular） |
 | [`prisma/AGENTS.md`](prisma/AGENTS.md) | DB 規約 |

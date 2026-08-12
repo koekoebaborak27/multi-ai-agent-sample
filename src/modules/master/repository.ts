@@ -267,4 +267,13 @@ export const masterRepository = {
     });
     return result.count === 1;
   },
+
+  // マスタ分類を削除する。マスタの削除と同じく、最終更新日時が変わっていないときだけ削除する。
+  // 配下にマスタが残っている場合は Master.categoryId の外部キー制約により失敗する（呼び出し元で処理する）。
+  async deleteCategoryIfUnchanged(id: number, expectedUpdatedAt: Date): Promise<boolean> {
+    const result = await prisma.masterCategory.deleteMany({
+      where: { id, updatedAt: expectedUpdatedAt },
+    });
+    return result.count === 1;
+  },
 };

@@ -5,6 +5,7 @@
 import {
   createMasterCategorySchema,
   createMasterSchema,
+  deleteMasterCategorySchema,
   deleteMasterSchema,
   masterSearchQuerySchema,
   parseMasterReturnTo,
@@ -291,6 +292,38 @@ describe("master/validation deleteMasterSchema", () => {
       expect(deleteMasterSchema.safeParse({ ...valid, updatedAt: "not-a-date" }).success).toBe(
         false,
       );
+    });
+  });
+});
+
+describe("master/validation deleteMasterCategorySchema", () => {
+  const valid = {
+    categoryId: "12",
+    updatedAt: "2026-08-09T00:00:00.000Z",
+  };
+
+  describe("正常系", () => {
+    it("マスタ分類IDをnumberへ、更新時点をDateへ変換する", () => {
+      expect(deleteMasterCategorySchema.parse(valid)).toEqual({
+        categoryId: 12,
+        updatedAt: new Date("2026-08-09T00:00:00.000Z"),
+      });
+    });
+  });
+
+  describe("マスタ分類IDが不正な場合", () => {
+    it("入力エラーとして拒否する", () => {
+      expect(deleteMasterCategorySchema.safeParse({ ...valid, categoryId: "0" }).success).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("更新時点が不正な場合", () => {
+    it("入力エラーとして拒否する", () => {
+      expect(
+        deleteMasterCategorySchema.safeParse({ ...valid, updatedAt: "not-a-date" }).success,
+      ).toBe(false);
     });
   });
 });
