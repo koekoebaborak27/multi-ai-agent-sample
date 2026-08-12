@@ -6,6 +6,7 @@ import { masterService } from "@/modules/master/service";
 import {
   createMasterCategorySchema,
   createMasterSchema,
+  deleteMasterSchema,
   parseMasterReturnTo,
   updateMasterCategorySchema,
   updateMasterSchema,
@@ -68,6 +69,15 @@ async function requireWriter() {
 function toSelectedCategoryId(rawCategoryId: string): number | undefined {
   const categoryId = Number(rawCategoryId.trim());
   return Number.isInteger(categoryId) && categoryId > 0 ? categoryId : undefined;
+}
+
+/**
+ * 一覧画面へ戻るURLに、削除完了を知らせる印（deleted=1）を付け加える。
+ * 検索条件には含めないため、一覧画面側はこの印だけを見てトーストを表示し、条件には引き継がない。
+ */
+function appendDeletedFlag(returnTo: string): string {
+  const separator = returnTo.includes("?") ? "&" : "?";
+  return `${returnTo}${separator}deleted=1`;
 }
 
 // マスタを新規登録する。
@@ -324,5 +334,64 @@ export const updateMasterAction = withOp(
     }
   },
   // 更新は「誰がいつ何を変えたか」を後から追えるようにしたいので、成功時の記録にも入力内容を残す
+  { includeArgsInSuccessLog: true },
+);
+
+/**
+ * マスタ削除フォームの状態。画面と処理の間で往復する。
+ * categoryName・code・content は削除対象の内容で、削除確認ダイアログの表示と、
+ * ログへ「何を削除したか」を残すために画面側から渡され、そのまま引き継がれる。
+ */
+export interface DeleteMasterFormState {
+  masterId?: number;
+  categoryName?: string;
+  code?: string;
+  content?: string;
+  returnTo: string;
+  updatedAt?: string;
+  error?: string;
+}
+
+// マスタを削除する。
+// 削除確認ダイアログの「削除する」ボタンから呼ばれ、確認画面を挟まず1回の送信で完了する。
+// 更新と同じく、詳細画面を開いた時点の最終更新日時を送り、他の利用者が先に更新・削除していないか確かめる。
+export const deleteMasterAction = withOp(
+  "master.delete",
+  async (prev: DeleteMasterFormState, formData: FormData): Promise<DeleteMasterFormState> => {
+    await requireWriter();
+    const returnTo = parseMasterReturnTo(String(formData.get("returnTo") ?? prev.returnTo));
+    const parsed = deleteMasterSchema.safeParse({
+      masterId: formData.get("masterId"),
+      updatedAt: formData.get("updatedAt"),
+    });
+
+    if (!parsed.success) {
+      return {
+        ...prev,
+        returnTo,
+        error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
+      };
+    }
+
+    const nextState: DeleteMasterFormState = {
+      ...prev,
+      returnTo,
+      masterId: parsed.data.masterId,
+      updatedAt: parsed.data.updatedAt.toISOString(),
+    };
+
+    try {
+      // 削除したあと、一覧の表示内容を最新にしてから、削除完了の印を付けて一覧画面へ移動する
+      await masterService.deleteMaster(parsed.data);
+      revalidatePath("/master");
+      redirect(appendDeletedFlag(returnTo));
+    } catch (error) {
+      if (isAppError(error)) {
+        return { ...nextState, error: error.userMessage };
+      }
+      throw error;
+    }
+  },
+  // 削除は元に戻せないため、「誰がいつ何を削除したか」を後から追えるようにログにも残す
   { includeArgsInSuccessLog: true },
 );

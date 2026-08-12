@@ -141,3 +141,15 @@ export const updateMasterSchema = z.object({
 });
 
 export type UpdateMasterInput = z.infer<typeof updateMasterSchema>;
+
+/**
+ * マスタの削除の入力チェック。
+ * updatedAt は詳細画面を開いた時点の最終更新日時で、削除実行時に他の利用者が先に
+ * 更新・削除していないかを確かめるために画面から一緒に送られてくる。
+ */
+export const deleteMasterSchema = z.object({
+  masterId: z.coerce.number().int().positive("マスタIDが不正です"),
+  updatedAt: z.coerce.date(),
+});
+
+export type DeleteMasterInput = z.infer<typeof deleteMasterSchema>;

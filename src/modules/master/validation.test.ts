@@ -5,6 +5,7 @@
 import {
   createMasterCategorySchema,
   createMasterSchema,
+  deleteMasterSchema,
   masterSearchQuerySchema,
   parseMasterReturnTo,
   updateMasterCategorySchema,
@@ -258,6 +259,36 @@ describe("master/validation updateMasterSchema", () => {
   describe("更新時点が不正な場合", () => {
     it("入力エラーとして拒否する", () => {
       expect(updateMasterSchema.safeParse({ ...valid, updatedAt: "not-a-date" }).success).toBe(
+        false,
+      );
+    });
+  });
+});
+
+describe("master/validation deleteMasterSchema", () => {
+  const valid = {
+    masterId: "41",
+    updatedAt: "2026-08-09T00:00:00.000Z",
+  };
+
+  describe("正常系", () => {
+    it("マスタIDをnumberへ、更新時点をDateへ変換する", () => {
+      expect(deleteMasterSchema.parse(valid)).toEqual({
+        masterId: 41,
+        updatedAt: new Date("2026-08-09T00:00:00.000Z"),
+      });
+    });
+  });
+
+  describe("マスタIDが不正な場合", () => {
+    it("入力エラーとして拒否する", () => {
+      expect(deleteMasterSchema.safeParse({ ...valid, masterId: "0" }).success).toBe(false);
+    });
+  });
+
+  describe("更新時点が不正な場合", () => {
+    it("入力エラーとして拒否する", () => {
+      expect(deleteMasterSchema.safeParse({ ...valid, updatedAt: "not-a-date" }).success).toBe(
         false,
       );
     });

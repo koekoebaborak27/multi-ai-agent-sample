@@ -25,6 +25,7 @@ vi.mock("@/modules/master/repository", () => ({
     createCategory: vi.fn(),
     updateCategoryIfUnchanged: vi.fn(),
     updateMasterIfUnchanged: vi.fn(),
+    deleteMasterIfUnchanged: vi.fn(),
   },
 }));
 
@@ -811,6 +812,84 @@ describe("master/service updateMaster", () => {
 
       await expect(masterService.updateMaster(updateInput, "admin")).rejects.toMatchObject({
         code: "MASTER_CATEGORY_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+    });
+  });
+});
+
+describe("master/service deleteMaster", () => {
+  const deleteInput = { masterId: 41, updatedAt };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("対象が存在し、画面表示時点と最終更新日時が一致する場合", () => {
+    it("削除し、削除対象の分類名・コード・内容を返す", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(makeMasterDetail());
+      vi.mocked(masterRepository.deleteMasterIfUnchanged).mockResolvedValue(true);
+
+      await expect(masterService.deleteMaster(deleteInput)).resolves.toEqual({
+        categoryName: "契約種別",
+        code: "CON-01",
+        content: "月額契約",
+      });
+      expect(masterRepository.deleteMasterIfUnchanged).toHaveBeenCalledWith(41, updatedAt);
+    });
+  });
+
+  describe("対象のマスタが存在しない場合", () => {
+    it("AppError(MASTER_NOT_FOUND) を投げ、削除は行わない", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(null);
+
+      await expect(masterService.deleteMaster(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.deleteMasterIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("画面表示後にほかの利用者が更新していた場合", () => {
+    it("AppError(MASTER_CONCURRENT_UPDATE) を投げ、削除は行わない", async () => {
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(
+        makeMasterDetail({ updatedAt: new Date("2026-08-09T01:00:00.000Z") }),
+      );
+
+      await expect(masterService.deleteMaster(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.deleteMasterIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("事前検査後から削除までの間にほかの利用者が更新した場合", () => {
+    it("データベースの条件付き削除で検出してAppError(MASTER_CONCURRENT_UPDATE) を投げる", async () => {
+      vi.mocked(masterRepository.findMasterById)
+        .mockResolvedValueOnce(makeMasterDetail())
+        .mockResolvedValueOnce(
+          makeMasterDetail({ updatedAt: new Date("2026-08-09T01:00:00.000Z") }),
+        );
+      vi.mocked(masterRepository.deleteMasterIfUnchanged).mockResolvedValue(false);
+
+      await expect(masterService.deleteMaster(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("事前検査後から削除までの間に対象がすでに削除されていた場合", () => {
+    it("AppError(MASTER_NOT_FOUND) を投げる", async () => {
+      vi.mocked(masterRepository.findMasterById)
+        .mockResolvedValueOnce(makeMasterDetail())
+        .mockResolvedValueOnce(null);
+      vi.mocked(masterRepository.deleteMasterIfUnchanged).mockResolvedValue(false);
+
+      await expect(masterService.deleteMaster(deleteInput)).rejects.toMatchObject({
+        code: "MASTER_NOT_FOUND",
         httpStatus: 404,
       } satisfies Partial<AppError>);
     });

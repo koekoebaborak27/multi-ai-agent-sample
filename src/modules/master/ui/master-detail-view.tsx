@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { MasterDetail } from "@/modules/master/types";
+import { MasterDeleteDialog } from "@/modules/master/ui/master-delete-dialog";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -79,6 +80,16 @@ export function MasterDetailView({
                   更新する
                 </Link>
               </Button>
+            ) : null}
+            {canWrite ? (
+              <MasterDeleteDialog
+                masterId={master.id}
+                categoryName={master.categoryName}
+                code={master.code}
+                content={master.content}
+                updatedAt={master.updatedAt.toISOString()}
+                returnTo={returnTo}
+              />
             ) : null}
           </div>
         </CardContent>

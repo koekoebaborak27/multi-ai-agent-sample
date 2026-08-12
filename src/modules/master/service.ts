@@ -18,6 +18,7 @@ import type {
 import type {
   CreateMasterCategoryInput,
   CreateMasterInput,
+  DeleteMasterInput,
   UpdateMasterCategoryInput,
   UpdateMasterInput,
 } from "@/modules/master/validation";
@@ -313,6 +314,36 @@ export const masterService = {
       }
       throw error;
     }
+  },
+
+  // マスタを削除する。物理削除であり、元に戻せない。
+  // 更新と同じく、詳細画面を開いてから削除するまでの間に他の利用者が
+  // 先に更新・削除していないかを確認してから削除する。
+  // 呼び出し元がログへ残せるよう、削除した対象の分類名・コード・内容を返す。
+  async deleteMaster(
+    input: DeleteMasterInput,
+  ): Promise<{ categoryName: string; code: string; content: string }> {
+    const existing = await masterRepository.findMasterById(input.masterId);
+    if (!existing) throw masterNotFound(input.masterId);
+
+    if (existing.updatedAt.getTime() !== input.updatedAt.getTime()) {
+      throw masterConcurrentUpdate(input.masterId);
+    }
+
+    const deleted = await masterRepository.deleteMasterIfUnchanged(input.masterId, input.updatedAt);
+    if (!deleted) {
+      // 1件も削除されなかった場合、対象がすでに削除されたのか、他の利用者に先に更新されたのかが分からない。
+      // 物理削除では「存在しない」と「既に削除された」を区別できないため、両者を同一のエラーとして扱う。
+      const current = await masterRepository.findMasterById(input.masterId);
+      if (!current) throw masterNotFound(input.masterId);
+      throw masterConcurrentUpdate(input.masterId);
+    }
+
+    return {
+      categoryName: existing.category.name,
+      code: existing.code,
+      content: existing.content,
+    };
   },
 
   assertCategoryNameAvailable,

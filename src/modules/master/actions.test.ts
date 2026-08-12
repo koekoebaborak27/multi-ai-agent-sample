@@ -7,8 +7,10 @@ import { redirect } from "next/navigation";
 import {
   createMasterAction,
   createMasterCategoryAction,
+  deleteMasterAction,
   updateMasterAction,
   updateMasterCategoryAction,
+  type DeleteMasterFormState,
   type MasterCategoryFormState,
   type MasterFormState,
 } from "@/modules/master/actions";
@@ -25,6 +27,7 @@ vi.mock("@/modules/master/service", () => ({
     assertMasterCodeAvailable: vi.fn(),
     createMaster: vi.fn(),
     updateMaster: vi.fn(),
+    deleteMaster: vi.fn(),
     assertCategoryNameAvailable: vi.fn(),
     createCategory: vi.fn(),
     updateCategory: vi.fn(),
@@ -89,6 +92,7 @@ function resetMasterServiceMocks(): void {
   vi.mocked(masterService.assertMasterCodeAvailable).mockReset();
   vi.mocked(masterService.createMaster).mockReset();
   vi.mocked(masterService.updateMaster).mockReset();
+  vi.mocked(masterService.deleteMaster).mockReset();
   vi.mocked(masterService.assertCategoryNameAvailable).mockReset();
   vi.mocked(masterService.createCategory).mockReset();
   vi.mocked(masterService.updateCategory).mockReset();
@@ -750,6 +754,107 @@ describe("master/actions updateMasterAction", () => {
           createMasterUpdateFormData("confirm", { returnTo: "https://example.com" }),
         ),
       ).resolves.toMatchObject({ returnTo: "/master" });
+    });
+  });
+});
+
+const masterDeleteInitialState: DeleteMasterFormState = {
+  masterId: 41,
+  categoryName: "契約種別",
+  code: "CON-01",
+  content: "月額契約",
+  returnTo: masterReturnTo,
+  updatedAt,
+};
+
+function createMasterDeleteFormData(
+  overrides: Partial<Record<"masterId" | "updatedAt" | "returnTo", string>> = {},
+): FormData {
+  const formData = new FormData();
+  formData.set("masterId", overrides.masterId ?? "41");
+  formData.set("updatedAt", overrides.updatedAt ?? updatedAt);
+  formData.set("returnTo", overrides.returnTo ?? masterReturnTo);
+  return formData;
+}
+
+describe("master/actions deleteMasterAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMasterServiceMocks();
+  });
+
+  describe("ADMINが削除する場合", () => {
+    it("更新時点を渡して削除し、一覧のキャッシュを無効化して、削除完了の印付きで戻り先へ遷移する", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.deleteMaster).mockResolvedValue({
+        categoryName: "契約種別",
+        code: "CON-01",
+        content: "月額契約",
+      });
+
+      await expect(
+        deleteMasterAction(masterDeleteInitialState, createMasterDeleteFormData()),
+      ).rejects.toThrow("NEXT_REDIRECT");
+      expect(masterService.deleteMaster).toHaveBeenCalledWith({
+        masterId: 41,
+        updatedAt: new Date(updatedAt),
+      });
+      expect(revalidatePath).toHaveBeenCalledWith("/master");
+      expect(redirect).toHaveBeenCalledWith(`${masterReturnTo}&deleted=1`);
+    });
+  });
+
+  describe("VIEWERが削除しようとした場合", () => {
+    it("AppError(FORBIDDEN) を投げ、削除は行わない", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: "viewer",
+        role: "VIEWER",
+        mustChangePassword: false,
+        authMethod: "credentials",
+      });
+
+      await expect(
+        deleteMasterAction(masterDeleteInitialState, createMasterDeleteFormData()),
+      ).rejects.toMatchObject({ code: "FORBIDDEN", httpStatus: 403 });
+      expect(masterService.deleteMaster).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("実行時にほかの利用者が先に更新・削除していた場合", () => {
+    it("同時更新メッセージを保持した状態を返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.deleteMaster).mockRejectedValue(
+        new AppError(
+          "MASTER_CONCURRENT_UPDATE",
+          409,
+          "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
+        ),
+      );
+
+      await expect(
+        deleteMasterAction(masterDeleteInitialState, createMasterDeleteFormData()),
+      ).resolves.toEqual({
+        ...masterDeleteInitialState,
+        masterId: 41,
+        updatedAt,
+        error:
+          "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
+      });
+      expect(redirect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("マスタIDが不正な場合", () => {
+    it("入力エラーとして状態へ返し、削除は行わない", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+
+      await expect(
+        deleteMasterAction(masterDeleteInitialState, createMasterDeleteFormData({ masterId: "0" })),
+      ).resolves.toEqual({
+        ...masterDeleteInitialState,
+        error: "マスタIDが不正です",
+      });
+      expect(masterService.deleteMaster).not.toHaveBeenCalled();
     });
   });
 });

@@ -259,4 +259,12 @@ export const masterRepository = {
     });
     return result.count === 1;
   },
+
+  // マスタを削除する。物理削除であり、更新と同じく最終更新日時が変わっていないときだけ削除する。
+  async deleteMasterIfUnchanged(id: number, expectedUpdatedAt: Date): Promise<boolean> {
+    const result = await prisma.master.deleteMany({
+      where: { id, updatedAt: expectedUpdatedAt },
+    });
+    return result.count === 1;
+  },
 };

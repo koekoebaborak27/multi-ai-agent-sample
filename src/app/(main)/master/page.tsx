@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  MasterDeletedToast,
   MasterSearchForm,
   MasterTable,
   type MasterSortField,
@@ -95,6 +96,7 @@ export default async function MasterPage({
 
   return (
     <div className="space-y-6">
+      <MasterDeletedToast />
       <h1 className="text-3xl font-semibold tracking-tight">マスタ管理</h1>
 
       <MasterSearchForm
