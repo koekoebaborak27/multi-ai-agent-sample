@@ -29,7 +29,7 @@ Markdown形式の単体テスト仕様書・テスト対象URL・ログイン情
 
 | 項目 | 必須 | 備考 |
 |---|---|---|
-| テスト仕様書のパス | ○ | Markdown形式。例: `docs/test/unit/spec/テスト結果10_マスタ検索一覧/10_マスタ検索一覧.md`（`create-unit-test-spec` スキルの保存先規則） |
+| テスト仕様書のパス | ○ | Markdown形式。例: `docs/test/unit/spec/UT_10_マスタ検索一覧.md`（`create-unit-test-spec` スキルの保存先規則） |
 | テスト対象URL | ○ | 例: `http://localhost:3000`。既定は `playwright.config.ts` の `E2E_BASE_URL` |
 | ログインID | ○ | 画面操作でログインが必要な場合 |
 | パスワード or 環境変数名 | ○ | **環境変数名を優先して聞く**（手順2） |
