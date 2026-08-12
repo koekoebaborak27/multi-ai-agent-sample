@@ -563,7 +563,10 @@ export const masterService = {
       if (target === "MASTER") {
         // 並び順は一覧（MST-01）の既定と同じにする（§13.2）。件数の再確認は行わない（§13.8）。
         const rows = await masterRepository.listMastersForExport(
-          { categoryId: exportRow.categoryId ?? undefined, keyword: exportRow.keyword ?? undefined },
+          {
+            categoryId: exportRow.categoryId ?? undefined,
+            keyword: exportRow.keyword ?? undefined,
+          },
           "category",
           "asc",
         );
