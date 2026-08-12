@@ -2,6 +2,11 @@
 // 他の機能や画面はここに書かれているものだけを使い、service.ts などモジュール内部のファイルを直接使わない。
 export { masterService } from "@/modules/master/service";
 export {
+  buildMasterCategoryExportCsv,
+  buildMasterExportCsv,
+  buildMasterExportFileName,
+} from "@/modules/master/export";
+export {
   createMasterAction,
   createMasterCategoryAction,
   deleteMasterAction,
@@ -35,12 +40,15 @@ export {
 } from "@/modules/master/validation";
 export {
   MASTER_CATEGORY_SORT_FIELDS,
+  MASTER_EXPORT_MAX_ROWS,
+  MASTER_EXPORT_TARGETS,
   MASTER_SORT_FIELDS,
   type MasterCategorySortField,
   type MasterCategoryDetail,
   type MasterCategoryOption,
   type MasterCategorySummary,
   type MasterDetail,
+  type MasterExportTarget,
   type MasterSearchCriteria,
   type MasterSortField,
   type MasterSummary,

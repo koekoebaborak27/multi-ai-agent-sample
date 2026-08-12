@@ -49,3 +49,12 @@ export interface MasterCategoryDetail extends MasterCategorySummary {
   updatedAt: Date;
   updatedBy: string | null;
 }
+
+// CSVダウンロードの対象。マスタ本体と分類とで出力する列が異なる（export.ts）
+export const MASTER_EXPORT_TARGETS = ["MASTER", "MASTER_CATEGORY"] as const;
+export type MasterExportTarget = (typeof MASTER_EXPORT_TARGETS)[number];
+
+// 1回のCSVダウンロードで出力できる行数の上限。
+// 案件ごとに変える値ではなく、増やす場合は生成方式（分割出力・ストリーミング）自体を見直すべき値のため、
+// 環境変数にはせずこの定数として持つ。
+export const MASTER_EXPORT_MAX_ROWS = 10000;
