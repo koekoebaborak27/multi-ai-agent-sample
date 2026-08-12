@@ -5,12 +5,19 @@ import {
   type MasterDetailRecord,
   type MasterListRecord,
 } from "@/modules/master/repository";
+import {
+  MASTER_EXPORT_MAX_ROWS,
+  MASTER_EXPORT_QUEUE,
+  MASTER_EXPORT_RETENTION_HOURS,
+} from "@/modules/master/types";
 import type {
   MasterCategoryDetail,
   MasterCategoryOption,
   MasterCategorySortField,
   MasterCategorySummary,
   MasterDetail,
+  MasterExportRequest,
+  MasterExportTarget,
   MasterSearchCriteria,
   MasterSortField,
   MasterSummary,
@@ -25,6 +32,8 @@ import type {
 } from "@/modules/master/validation";
 import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError } from "@/shared/errors/app-error";
+import { getBoss } from "@/shared/jobs/boss";
+import { storage } from "@/shared/storage";
 import { Prisma } from "@prisma/client";
 
 // マスタ分類コードの桁数。
@@ -150,6 +159,38 @@ function masterCodeConflict(categoryId: number, code: string): AppError {
     "同じマスタ分類に同じマスタコードが登録されています",
     { categoryId, code },
   );
+}
+
+/** CSVダウンロードの対象件数が上限（MASTER_EXPORT_MAX_ROWS）を超えているときのエラー（§13.8） */
+function masterExportLimitExceeded(count: number, max: number): AppError {
+  return new AppError(
+    "MASTER_EXPORT_LIMIT_EXCEEDED",
+    422,
+    `対象が${count}件あります。${max}件以下になるよう検索条件で絞り込んでください`,
+    { count, max },
+  );
+}
+
+/**
+ * 保持期限（MASTER_EXPORT_RETENTION_HOURS）を過ぎた生成物を掃除する（§13.9.2）。
+ * 受け取られなかった、または生成に失敗して残ったままの MasterExport をまとめて片付ける。
+ * ストレージ側の削除に失敗しても、行の削除は続ける。取り残しは次回また掃除の対象になるため。
+ */
+async function cleanupExpiredExports(): Promise<void> {
+  const cutoff = new Date(Date.now() - MASTER_EXPORT_RETENTION_HOURS * 60 * 60 * 1000);
+  const expired = await masterRepository.findExpiredExports(cutoff);
+  if (expired.length === 0) return;
+
+  await Promise.all(
+    expired
+      .filter((row) => row.filePath)
+      .map((row) =>
+        storage.remove(row.filePath as string).catch(() => {
+          // ファイルが既に無い等の理由で消せなくても、行の削除は止めない
+        }),
+      ),
+  );
+  await masterRepository.deleteExports(expired.map((row) => row.id));
 }
 
 /**
@@ -463,4 +504,42 @@ export const masterService = {
 
     return { code: formatMasterCategoryCode(existing.id), name: existing.name };
   },
+
+  // CSVダウンロードを依頼する（§13.5.1）。マスタ一覧（MASTER）とマスタ分類一覧（MASTER_CATEGORY）の
+  // どちらも同じ流れで扱うが、対象件数の数え方と検索条件の持たせ方だけが異なる。
+  async requestExport(
+    target: MasterExportTarget,
+    criteria: MasterSearchCriteria,
+    userId: string,
+  ): Promise<MasterExportRequest> {
+    const keyword = criteria.keyword?.trim() || undefined;
+    const count =
+      target === "MASTER"
+        ? await masterRepository.countMasters({ categoryId: criteria.categoryId, keyword })
+        : await masterRepository.countCategories();
+    if (count > MASTER_EXPORT_MAX_ROWS) {
+      throw masterExportLimitExceeded(count, MASTER_EXPORT_MAX_ROWS);
+    }
+
+    // 依頼のたびに、前回までの取り残し（受け取られなかった生成物）を片付ける
+    await cleanupExpiredExports();
+
+    const exportRow = await masterRepository.createExport({
+      target,
+      categoryId: target === "MASTER" ? criteria.categoryId : undefined,
+      keyword: target === "MASTER" ? keyword : undefined,
+      requestedBy: userId,
+    });
+
+    // 検索条件は MasterExport 側に持たせているため、ジョブには exportId だけを積む（§13.5.1）。
+    // キューは worker 側（工程16）で先に作られる想定だが、その順序に依存しないよう、
+    // 送る前に自分でも作成しておく（既にあれば何もしない）。
+    const boss = getBoss();
+    await boss.createQueue(MASTER_EXPORT_QUEUE);
+    await boss.send(MASTER_EXPORT_QUEUE, { exportId: exportRow.id });
+
+    return { exportId: exportRow.id };
+  },
+
+  cleanupExpiredExports,
 };

@@ -11,10 +11,12 @@ import type { MasterCategoryDetail, MasterDetail } from "@/modules/master/types"
 import { describe, expect, it, vi } from "vitest";
 
 // export.ts は列コード変換のために service.ts の formatMasterCategoryCode を使う。
-// service.ts はDBアクセス用の repository.ts（server-only）を読み込むため、
-// テスト環境（jsdom）で読み込めるよう repository と設定値を差し替える。
+// service.ts はDBアクセス用の repository.ts（server-only）や、ジョブの順番待ち（pg-boss）・
+// ファイル保存先（storage）も読み込むため、テスト環境（jsdom）で読み込めるようすべて差し替える。
 vi.mock("@/modules/master/repository", () => ({ masterRepository: {} }));
 vi.mock("@/shared/config/env", () => ({ env: { PAGE_SIZE: 30 } }));
+vi.mock("@/shared/jobs/boss", () => ({ getBoss: vi.fn() }));
+vi.mock("@/shared/storage", () => ({ storage: {} }));
 
 const createdAt = new Date("2026-08-12T00:30:00.000Z"); // Asia/Tokyo で 09:30:00
 const updatedAt = new Date("2026-08-12T01:00:00.000Z"); // Asia/Tokyo で 10:00:00

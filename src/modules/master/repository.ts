@@ -1,8 +1,12 @@
 import "server-only";
-import type { MasterCategorySortField, MasterSortField } from "@/modules/master/types";
+import type {
+  MasterCategorySortField,
+  MasterExportTarget,
+  MasterSortField,
+} from "@/modules/master/types";
 import type { SortOrder } from "@/shared/api/pagination";
 import { prisma } from "@/shared/db/prisma";
-import type { Master, MasterCategory, Prisma } from "@prisma/client";
+import type { Master, MasterCategory, MasterExport, Prisma } from "@prisma/client";
 
 // ここから 4 つは、データベースから取得する項目の組み合わせを表す型。
 // 画面ごとに必要な項目だけを取得しており、その「取得した結果の形」に名前を付けている。
@@ -62,6 +66,27 @@ export interface MasterListFilters {
   keyword?: string;
 }
 
+// マスタ一覧の絞り込み条件から、Prismaのwhere句を組み立てる。
+// 一覧取得（listMastersAndCount）と件数のみの取得（countMasters）の両方で同じ絞り込みを使うため、
+// 条件の組み立てをここへ1か所にまとめている。
+function buildMasterWhere(filters: MasterListFilters): Prisma.MasterWhereInput {
+  return {
+    // 分類が指定されていない（"all"）ときは、絞り込み条件を付けずすべての分類を対象にする
+    ...(filters.categoryId === undefined ? {} : { categoryId: filters.categoryId }),
+    // キーワードは、マスタコードか内容のどちらかに一部でも一致すればヒットとする。
+    // 大文字・小文字を区別しないのは、コードが英大文字で登録されていても、
+    // 利用者が小文字で入力して検索できるようにするため。
+    ...(filters.keyword
+      ? {
+          OR: [
+            { code: { contains: filters.keyword, mode: "insensitive" } },
+            { content: { contains: filters.keyword, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+}
+
 export const masterRepository = {
   // マスタの一覧を、検索条件・ページ・並び順に従って取得し、あわせて全体の件数も返す。
   // 一覧データと件数を同時に必要とする呼び出し元（service.listMasters）のために、
@@ -73,21 +98,7 @@ export const masterRepository = {
     sort: MasterSortField,
     order: SortOrder,
   ): Promise<[MasterListRecord[], number]> {
-    const where: Prisma.MasterWhereInput = {
-      // 分類が指定されていない（"all"）ときは、絞り込み条件を付けずすべての分類を対象にする
-      ...(filters.categoryId === undefined ? {} : { categoryId: filters.categoryId }),
-      // キーワードは、マスタコードか内容のどちらかに一部でも一致すればヒットとする。
-      // 大文字・小文字を区別しないのは、コードが英大文字で登録されていても、
-      // 利用者が小文字で入力して検索できるようにするため。
-      ...(filters.keyword
-        ? {
-            OR: [
-              { code: { contains: filters.keyword, mode: "insensitive" } },
-              { content: { contains: filters.keyword, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    };
+    const where = buildMasterWhere(filters);
     // 選んだ並び順を優先しつつ、並び替えの基準となる値が同じ行どうしの順番が
     // 実行のたびに変わらないよう、マスタコードなども並び順に加えている
     const orderBy: Prisma.MasterOrderByWithRelationInput[] =
@@ -113,6 +124,11 @@ export const masterRepository = {
       }),
       prisma.master.count({ where }),
     ]);
+  },
+
+  // マスタの件数だけを数える。CSVダウンロードの依頼時（§13.8）に、一覧を取得せず上限判定だけ行いたいために使う。
+  countMasters(filters: MasterListFilters): Promise<number> {
+    return prisma.master.count({ where: buildMasterWhere(filters) });
   },
 
   // 分類プルダウン用に、すべての分類を id 順（=登録順）で取得する。
@@ -153,6 +169,11 @@ export const masterRepository = {
       }),
       prisma.masterCategory.count(),
     ]);
+  },
+
+  // マスタ分類の件数だけを数える。マスタの countMasters と同じく、CSVダウンロードの上限判定に使う。
+  countCategories(): Promise<number> {
+    return prisma.masterCategory.count();
   },
 
   // マスタ1件を取得する。詳細画面の表示と、更新前の内容確認の両方で使う。
@@ -275,5 +296,36 @@ export const masterRepository = {
       where: { id, updatedAt: expectedUpdatedAt },
     });
     return result.count === 1;
+  },
+
+  // CSVダウンロードの依頼を、生成待ち（QUEUED）の状態で1件作成する（§13.5.1・§13.6）。
+  createExport(data: {
+    target: MasterExportTarget;
+    categoryId?: number;
+    keyword?: string;
+    requestedBy: string;
+  }): Promise<MasterExport> {
+    return prisma.masterExport.create({
+      data: {
+        target: data.target,
+        categoryId: data.categoryId,
+        keyword: data.keyword,
+        requestedBy: data.requestedBy,
+      },
+    });
+  },
+
+  // 保持期限を過ぎた MasterExport を探す。ストレージ上のファイルを消すために filePath も一緒に取得する（§13.9.2）。
+  findExpiredExports(createdBefore: Date): Promise<Pick<MasterExport, "id" | "filePath">[]> {
+    return prisma.masterExport.findMany({
+      where: { createdAt: { lt: createdBefore } },
+      select: { id: true, filePath: true },
+    });
+  },
+
+  // 指定した MasterExport の行をまとめて削除する（受け取り後の削除・期限切れの掃除の両方で使う）。
+  async deleteExports(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await prisma.masterExport.deleteMany({ where: { id: { in: ids } } });
   },
 };

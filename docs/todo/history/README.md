@@ -58,3 +58,4 @@
 | [2026-08-12 マスタ機能の工程12でコマンド検証を実施](2026-08-w2.md#2026-08-12-マスタ機能の工程12でコマンド検証を実施) | `lint` / `format:check` / `typecheck` / `test` / `build` が全て成功。TODO.md の記述ずれ（工程11未コミットの記載）を発見 |
 | [2026-08-12 withRoute に実行者情報を追加](2026-08-w2.md#2026-08-12-withroute-に実行者情報を追加) | 製造工程13。`with-op.ts` の利用者解決処理を `resolve-user-ctx.ts` へ切り出し、`withRoute` のログにも `userId`/`role` を追加。CSVダウンロード（第4段階）の最初の工程 |
 | [2026-08-12 MasterExportとCSV生成処理を実装](2026-08-w2.md#2026-08-12-masterexportとcsv生成処理を実装) | 製造工程14。`MasterExport` モデルとCSV文字列生成処理（列変換・書式・BOM・ファイル名）を実装。依頼処理・worker は工程15・16へ持ち越し |
+| [2026-08-12 CSVの依頼処理を実装](2026-08-w2.md#2026-08-12-csvの依頼処理を実装) | 製造工程15。件数上限チェック・保持期限切れの掃除・`MasterExport`作成・pg-bossへの送信を行う依頼Server Actionを実装。UIボタンは工程17、workerは工程16へ持ち越し |

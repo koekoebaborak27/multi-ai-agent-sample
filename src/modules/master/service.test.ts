@@ -6,6 +6,8 @@
 import { masterRepository } from "@/modules/master/repository";
 import { formatMasterCategoryCode, masterService } from "@/modules/master/service";
 import { AppError } from "@/shared/errors/app-error";
+import { getBoss } from "@/shared/jobs/boss";
+import { storage } from "@/shared/storage";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -14,6 +16,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/modules/master/repository", () => ({
   masterRepository: {
     listMastersAndCount: vi.fn(),
+    countMasters: vi.fn(),
+    countCategories: vi.fn(),
     listCategoryOptions: vi.fn(),
     listCategoriesAndCount: vi.fn(),
     findMasterById: vi.fn(),
@@ -27,12 +31,24 @@ vi.mock("@/modules/master/repository", () => ({
     updateMasterIfUnchanged: vi.fn(),
     deleteMasterIfUnchanged: vi.fn(),
     deleteCategoryIfUnchanged: vi.fn(),
+    createExport: vi.fn(),
+    findExpiredExports: vi.fn(),
+    deleteExports: vi.fn(),
   },
 }));
 
 // 環境変数の内容によって結果が変わらないよう、1ページの件数を固定する
 vi.mock("@/shared/config/env", () => ({
   env: { PAGE_SIZE: 30 },
+}));
+
+// CSVの保存先（ストレージ）とジョブの順番待ち（pg-boss）は差し替える。
+// ここで確認したいのは「何を呼んだか」だけで、実際のファイル操作やキュー接続は行わない。
+vi.mock("@/shared/storage", () => ({
+  storage: { remove: vi.fn() },
+}));
+vi.mock("@/shared/jobs/boss", () => ({
+  getBoss: vi.fn(),
 }));
 
 // 更新の試験で使う「画面を開いた時点の最終更新日時」。
@@ -1011,6 +1027,101 @@ describe("master/service deleteCategory", () => {
         httpStatus: 409,
         context: { id: 12, masterCount: 1 },
       } satisfies Partial<AppError>);
+    });
+  });
+});
+
+describe("master/service requestExport", () => {
+  const boss = { createQueue: vi.fn(), send: vi.fn() };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getBoss).mockReturnValue(boss as never);
+    vi.mocked(masterRepository.findExpiredExports).mockResolvedValue([]);
+    vi.mocked(masterRepository.createExport).mockResolvedValue({
+      id: "export1",
+    } as never);
+    vi.mocked(storage.remove).mockResolvedValue(undefined);
+  });
+
+  describe("対象件数が上限（10,000件）以下の場合", () => {
+    it("MasterExportをQUEUEDで作成し、exportIdだけをキューへ送ってexportIdを返す", async () => {
+      vi.mocked(masterRepository.countMasters).mockResolvedValue(2);
+
+      await expect(
+        masterService.requestExport("MASTER", { categoryId: 3, keyword: "  con  " }, "user1"),
+      ).resolves.toEqual({ exportId: "export1" });
+
+      expect(masterRepository.countMasters).toHaveBeenCalledWith({
+        categoryId: 3,
+        keyword: "con",
+      });
+      expect(masterRepository.createExport).toHaveBeenCalledWith({
+        target: "MASTER",
+        categoryId: 3,
+        keyword: "con",
+        requestedBy: "user1",
+      });
+      expect(boss.createQueue).toHaveBeenCalledWith("master.export");
+      expect(boss.send).toHaveBeenCalledWith("master.export", { exportId: "export1" });
+    });
+  });
+
+  describe("対象件数が上限（10,000件）を超える場合", () => {
+    it("MasterExportを作成せずAppError(MASTER_EXPORT_LIMIT_EXCEEDED) を投げる", async () => {
+      vi.mocked(masterRepository.countMasters).mockResolvedValue(10001);
+
+      await expect(masterService.requestExport("MASTER", {}, "user1")).rejects.toMatchObject({
+        code: "MASTER_EXPORT_LIMIT_EXCEEDED",
+        httpStatus: 422,
+        context: { count: 10001, max: 10000 },
+      } satisfies Partial<AppError>);
+      expect(masterRepository.createExport).not.toHaveBeenCalled();
+      expect(boss.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("対象がマスタ分類（MASTER_CATEGORY）の場合", () => {
+    it("検索条件を持たせず、分類の件数で上限を判定する", async () => {
+      vi.mocked(masterRepository.countCategories).mockResolvedValue(3);
+
+      await masterService.requestExport("MASTER_CATEGORY", {}, "user1");
+
+      expect(masterRepository.countCategories).toHaveBeenCalled();
+      expect(masterRepository.countMasters).not.toHaveBeenCalled();
+      expect(masterRepository.createExport).toHaveBeenCalledWith({
+        target: "MASTER_CATEGORY",
+        categoryId: undefined,
+        keyword: undefined,
+        requestedBy: "user1",
+      });
+    });
+  });
+
+  describe("保持期限を過ぎたMasterExportが残っている場合", () => {
+    it("依頼のたびにストレージ上のファイルと行をまとめて削除する", async () => {
+      vi.mocked(masterRepository.countMasters).mockResolvedValue(1);
+      vi.mocked(masterRepository.findExpiredExports).mockResolvedValue([
+        { id: "old1", filePath: "master-export/old1.csv" },
+        { id: "old2", filePath: null },
+      ] as never);
+
+      await masterService.requestExport("MASTER", {}, "user1");
+
+      expect(storage.remove).toHaveBeenCalledTimes(1);
+      expect(storage.remove).toHaveBeenCalledWith("master-export/old1.csv");
+      expect(masterRepository.deleteExports).toHaveBeenCalledWith(["old1", "old2"]);
+    });
+
+    it("ストレージの削除に失敗しても行の削除は続ける", async () => {
+      vi.mocked(masterRepository.countMasters).mockResolvedValue(1);
+      vi.mocked(masterRepository.findExpiredExports).mockResolvedValue([
+        { id: "old1", filePath: "master-export/old1.csv" },
+      ] as never);
+      vi.mocked(storage.remove).mockRejectedValue(new Error("not found"));
+
+      await expect(masterService.requestExport("MASTER", {}, "user1")).resolves.toBeDefined();
+      expect(masterRepository.deleteExports).toHaveBeenCalledWith(["old1"]);
     });
   });
 });

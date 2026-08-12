@@ -37,6 +37,16 @@ export const masterSearchQuerySchema = z.object({
 
 export type MasterSearchQuery = z.infer<typeof masterSearchQuerySchema>;
 
+// CSVダウンロード（MST-01からの依頼）の入力チェック。
+// 一覧のURLパラメータと同じ変換を使うことで、一覧に表示している検索条件とダウンロード対象がずれないようにする。
+// ページ番号・並び順はダウンロードでは使わないため受け取らない。
+export const requestMasterExportSchema = z.object({
+  categoryId: masterSearchQuerySchema.shape.categoryId,
+  keyword: masterSearchQuerySchema.shape.keyword,
+});
+
+export type RequestMasterExportInput = z.infer<typeof requestMasterExportSchema>;
+
 // マスタ一覧画面のURL。戻り先として認めるかどうかの判定基準に使う
 const MASTER_LIST_PATH = "/master";
 
