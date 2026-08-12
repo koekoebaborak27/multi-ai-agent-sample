@@ -2,24 +2,7 @@ import { performance } from "node:perf_hooks";
 import type { Logger } from "pino";
 import { childLogger } from "@/shared/observability/logger";
 import { newRequestId } from "@/shared/observability/request-id";
-
-/**
- * 記録に添える「誰が操作したか」を調べる。
- *
- * ログインの仕組みを直接読み込まず、必要になった時点で読み込んでいる。
- * この記録の仕組みは、画面からの操作だけでなく、ログインという考え方が無い
- * 定期実行の処理からも使うため、常に読み込む形にすると動かせなくなるから。
- * 利用者が分からない場合は、何も付けずに空のまま返す。
- */
-async function resolveUserCtx(): Promise<{ userId?: string; role?: string }> {
-  try {
-    const mod = await import("@/shared/auth/session");
-    const user = await mod.getCurrentUser();
-    return user ? { userId: user.id, role: user.role } : {};
-  } catch {
-    return {};
-  }
-}
+import { resolveUserCtx } from "@/shared/observability/resolve-user-ctx";
 
 /**
  * 記録に残す入力内容を整える。

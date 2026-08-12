@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { childLogger } from "@/shared/observability/logger";
 import { newRequestId } from "@/shared/observability/request-id";
+import { resolveUserCtx } from "@/shared/observability/resolve-user-ctx";
 import { toApiErrorResponse } from "@/shared/errors/handle-api-error";
 
 type RouteHandler = (req: Request, ctx?: unknown) => Promise<Response> | Response;
@@ -18,7 +19,8 @@ export function withRoute(op: string, handler: RouteHandler): RouteHandler {
   return async (req: Request, ctx?: unknown): Promise<Response> => {
     // 1回の処理に固有の番号。同じ処理から出た記録を後からまとめて探せるようにする
     const requestId = newRequestId();
-    const log = childLogger({ op, requestId, method: req.method, url: req.url });
+    const userCtx = await resolveUserCtx();
+    const log = childLogger({ op, requestId, method: req.method, url: req.url, ...userCtx });
     const start = performance.now();
     log.debug(`▶ ${op}`);
     try {
