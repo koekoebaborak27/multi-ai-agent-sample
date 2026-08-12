@@ -1,4 +1,3 @@
-import "server-only";
 import { env } from "@/shared/config/env";
 import { localStorage } from "@/shared/storage/local";
 import { supabaseStorage } from "@/shared/storage/supabase";

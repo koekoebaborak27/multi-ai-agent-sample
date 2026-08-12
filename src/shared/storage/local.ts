@@ -1,4 +1,3 @@
-import "server-only";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { env } from "@/shared/config/env";

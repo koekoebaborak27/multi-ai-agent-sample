@@ -1,8 +1,8 @@
-import "server-only";
-import type {
-  MasterCategorySortField,
-  MasterExportTarget,
-  MasterSortField,
+import {
+  MASTER_EXPORT_MAX_ROWS,
+  type MasterCategorySortField,
+  type MasterExportTarget,
+  type MasterSortField,
 } from "@/modules/master/types";
 import type { SortOrder } from "@/shared/api/pagination";
 import { prisma } from "@/shared/db/prisma";
@@ -87,6 +87,37 @@ function buildMasterWhere(filters: MasterListFilters): Prisma.MasterWhereInput {
   };
 }
 
+// マスタ一覧の並び順を組み立てる。一覧のページ取得（listMastersAndCount）とCSV出力の全件取得
+// （listMastersForExport）で同じ並び順にする必要があるため、ここへ1か所にまとめている。
+function buildMasterOrderBy(
+  sort: MasterSortField,
+  order: SortOrder,
+): Prisma.MasterOrderByWithRelationInput[] {
+  // 選んだ並び順を優先しつつ、並び替えの基準となる値が同じ行どうしの順番が
+  // 実行のたびに変わらないよう、マスタコードなども並び順に加えている
+  return sort === "category"
+    ? [{ category: { name: order } }, { code: "asc" }]
+    : sort === "code"
+      ? [{ code: order }, { category: { name: "asc" } }]
+      : [{ content: order }, { category: { name: "asc" } }, { code: "asc" }];
+}
+
+// マスタ分類一覧の並び順を組み立てる（マスタ一覧の buildMasterOrderBy の分類版）。
+function buildCategoryOrderBy(
+  sort: MasterCategorySortField,
+  order: SortOrder,
+): Prisma.MasterCategoryOrderByWithRelationInput[] {
+  // 分類コードは連番をそのまま使っているため、コード順の並び替えは連番の並び替えで代用できる
+  const primaryOrder: Prisma.MasterCategoryOrderByWithRelationInput =
+    sort === "code"
+      ? { id: order }
+      : sort === "name"
+        ? { name: order }
+        : { masters: { _count: order } };
+  // コード順以外は同じ値の行が出るため、順番が毎回変わらないよう連番も並び順に加える
+  return sort === "code" ? [primaryOrder] : [primaryOrder, { id: "asc" }];
+}
+
 export const masterRepository = {
   // マスタの一覧を、検索条件・ページ・並び順に従って取得し、あわせて全体の件数も返す。
   // 一覧データと件数を同時に必要とする呼び出し元（service.listMasters）のために、
@@ -99,14 +130,7 @@ export const masterRepository = {
     order: SortOrder,
   ): Promise<[MasterListRecord[], number]> {
     const where = buildMasterWhere(filters);
-    // 選んだ並び順を優先しつつ、並び替えの基準となる値が同じ行どうしの順番が
-    // 実行のたびに変わらないよう、マスタコードなども並び順に加えている
-    const orderBy: Prisma.MasterOrderByWithRelationInput[] =
-      sort === "category"
-        ? [{ category: { name: order } }, { code: "asc" }]
-        : sort === "code"
-          ? [{ code: order }, { category: { name: "asc" } }]
-          : [{ content: order }, { category: { name: "asc" } }, { code: "asc" }];
+    const orderBy = buildMasterOrderBy(sort, order);
 
     return Promise.all([
       prisma.master.findMany({
@@ -131,6 +155,32 @@ export const masterRepository = {
     return prisma.master.count({ where: buildMasterWhere(filters) });
   },
 
+  // CSVダウンロード用に、検索条件に一致するマスタを全件取得する（ページングなし・§13.5.2）。
+  // 依頼時点で件数が上限（MASTER_EXPORT_MAX_ROWS）以下であることを確認済みのため、ここでは上限件数を
+  // 保険として take に設定するだけで、件数の再確認は行わない（§13.8）。
+  listMastersForExport(
+    filters: MasterListFilters,
+    sort: MasterSortField,
+    order: SortOrder,
+  ): Promise<MasterDetailRecord[]> {
+    return prisma.master.findMany({
+      where: buildMasterWhere(filters),
+      select: {
+        id: true,
+        categoryId: true,
+        code: true,
+        content: true,
+        createdAt: true,
+        createdBy: true,
+        updatedAt: true,
+        updatedBy: true,
+        category: { select: { name: true } },
+      },
+      orderBy: buildMasterOrderBy(sort, order),
+      take: MASTER_EXPORT_MAX_ROWS,
+    });
+  },
+
   // 分類プルダウン用に、すべての分類を id 順（=登録順）で取得する。
   // 件数がページ分けを必要とするほど多くならない想定のため、ページ分けはしない。
   listCategoryOptions(): Promise<Pick<MasterCategory, "id" | "name">[]> {
@@ -147,15 +197,7 @@ export const masterRepository = {
     sort: MasterCategorySortField,
     order: SortOrder,
   ): Promise<[MasterCategoryListRecord[], number]> {
-    // 分類コードは連番をそのまま使っているため、コード順の並び替えは連番の並び替えで代用できる
-    const primaryOrder: Prisma.MasterCategoryOrderByWithRelationInput =
-      sort === "code"
-        ? { id: order }
-        : sort === "name"
-          ? { name: order }
-          : { masters: { _count: order } };
-    // コード順以外は同じ値の行が出るため、順番が毎回変わらないよう連番も並び順に加える
-    const orderBy = sort === "code" ? [primaryOrder] : [primaryOrder, { id: "asc" as const }];
+    const orderBy = buildCategoryOrderBy(sort, order);
     return Promise.all([
       prisma.masterCategory.findMany({
         select: {
@@ -174,6 +216,26 @@ export const masterRepository = {
   // マスタ分類の件数だけを数える。マスタの countMasters と同じく、CSVダウンロードの上限判定に使う。
   countCategories(): Promise<number> {
     return prisma.masterCategory.count();
+  },
+
+  // CSVダウンロード用に、マスタ分類を全件取得する（listMastersForExport の分類版）。
+  listCategoriesForExport(
+    sort: MasterCategorySortField,
+    order: SortOrder,
+  ): Promise<MasterCategoryDetailRecord[]> {
+    return prisma.masterCategory.findMany({
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        createdBy: true,
+        updatedAt: true,
+        updatedBy: true,
+        _count: { select: { masters: true } },
+      },
+      orderBy: buildCategoryOrderBy(sort, order),
+      take: MASTER_EXPORT_MAX_ROWS,
+    });
   },
 
   // マスタ1件を取得する。詳細画面の表示と、更新前の内容確認の両方で使う。
@@ -327,5 +389,39 @@ export const masterRepository = {
   async deleteExports(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     await prisma.masterExport.deleteMany({ where: { id: { in: ids } } });
+  },
+
+  // worker がCSVを生成するために、依頼1件の内容を読む（§13.5.2）。
+  findExportById(id: string): Promise<MasterExport | null> {
+    return prisma.masterExport.findUnique({ where: { id } });
+  },
+
+  // 生成中（RUNNING）へ更新する。対象が QUEUED のときだけ更新し、更新できたかどうかを返す。
+  // 何らかの理由で同じジョブが二重に実行されても、後から来た方は何もしないようにするための保険。
+  async markExportRunning(id: string): Promise<boolean> {
+    const result = await prisma.masterExport.updateMany({
+      where: { id, status: "QUEUED" },
+      data: { status: "RUNNING" },
+    });
+    return result.count === 1;
+  },
+
+  // 生成が完了した（READY）ことを記録する。
+  updateExportReady(
+    id: string,
+    data: { filePath: string; fileName: string; rowCount: number },
+  ): Promise<MasterExport> {
+    return prisma.masterExport.update({
+      where: { id },
+      data: { status: "READY", ...data },
+    });
+  },
+
+  // 生成に失敗した（FAILED）ことを記録する。
+  updateExportFailed(id: string, errorCode: string): Promise<MasterExport> {
+    return prisma.masterExport.update({
+      where: { id },
+      data: { status: "FAILED", errorCode },
+    });
   },
 };

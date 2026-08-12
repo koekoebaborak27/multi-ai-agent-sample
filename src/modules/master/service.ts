@@ -1,4 +1,9 @@
 import {
+  buildMasterCategoryExportCsv,
+  buildMasterExportCsv,
+  buildMasterExportFileName,
+} from "@/modules/master/export";
+import {
   masterRepository,
   type MasterCategoryDetailRecord,
   type MasterCategoryListRecord,
@@ -31,7 +36,7 @@ import type {
   UpdateMasterInput,
 } from "@/modules/master/validation";
 import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
-import { AppError } from "@/shared/errors/app-error";
+import { AppError, isAppError } from "@/shared/errors/app-error";
 import { getBoss } from "@/shared/jobs/boss";
 import { storage } from "@/shared/storage";
 import { Prisma } from "@prisma/client";
@@ -539,6 +544,48 @@ export const masterService = {
     await boss.send(MASTER_EXPORT_QUEUE, { exportId: exportRow.id });
 
     return { exportId: exportRow.id };
+  },
+
+  /**
+   * CSVを実際に生成する（worker から呼ばれる。§13.5.2）。
+   * 依頼が見つからない、または既に処理済み（QUEUEDでない）場合は何もしない。
+   * これは同じジョブが二重に実行されたときの保険であり、通常の流れでは起きない。
+   */
+  async processExport(exportId: string): Promise<void> {
+    const exportRow = await masterRepository.findExportById(exportId);
+    if (!exportRow) return;
+    if (!(await masterRepository.markExportRunning(exportId))) return;
+
+    try {
+      const target = exportRow.target as MasterExportTarget;
+      let csv: string;
+      let rowCount: number;
+      if (target === "MASTER") {
+        // 並び順は一覧（MST-01）の既定と同じにする（§13.2）。件数の再確認は行わない（§13.8）。
+        const rows = await masterRepository.listMastersForExport(
+          { categoryId: exportRow.categoryId ?? undefined, keyword: exportRow.keyword ?? undefined },
+          "category",
+          "asc",
+        );
+        csv = buildMasterExportCsv(rows.map(toMasterDetail));
+        rowCount = rows.length;
+      } else {
+        const rows = await masterRepository.listCategoriesForExport("code", "asc");
+        csv = buildMasterCategoryExportCsv(rows.map(toCategoryDetail));
+        rowCount = rows.length;
+      }
+
+      // 保存パスは exportId で一意にする。利用者へ見せるファイル名とは別物（§13.9.1）。
+      const filePath = `master-export/${exportId}.csv`;
+      const fileName = buildMasterExportFileName(target, new Date());
+      await storage.upload(filePath, Buffer.from(csv, "utf-8"), "text/csv");
+      await masterRepository.updateExportReady(exportId, { filePath, fileName, rowCount });
+    } catch (err) {
+      // 記録だけここで行い、ログは呼び出し元（withJob）が処理境界で1回だけ出す
+      const errorCode = isAppError(err) ? err.code : "MASTER_EXPORT_FAILED";
+      await masterRepository.updateExportFailed(exportId, errorCode);
+      throw err;
+    }
   },
 
   cleanupExpiredExports,

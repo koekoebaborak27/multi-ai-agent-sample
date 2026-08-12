@@ -1,4 +1,3 @@
-import "server-only";
 import { env } from "@/shared/config/env";
 import { AppError } from "@/shared/errors/app-error";
 import { DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS, type StorageClient } from "@/shared/storage/types";
