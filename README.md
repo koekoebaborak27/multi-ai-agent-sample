@@ -419,14 +419,15 @@ Docker で起動している場合は、`docker compose -f docker/docker-compose
 
 ## E2Eテスト（Playwright）
 
-ブラウザを実際に操作して画面の動作を確認する自動テストです。[`TESTING.md`](TESTING.md)が扱う単体テスト（Vitest）とは別に、[`playwright.config.ts`](playwright.config.ts)が雛形として用意されていますが、**`@playwright/test`本体は初期状態では導入されていません**（`package.json`の`devDependencies`に無い）。
+ブラウザを実際に操作して画面の動作を確認する自動テストです。[`TESTING.md`](TESTING.md)が扱う単体テスト（Vitest）とは別に、[`playwright.config.ts`](playwright.config.ts)を設定として使います。`@playwright/test`本体（`package.json`の`devDependencies`）とchromiumブラウザ本体は導入済みです。
 
 > **E2Eテスト（End-to-Endテスト）**とは、ログインして画面を操作し、期待どおりの表示やデータベースの更新が行われるかを、実際のブラウザ操作を通して確認するテストです。関数単位で確認する単体テストと異なり、複数の画面・処理をまたいだ一連の流れを検証します。
 
-### 1. 導入する
+### 1. 導入する（初回のみ）
+
+`pnpm install`で`@playwright/test`本体は導入されますが、ブラウザ本体は別途ダウンロードが必要です。まだ実行していない場合は次を実行してください。
 
 ```bash
-pnpm add -D @playwright/test
 pnpm exec playwright install chromium
 ```
 
