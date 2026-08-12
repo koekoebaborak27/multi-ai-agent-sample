@@ -2,9 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   MASTER_CATEGORY_SORT_FIELDS,
+  MASTER_EXPORT_MAX_ROWS,
   MasterCategoryTable,
   MasterDeletedToast,
+  MasterExportButton,
   masterService,
+  requestMasterCategoryExportAction,
 } from "@/modules/master";
 import { parseListQuery } from "@/shared/api/pagination";
 import { getCurrentUser } from "@/shared/auth/session";
@@ -41,6 +44,15 @@ export default async function MasterCategoriesPage({
   // 今の並び順とページ番号を保った状態を表す。
   const baseUrl = `/master/categories?sort=${query.sort}&order=${query.order}${query.page > 1 ? `&page=${query.page}` : ""}`;
 
+  // マスタ分類には検索条件が無いため、常に全件が対象になる（§13.5.1）。
+  const exportDisabled = result.total === 0 || result.total > MASTER_EXPORT_MAX_ROWS;
+  const exportDisabledReason =
+    result.total === 0
+      ? "対象のデータがありません"
+      : result.total > MASTER_EXPORT_MAX_ROWS
+        ? `対象が${result.total}件あります。${MASTER_EXPORT_MAX_ROWS}件以下になるよう検索条件で絞り込んでください`
+        : undefined;
+
   return (
     <div className="space-y-6">
       <MasterDeletedToast />
@@ -56,11 +68,18 @@ export default async function MasterCategoriesPage({
           <CardTitle>
             全{result.total}件（{result.page} / {result.totalPages}ページ）
           </CardTitle>
-          {canWrite(user.role) ? (
-            <Button asChild>
-              <Link href="/master/categories/new">新規登録</Link>
-            </Button>
-          ) : null}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <MasterExportButton
+              action={requestMasterCategoryExportAction}
+              disabled={exportDisabled}
+              disabledReason={exportDisabledReason}
+            />
+            {canWrite(user.role) ? (
+              <Button asChild>
+                <Link href="/master/categories/new">新規登録</Link>
+              </Button>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <MasterCategoryTable

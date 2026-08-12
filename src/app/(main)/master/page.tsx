@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  MASTER_EXPORT_MAX_ROWS,
   MasterDeletedToast,
+  MasterExportButton,
   MasterSearchForm,
   MasterTable,
   type MasterSortField,
   masterSearchQuerySchema,
   masterService,
+  requestMasterExportAction,
 } from "@/modules/master";
 import type { SortOrder } from "@/shared/api/pagination";
 import { getCurrentUser } from "@/shared/auth/session";
@@ -94,6 +97,19 @@ export default async function MasterPage({
     query.order,
   );
 
+  // CSVダウンロードは今の検索条件のままの対象を出力する（§13.5.1）。
+  // Server Action へ渡す条件をここで固定し、クライアント側では検索条件を持たずに済むようにする。
+  const exportFormData = new FormData();
+  exportFormData.set("categoryId", String(selectedCategoryId ?? "all"));
+  if (query.keyword) exportFormData.set("keyword", query.keyword);
+  const exportDisabled = result.total === 0 || result.total > MASTER_EXPORT_MAX_ROWS;
+  const exportDisabledReason =
+    result.total === 0
+      ? "対象のデータがありません"
+      : result.total > MASTER_EXPORT_MAX_ROWS
+        ? `対象が${result.total}件あります。${MASTER_EXPORT_MAX_ROWS}件以下になるよう検索条件で絞り込んでください`
+        : undefined;
+
   return (
     <div className="space-y-6">
       <MasterDeletedToast />
@@ -118,6 +134,11 @@ export default async function MasterPage({
             <Button asChild variant="outline">
               <Link href="/master/categories">マスタ分類の管理</Link>
             </Button>
+            <MasterExportButton
+              action={requestMasterExportAction.bind(null, exportFormData)}
+              disabled={exportDisabled}
+              disabledReason={exportDisabledReason}
+            />
             {canWrite(user.role) ? (
               <Button asChild>
                 <Link href={`/master/new?returnTo=${encodeURIComponent(returnTo)}`}>新規登録</Link>

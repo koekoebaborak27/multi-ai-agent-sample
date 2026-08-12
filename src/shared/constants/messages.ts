@@ -16,4 +16,9 @@ export const MESSAGES = {
     unexpected: "予期しないエラーが発生しました",
     notFound: "対象が見つかりません",
   },
+  masterExport: {
+    generating: "CSVを作成しています。しばらくお待ちください",
+    timeout: "時間がかかっています。しばらくしてからもう一度お試しください",
+    failed: "CSVの生成に失敗しました。もう一度お試しください",
+  },
 } as const;

@@ -22,6 +22,7 @@ import type {
   MasterCategorySummary,
   MasterDetail,
   MasterExportRequest,
+  MasterExportStatus,
   MasterExportTarget,
   MasterSearchCriteria,
   MasterSortField,
@@ -174,6 +175,18 @@ function masterExportLimitExceeded(count: number, max: number): AppError {
     `対象が${count}件あります。${max}件以下になるよう検索条件で絞り込んでください`,
     { count, max },
   );
+}
+
+// 指定された依頼が存在しない、または依頼した本人と異なるときのエラー（§13.5.3）。
+// 他人の依頼が存在することを知らせないため、403ではなく404にする。
+function masterExportNotFound(): AppError {
+  return new AppError("MASTER_EXPORT_NOT_FOUND", 404, "指定されたダウンロードが見つかりません");
+}
+
+// 生成がまだ終わっていない（READYでない）のに受け取ろうとしたときのエラー（§13.10.2）。
+// 通常は状態確認でREADYを確認してから受け取りを呼ぶため、画面には見せない想定のエラーである。
+function masterExportNotReady(): AppError {
+  return new AppError("MASTER_EXPORT_NOT_READY", 409, "まだ生成が終わっていません");
 }
 
 /**
@@ -539,7 +552,11 @@ export const masterService = {
     // 検索条件は MasterExport 側に持たせているため、ジョブには exportId だけを積む（§13.5.1）。
     // キューは worker 側（工程16）で先に作られる想定だが、その順序に依存しないよう、
     // 送る前に自分でも作成しておく（既にあれば何もしない）。
+    // start() は2回目以降すぐ返る作りのため、リクエストのたびに呼んでも問題ない。
+    // worker とは別プロセス（別の PgBoss インスタンス）であり、ここで開始しないと
+    // 接続が開かれないまま createQueue / send が失敗する。
     const boss = getBoss();
+    await boss.start();
     await boss.createQueue(MASTER_EXPORT_QUEUE);
     await boss.send(MASTER_EXPORT_QUEUE, { exportId: exportRow.id });
 
@@ -589,6 +606,42 @@ export const masterService = {
       await masterRepository.updateExportFailed(exportId, errorCode);
       throw err;
     }
+  },
+
+  // CSVの生成状況を問い合わせる（画面から2秒間隔で呼ばれる。§13.5.3・§13.10.1）。
+  // 依頼が見つからない、または依頼した本人と異なる場合は同じエラーにする（本人以外へ存在を知らせないため）。
+  async getExportStatus(exportId: string, userId: string): Promise<MasterExportStatus> {
+    const exportRow = await masterRepository.findExportById(exportId);
+    if (!exportRow || exportRow.requestedBy !== userId) {
+      throw masterExportNotFound();
+    }
+    return {
+      status: exportRow.status as MasterExportStatus["status"],
+      errorCode: exportRow.errorCode ?? undefined,
+    };
+  },
+
+  // 生成済みのCSVを受け取る（§13.5.3）。本人確認のうえファイルを取得し、
+  // 取り残しを残さないよう、返した直後にファイルと MasterExport の行を削除する（§13.9.2）。
+  async downloadExport(
+    exportId: string,
+    userId: string,
+  ): Promise<{ fileName: string; data: Buffer }> {
+    const exportRow = await masterRepository.findExportById(exportId);
+    if (!exportRow || exportRow.requestedBy !== userId) {
+      throw masterExportNotFound();
+    }
+    if (exportRow.status !== "READY" || !exportRow.filePath || !exportRow.fileName) {
+      throw masterExportNotReady();
+    }
+
+    const data = await storage.download(exportRow.filePath);
+    await storage.remove(exportRow.filePath).catch(() => {
+      // 消せなくても応答は成功として返す。取り残しは次回依頼時の掃除で回収する（§13.9.2）
+    });
+    await masterRepository.deleteExports([exportRow.id]);
+
+    return { fileName: exportRow.fileName, data };
   },
 
   cleanupExpiredExports,

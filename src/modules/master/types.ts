@@ -71,3 +71,9 @@ export const MASTER_EXPORT_QUEUE = "master.export";
 export interface MasterExportRequest {
   exportId: string;
 }
+
+/** CSV生成の進み具合。画面はこれを2秒間隔で問い合わせ、READYになったら受け取りへ進む（§13.5.3） */
+export interface MasterExportStatus {
+  status: "QUEUED" | "RUNNING" | "READY" | "FAILED";
+  errorCode?: string;
+}
