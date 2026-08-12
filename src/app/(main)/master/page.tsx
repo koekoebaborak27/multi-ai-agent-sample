@@ -113,7 +113,12 @@ export default async function MasterPage({
   return (
     <div className="space-y-6">
       <MasterDeletedToast />
-      <h1 className="text-3xl font-semibold tracking-tight">マスタ管理</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-semibold tracking-tight">マスタ管理</h1>
+        <Button asChild>
+          <Link href="/master/categories">マスタ分類の管理</Link>
+        </Button>
+      </div>
 
       <MasterSearchForm
         key={`${selectedCategoryId ?? "all"}:${query.keyword ?? ""}`}
@@ -131,9 +136,6 @@ export default async function MasterPage({
             検索結果 全{result.total}件（{result.page} / {result.totalPages}ページ）
           </CardTitle>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button asChild variant="outline">
-              <Link href="/master/categories">マスタ分類の管理</Link>
-            </Button>
             <MasterExportButton
               action={requestMasterExportAction.bind(null, exportFormData)}
               disabled={exportDisabled}

@@ -40,7 +40,7 @@ export function LoginForm({ entraEnabled }: { entraEnabled: boolean }) {
       <form action={formAction} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="userId">ユーザーID</Label>
-          <Input id="userId" name="userId" autoComplete="username" maxLength={7} required />
+          <Input id="userId" name="userId" autoComplete="username" maxLength={64} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">パスワード</Label>

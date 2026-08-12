@@ -30,7 +30,7 @@
 | 対象画面URL または API パス | 画面/APIがある場合は○ | Playwright自動化での `対象URL` に対応 |
 | 関連する設計書・仕様書 | △ | `docs/specs/**` にあれば場所を聞く。無ければ手順1で探す |
 | DBテーブル | DB更新を伴う場合は○ | Playwright自動化での `DB確認対象` に対応 |
-| 保存先パス | ○ | 例: `docs/test-specs/master-delete.md` |
+| 仕様書のファイル名 | ○ | `UT_` を先頭に付けたファイル名にする。設計書があれば `UT_<設計書と同じファイル名>` を使う（例: 設計書が `10_マスタ検索一覧.md` なら `UT_10_マスタ検索一覧.md`）。保存先は `docs/test/unit/spec/<ファイル名>` に固定する（テスト単位のフォルダは作らない。聞かない） |
 
 **不明点は推測で埋めない。** コードや既存ドキュメントから判断できることは自分で調べ、判断できないことだけをユーザーに確認する（手順3）。
 
@@ -70,15 +70,15 @@
 
 仕様書はリポジトリに残る成果物のため、書き始める前に次を提示し、承認を得る。
 
-- 保存先パスとファイル名（例: `docs/test-specs/master-delete.md`）
+- 仕様書のファイル名（例: `UT_10_マスタ検索一覧.md`）と、そこから決まる保存先（例: `docs/test/unit/spec/UT_10_マスタ検索一覧.md`）
 - 対象範囲（今回のテストケース一覧の粒度・件数の見込み）
 - 手順3で確認が必要だった不明点と、その回答（無ければ「無し」と明記）
 
-承認を得るまでファイルを作成しない。既存ファイルを上書きする場合は、上書きすることも明示する。
+承認を得るまでファイルを作成しない。同名のファイルが既にある場合は、上書きすることも明示する。
 
 ### 5. 標準フォーマットで仕様書を作成する
 
-「仕様書の標準フォーマット」の節をそのまま使う。**見出し構成・表の列は変更しない**（後続の `playwright-evidence-test` スキルがこの構成を前提に読むため）。テストケースには機能内で一意な `TC-001` 形式の番号を振り、「4. テストケース一覧」と「5. テストケース詳細」で同じ番号を使う。
+「仕様書の標準フォーマット」の節をそのまま使う。**見出し構成・表の列は変更しない**（後続の `playwright-evidence-test` スキルがこの構成を前提に読むため）。テストケースには機能内で一意な `TC-001` 形式の番号を振り、「4. テストケース一覧」と「5. DB確認内容」で同じ番号（No列）を使う。
 
 ### 6. テスト観点チェックリストで網羅を確認する
 
@@ -144,40 +144,17 @@
 
 ## 4. テストケース一覧
 
-| No | 区分 | テストケース名 | 前提条件 | 操作手順 | 期待結果 | DB確認 | エビデンス |
-|---|---|---|---|---|---|---|---|
-| TC-001 | 正常系 |  |  |  |  |  |  |
+| No | 区分 | テストケース名 | 前提条件 | 操作手順 | 期待結果 | エビデンス |
+|---|---|---|---|---|---|---|
+| TC-001 | 正常系 |  |  |  |  |  |
 
-## 5. テストケース詳細
+## 5. DB確認内容
 
-### TC-001: <テストケース名>
+| No | テーブル | 条件 | カラム | 期待値 |
+|---|---|---|---|---|
+| TC-001 |  |  |  |  |
 
-#### 区分
-正常系 / 異常系 / 境界値 / 権限 / DB確認
-
-#### 前提条件
--
-
-#### 操作手順
-1.
-2.
-3.
-
-#### 期待結果
-- 画面:
-- メッセージ:
-- 遷移:
-- DB:
-
-#### DB確認内容
-| テーブル | 条件 | カラム | 期待値 |
-|---|---|---|---|
-|  |  |  |  |
-
-#### 取得するエビデンス
-- PNG:
-- CSVまたはJSON:
-- ログ:
+DB変化が無いテストケースは、テーブル以降を「該当なし（DB変化なし）」と明記する。
 
 ## 6. 未確定事項
 -
@@ -192,8 +169,8 @@
 
 - **操作手順**はボタン名・ラベル名・表示文言など、`getByRole` / `getByLabel` / `getByText` でそのまま拾える言葉で書く。画面上の位置（「右上の」「一番下の」）だけを頼りにした表現は避ける。
 - **期待結果**は検証可能な文言・値・件数で書く。「エラーになる」ではなく「『マスタ分類名は必須です』とエラーメッセージが表示される」のように、コードから転記した実際の文言を使う。
-- **DB確認内容**の「テーブル」「条件」「カラム」「期待値」は、`playwright-evidence-test` スキルがDB状態のCSV/JSON出力と突き合わせる列になる。テーブル名・カラム名は `prisma/schema.prisma` のモデル定義どおりに書く。
-- **取得するエビデンス**は `playwright-evidence-test` スキルの命名規則（`docs/skills/playwright-evidence-test.md` の「エビデンス保存の命名規則」）を先取りして書いてよい（例: `001_マスタ削除確認ダイアログ.png`）。厳密な連番は実行時に確定するため、ここでは「何を撮るか」が分かれば十分。
+- **5. DB確認内容**の「テーブル」「条件」「カラム」「期待値」は、`playwright-evidence-test` スキルがDB状態のCSV/JSON出力と突き合わせる列になる。テーブル名・カラム名は `prisma/schema.prisma` のモデル定義どおりに書く。DB変化が無いテストケースは「該当なし（DB変化なし）」と明記する。
+- **4. テストケース一覧**の「エビデンス」列は `playwright-evidence-test` スキルの命名規則（`docs/skills/playwright-evidence-test.md` の「エビデンス保存の命名規則」）を先取りして書いてよい（例: `001_マスタ削除確認ダイアログ.png`）。厳密な連番は実行時に確定するため、ここでは「何を撮るか」が分かれば十分。
 
 ## 安全ルール
 
@@ -208,6 +185,6 @@
 
 | 入口 | ファイル |
 |---|---|
-| Claude Code | [`.claude/skills/markdown-unit-test-spec/SKILL.md`](../../.claude/skills/markdown-unit-test-spec/SKILL.md) |
-| GitHub Copilot | [`.github/prompts/markdown-unit-test-spec.prompt.md`](../../.github/prompts/markdown-unit-test-spec.prompt.md) |
-| Codex | [`.agents/skills/markdown-unit-test-spec/SKILL.md`](../../.agents/skills/markdown-unit-test-spec/SKILL.md) |
+| Claude Code | [`.claude/skills/create-unit-test-spec/SKILL.md`](../../.claude/skills/create-unit-test-spec/SKILL.md) |
+| GitHub Copilot | [`.github/prompts/create-unit-test-spec.prompt.md`](../../.github/prompts/create-unit-test-spec.prompt.md) |
+| Codex | [`.agents/skills/create-unit-test-spec/SKILL.md`](../../.agents/skills/create-unit-test-spec/SKILL.md) |

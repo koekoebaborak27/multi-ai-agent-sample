@@ -19,8 +19,8 @@ export const code = z
   .max(20)
   .regex(/^[0-9A-Za-z_-]+$/, "コードは英数字・ハイフン・アンダースコアのみ使用できます");
 
-/** ユーザーIDの入力チェック。移行元のシステムに合わせて最大7文字としている */
-export const userId = z.string().min(1).max(7);
+/** ユーザーIDの入力チェック。最大64文字までとしている */
+export const userId = z.string().min(1).max(64);
 
 /** CSVファイルの文字の種類。指定が無ければ広く使える形式にする */
 export const encoding = z.enum(["utf8", "shift_jis", "euc-jp"]).default("utf8");

@@ -3,7 +3,7 @@ mode: agent
 description: 実装済み/実装予定の機能を調査し、Markdown形式の単体テスト仕様書を作成する（判断できない仕様はユーザーへ確認し、ファイル作成前に保存先の承認を得る）
 ---
 
-リポジトリの `docs/skills/markdown-unit-test-spec.md` を読み、そこに書かれた手順に従って
+リポジトリの `docs/skills/create-unit-test-spec.md` を読み、そこに書かれた手順に従って
 ソースコード・設計書・DBスキーマを調査し、Markdown形式の単体テスト仕様書を作成してください。
 
 正常系・異常系・境界値・権限・DB更新・画面表示の観点を漏れなく洗い出し、後続の
@@ -13,4 +13,4 @@ Playwright画面操作テスト（`playwright-evidence-test` スキル）でそ�
 コードや既存ドキュメントから判断できることは自分で調べ、判断できない仕様は推測せず
 ユーザーへ確認してください。仕様書ファイルを作成する前に、保存先と作成可否を確認してください。
 
-手順の正本は `docs/skills/markdown-unit-test-spec.md` のみです。このファイルに手順を複製しないでください。
+手順の正本は `docs/skills/create-unit-test-spec.md` のみです。このファイルに手順を複製しないでください。

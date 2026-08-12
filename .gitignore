@@ -51,6 +51,9 @@ coverage/
 test-results/
 playwright-report/
 
+# === 単体テストのエビデンス（playwright-evidence-test スキルの出力） ===
+docs/test/unit/result/
+
 # === TypeScript ===
 *.tsbuildinfo
 
