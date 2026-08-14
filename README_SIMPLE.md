@@ -152,7 +152,7 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset        # DB�
 
 ## 本番環境を構築する
 
-ここまでの手順は、自分のPCで動かすためのものです。**インターネット上に公開する本番環境（インフラ）を新しく構築する**場合は、[`docs/specs/99_infra/READ_ME_INFRA.md`](docs/specs/99_infra/READ_ME_INFRA.md)（インフラ構築手順書）を参照してください。
+ここまでの手順は、自分のPCで動かすためのものです。**インターネット上に公開する本番環境（インフラ）を新しく構築する**場合は、[`docs/specs/99_infra/`](docs/specs/99_infra/README.md)（インフラ構築手順書）を参照してください。
 
 > 本番環境は、GitHub（ソースコードの保管）・Supabase（データベースとファイル保管）・Google Cloud Run（アプリの実行）の3つを組み合わせて構築します。いずれも無料枠の範囲で動かせます。
 

@@ -1,13 +1,17 @@
 import { z } from "zod";
 
-/** ID/PW ログインの入力 */
+/** ログイン画面の入力チェック */
 export const credentialsLoginSchema = z.object({
   userId: z.string().min(1, "ユーザーIDを入力してください").max(64),
   password: z.string().min(1, "パスワードを入力してください"),
 });
 export type CredentialsLoginInput = z.infer<typeof credentialsLoginSchema>;
 
-/** パスワード変更の入力 */
+/**
+ * パスワード変更画面の入力チェック。
+ * 新しいパスワードには英字と数字の両方を含めることと、8文字以上であることを求める。
+ * 加えて、確認用の入力と一致すること・現在のパスワードとは違うことも確かめる。
+ */
 export const passwordChangeSchema = z
   .object({
     currentPassword: z.string().min(1, "現在のパスワードを入力してください"),

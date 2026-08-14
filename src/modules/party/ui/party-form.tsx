@@ -8,10 +8,13 @@ import { Label } from "@/shared/ui/label";
 
 const initialState: PartyFormState = {};
 
+// 契約先の新規登録フォーム。
+// 一覧画面の中に置かれ、登録すると同じ画面のまま一覧へ反映される。
 export function PartyForm() {
   const [state, formAction, pending] = useActionState(createPartyAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // 登録に成功したら入力欄を空に戻す。続けて別の契約先を登録しやすくするため。
   useEffect(() => {
     if (state.success) formRef.current?.reset();
   }, [state.success]);

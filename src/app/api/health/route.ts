@@ -2,23 +2,25 @@ import { withRoute } from "@/shared/observability/with-route";
 import { ok } from "@/shared/api/response";
 import { prisma } from "@/shared/db/prisma";
 
-// Prisma を使うため Node ランタイム固定・キャッシュ無効（毎回評価）。
+// データベースへ接続するため、動作環境を固定し、毎回その場で確認するようにする
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * ヘルスチェック（§8 ALB / 運用監視）。
- * proxy.ts の matcher が `api` を除外しているため認証不要で到達できる。
+ * アプリが正常に動いているかを、外部の監視の仕組みから確認するための窓口。
+ * ログインの確認対象から外れているため、ログインしなくても到達できる。
  *
- * - 既定 `GET /api/health`         : 軽量 liveness。プロセス応答のみ確認（DB ping しない）。
- *   ALB ターゲットグループのヘルスチェック用。DB 瞬断で全タスクが drain される事故を避ける。
- * - `GET /api/health?check=db`     : readiness。`SELECT 1` で DB 疎通を確認。失敗時 503。
+ * - `GET /api/health`          : アプリが応答するかどうかだけを確認する。
+ *   データベースへは問い合わせない。一時的にデータベースへつながらなくなっただけで
+ *   アプリ全体が停止扱いにされてしまうのを避けるため。
+ * - `GET /api/health?check=db` : データベースへ実際に問い合わせ、つながるかどうかまで確認する。
  */
 export const GET = withRoute("health.get", async (req: Request) => {
   const url = new URL(req.url);
 
   if (url.searchParams.get("check") === "db") {
     try {
+      // 内容に意味のない最小の問い合わせを送り、応答が返るかどうかだけを確かめる
       await prisma.$queryRaw`SELECT 1`;
       return ok({ status: "ok", db: "up" });
     } catch {

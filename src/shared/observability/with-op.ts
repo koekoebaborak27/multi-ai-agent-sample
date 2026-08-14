@@ -2,22 +2,13 @@ import { performance } from "node:perf_hooks";
 import type { Logger } from "pino";
 import { childLogger } from "@/shared/observability/logger";
 import { newRequestId } from "@/shared/observability/request-id";
+import { resolveUserCtx } from "@/shared/observability/resolve-user-ctx";
 
 /**
- * 現在のユーザーを動的 import で解決する（observability が auth に静的依存しないため）。
- * リクエストスコープ外（worker 等）では取得できず {} を返す。
+ * 記録に残す入力内容を整える。
+ * 内容が大きすぎるとログが読みにくくなるため、一定の大きさを超えたら長さだけを残す。
+ * パスワードなどの隠すべき項目は、ログを出力する側の設定で伏せ字にしている。
  */
-async function resolveUserCtx(): Promise<{ userId?: string; role?: string }> {
-  try {
-    const mod = await import("@/shared/auth/session");
-    const user = await mod.getCurrentUser();
-    return user ? { userId: user.id, role: user.role } : {};
-  } catch {
-    return {};
-  }
-}
-
-/** 引数を安全にログ用へ要約（巨大値を避け、機密は logger の redact に委ねる） */
 function summarizeArgs(args: unknown[]): unknown {
   try {
     const json = JSON.stringify(args);
@@ -28,14 +19,23 @@ function summarizeArgs(args: unknown[]): unknown {
   }
 }
 
+/** 1回の処理を通して使う記録用の情報 */
 export interface OpContext {
   requestId: string;
   log: Logger;
 }
 
+/** 記録の取り方を変えるための設定 */
+export interface WithOpOptions {
+  /** 変更前後の値など、後から追跡したい入力内容を、成功したときの記録にも残す */
+  includeArgsInSuccessLog?: boolean;
+}
+
 /**
- * Next.js の制御フロー例外（redirect/notFound）は「正常系」。
- * これらをエラーとして記録しない（成功扱いで再スローする）。
+ * 「別の画面へ移動する」「見つからない画面を表示する」という指示かどうかを判定する。
+ *
+ * これらは失敗ではないが、仕組みの都合でエラーと同じ形で伝えられる。
+ * そのまま扱うと正常な画面移動がすべて異常として記録されてしまうため、ここで見分けている。
  */
 function isControlFlowError(err: unknown): boolean {
   const digest = (err as { digest?: unknown } | null)?.digest;
@@ -48,15 +48,19 @@ function isControlFlowError(err: unknown): boolean {
 }
 
 /**
- * Server Action 等を包む境界ラッパー（§9 の中核）。
- * 開始(debug)・終了+所要時間(info)・例外(error) を自動出力する。
- * 業務コードは try/catch もログも書かず、throw するだけでよい（log once at the boundary）。
+ * 保存などの処理を包み、その処理の記録を自動的に残すようにする。
+ *
+ * 開始したこと・終わったことと所要時間・失敗したことを、それぞれ記録する。
+ * これがあるおかげで、個々の業務処理の中に記録を残す処理を書く必要が無い。
+ * 業務処理側はエラーを発生させるだけでよく、記録はここで 1 回だけ残る。
  */
 export function withOp<A extends unknown[], R>(
   op: string,
   fn: (...args: A) => Promise<R>,
+  options?: WithOpOptions,
 ): (...args: A) => Promise<R> {
   return async (...args: A): Promise<R> => {
+    // 1回の処理に固有の番号。同じ処理から出た記録を後からまとめて探せるようにする
     const requestId = newRequestId();
     const userCtx = await resolveUserCtx();
     const log = childLogger({ op, requestId, ...userCtx });
@@ -64,15 +68,27 @@ export function withOp<A extends unknown[], R>(
     log.debug({ args: summarizeArgs(args) }, `▶ ${op}`);
     try {
       const result = await fn(...args);
-      log.info({ ms: Math.round(performance.now() - start) }, `✓ ${op}`);
+      log.info(
+        {
+          ms: Math.round(performance.now() - start),
+          ...(options?.includeArgsInSuccessLog ? { args: summarizeArgs(args) } : {}),
+        },
+        `✓ ${op}`,
+      );
       return result;
     } catch (err) {
       if (isControlFlowError(err)) {
-        // redirect/notFound は正常系。成功扱いで再スロー。
-        log.info({ ms: Math.round(performance.now() - start) }, `✓ ${op} (redirect)`);
+        // 画面移動の指示は失敗ではないため、成功として記録したうえでそのまま渡す
+        log.info(
+          {
+            ms: Math.round(performance.now() - start),
+            ...(options?.includeArgsInSuccessLog ? { args: summarizeArgs(args) } : {}),
+          },
+          `✓ ${op} (redirect)`,
+        );
         throw err;
       }
-      // エラーログの唯一の出力点。requestId / op / stack / 所要時間つきで1レコード。
+      // 失敗の記録を残すのはこの1箇所だけ。処理の番号・名前・発生場所・所要時間をまとめて残す。
       log.error(
         { err, ms: Math.round(performance.now() - start), args: summarizeArgs(args) },
         `✗ ${op}`,

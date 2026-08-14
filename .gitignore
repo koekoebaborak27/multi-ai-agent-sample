@@ -32,6 +32,7 @@ codex/
 
 # === IDE ===
 .idea/
+.obsidian/
 # .vscode は原則除外するが、デバッグ構成・推奨拡張機能・Copilot の権限ポリシーは
 # 「このプロジェクトの動かし方」であってフォント等の個人設定ではないため、リポジトリで共有する
 .vscode/*
@@ -50,6 +51,9 @@ coverage/
 test-results/
 playwright-report/
 
+# === 単体テストのエビデンス（playwright-evidence-test スキルの出力） ===
+docs/test/unit/result/
+
 # === TypeScript ===
 *.tsbuildinfo
 
@@ -65,8 +69,4 @@ uploads/
 # === Project-specific ===
 current_system/*
 doc/todo*.txt
-
-# 契約システム（参考版）の過去資料。
-# Git管理下には置かない。
-docs/legacy-contract-reference/
 

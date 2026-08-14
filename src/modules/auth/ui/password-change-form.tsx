@@ -8,6 +8,9 @@ import { PasswordInput } from "@/shared/ui/password-input";
 
 const initialState: FormState = {};
 
+// パスワード変更フォーム。
+// 自分で変更する場合と、初回ログイン時に変更を求められた場合の両方で使う。
+// 入力の誤りは、変更処理から返ってきたメッセージをそのまま表示する。
 export function PasswordChangeForm() {
   const [state, formAction, pending] = useActionState(changePassword, initialState);
 

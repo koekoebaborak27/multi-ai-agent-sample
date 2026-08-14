@@ -8,12 +8,16 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
 const initialState: ContractFormState = {};
+// 状態プルダウンの選択肢。入力チェック側の定義（validation.ts）と同じ並びにしておく
 const STATUS_OPTIONS = ["DRAFT", "ACTIVE", "TERMINATED"] as const;
 
+// 契約の新規登録フォーム。
+// 一覧画面の中に置かれ、登録すると同じ画面のまま一覧へ反映される。
 export function ContractForm({ parties }: { parties: PartySummary[] }) {
   const [state, formAction, pending] = useActionState(createContractAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // 登録に成功したら入力欄を空に戻す。続けて別の契約を登録しやすくするため。
   useEffect(() => {
     if (state.success) formRef.current?.reset();
   }, [state.success]);

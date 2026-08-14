@@ -21,7 +21,8 @@
 | 契約先管理 | `/parties` | [`src/modules/party/`](src/modules/party/) | 契約先の一覧（ページング）・登録・編集・削除 |
 | ユーザー管理 | `/admin/users` | [`src/modules/user/`](src/modules/user/) | ユーザーの一覧・登録・編集・削除（**ADMIN 限定**） |
 | パスワード変更 | `/settings/password` | [`src/modules/auth/`](src/modules/auth/) | 初回ログイン時は変更するまで他画面へ進めない |
-| マスタ管理 | `/master` | — | プレースホルダ（案件ごとに実装する想定） |
+| マスタ検索一覧 | `/master` | [`src/modules/master/`](src/modules/master/) | 先頭分類を初期選択（「すべて」へ切替可）、分類・コード・内容による検索、検索条件の開閉、列見出しによるソート、URLクエリ、ページング、新規登録（`/master/new`）と確認、詳細（`/master/{id}`）、更新（`/master/{id}/edit`）と確認、削除確認ダイアログ |
+| マスタ分類管理 | `/master/categories` | [`src/modules/master/`](src/modules/master/) | 分類の一覧（採番順・ページング）、新規登録・確認・詳細・更新・削除確認ダイアログ（配下にマスタが残っている場合は削除不可） |
 
 加えて、横断機能として認証セッション（`src/shared/auth/`）、DB 接続（`src/shared/db/`）、ジョブキュー（`src/shared/jobs/` + `src/worker/`）、ファイルストレージ抽象（`src/shared/storage/`）、構造化ログ（`src/shared/observability/`）、UI コンポーネント（`src/shared/ui/`）を用意しています。
 
@@ -416,254 +417,81 @@ Docker で起動している場合は、`docker compose -f docker/docker-compose
 - **単体テスト**: 関数やクラスなどの小さな単位が、想定どおりに動作するか自動確認します。
 - **本番ビルド**: 開発用のソースコードを、本番環境で実行できる形式へ変換・最適化します。
 
-## 変更をGitに反映する（開発フロー）
+## E2Eテスト（Playwright）
 
-`main`ブランチへ直接コミットせず、**作業用ブランチを作る → Pull Requestを出す → CIの成功を確認する → マージする**という流れで進めます。
+ブラウザを実際に操作して画面の動作を確認する自動テストです。[`TESTING.md`](TESTING.md)が扱う単体テスト（Vitest）とは別に、[`playwright.config.ts`](playwright.config.ts)を設定として使います。`@playwright/test`本体（`package.json`の`devDependencies`）とchromiumブラウザ本体は導入済みです。
 
-> **Pull Request（プルリクエスト、PR）**とは、「このブランチの変更を`main`へ取り込みたい」という提案です。提案の段階でCIが自動実行されるため、問題のある変更が`main`へ入る前に気づけます。
+> **E2Eテスト（End-to-Endテスト）**とは、ログインして画面を操作し、期待どおりの表示やデータベースの更新が行われるかを、実際のブラウザ操作を通して確認するテストです。関数単位で確認する単体テストと異なり、複数の画面・処理をまたいだ一連の流れを検証します。
+
+### 1. 導入する（初回のみ）
+
+`pnpm install`で`@playwright/test`本体は導入されますが、ブラウザ本体は別途ダウンロードが必要です。まだ実行していない場合は次を実行してください。
+
+```bash
+pnpm exec playwright install chromium
+```
+
+`playwright.config.ts`は`testDir: "./e2e"`（テストファイルの配置場所）と、`baseURL`（既定`http://localhost:3000`。`E2E_BASE_URL`環境変数で上書き可能）を設定済みです。追加の設定は不要です。
+
+### 2. テスト対象を起動する
+
+DBとアプリを起動します（「[はじめてローカル環境を構築する](#はじめてローカル環境を構築する)」の手順4、または「[補足: ホスト上で直接動かす](#補足-ホスト上で直接動かす)」）。
+
+```bash
+docker compose -f docker/docker-compose.yml up -d db
+pnpm dev
+```
+
+ログインが必要なテストでは、ログインIDとパスワードが必要です。**パスワードはテストコードに直接書かず、環境変数（`.env`）から`process.env.<変数名>`で読み取ってください。** 例えば初期管理者でログインする場合、`.env`に次を追記します（`SEED_ADMIN_PASSWORD`は[`prisma/seed.ts`](prisma/seed.ts)が使う変数と同じ名前です）。
 
 ```text
-main から作業用ブランチを作る
-        ↓
-変更してコミット
-        ↓
-ブランチを push        ← この時点ではまだCIは動きません
-        ↓
-Pull Request を作成    ← ここでCIが動きます
-        ↓
-CI がグリーンになるのを待つ
-        ↓
-マージする
-        ↓
-不要になったブランチを削除する（リモート・ローカルの両方）
+SEED_ADMIN_PASSWORD=Admin@123
 ```
 
-以下、**コマンドで実行する場合**と**GitHubのサイト上で手作業する場合**の両方を記載します。どちらでも結果は同じです。
+### 3. テストを作成する
 
-### コマンドで実行する場合
+`e2e/<画面名>.spec.ts`のようにファイルを作成します。セレクタは`getByRole` / `getByLabel` / `getByText`など、画面上のボタン名・ラベル名で要素を探す書き方を基本とします（`DESIGN.md`の「インタラクティブ要素にはアクセシビリティ属性を付ける」規約と揃えるため）。
 
-GitHub CLI（`gh`）を使います。ブラウザを開かずに完結します。
+```ts
+import { test, expect } from "@playwright/test";
 
-```powershell
-# 1. 変更したファイルを一覧で確認する（ここでステージする対象を決めます）
-git status --short
-
-# 2. 作業用ブランチを作る（変更前でも変更後でもよい。未コミットの変更は引き継がれます）
-git checkout -b docs/update-readme
-
-# 3. 手順1で確認したファイルをステージする（複数ある場合は空白で区切って並べます）
-git add <対象ファイル>
-
-# 4. ステージできたことを確認する（左端に印が付いていればステージ済み）
-git status --short
-
-# 5. コミットする（何を・なぜ・どう検証したかを書く。閉じる '@ は行頭に置きます）
-git commit -m @'
-docs: 変更内容の要約
-
-## 何を
-- 変更した内容
-
-## なぜ
-- 変更した理由
-
-## どう検証したか
-- 実行したコマンドと結果
-'@
-
-# 6. リモートへ push する
-git push -u origin docs/update-readme
-
-# 7. Pull Request を作成する（ここでCIが動き出します）
-gh pr create --base main --title "docs: 変更内容の要約" --body "変更の説明"
-
-# 8. CI の結果を確認する（verify pass と表示されれば成功）
-gh pr checks
-
-# 9. マージする。あわせてブランチの後片付けまで行われます
-gh pr merge --squash --delete-branch
+test("ログインしてマスタ一覧が表示される", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("ユーザーID").fill("admin");
+  await page.getByRole("textbox", { name: "パスワード" }).fill(process.env.SEED_ADMIN_PASSWORD ?? "");
+  // ログイン後の遷移先は「/」（トップ画面）であり、対象画面へは別途遷移する
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === "/"),
+    page.getByRole("button", { name: "ログイン" }).click(),
+  ]);
+  await page.goto("/master");
+  await expect(page.getByRole("heading", { name: "マスタ管理" })).toBeVisible();
+});
 ```
 
-#### `git status --short` の読み方（対象ファイルの決め方）
+> ログイン成功時のリダイレクト先は`/master`などの各画面ではなく`/`（トップ画面）です。クリック直後に対象画面へ`page.goto`する場合は、上記のように`Promise.all`でログインの遷移完了を待ってから行ってください（待たずに`goto`すると未ログイン状態のまま扱われ、`/login`へ戻されます）。
 
-`git status --short`は、変更のあったファイルを1行ずつ表示します。**各行の先頭2文字**が状態を表し、**左の文字はステージ済みの変更、右の文字はまだステージしていない変更**を意味します。
+### 4. 手動で実行する
 
-```text
- M README.md             ← 変更したが、まだステージしていない
-?? docs/todo/TODO_新.md  ← 新しく作ったファイル（Gitがまだ追跡していない）
- D docs/old.md           ← 削除したが、まだステージしていない
-M  src/proxy.ts          ← ステージ済み（印が左の列へ移動している）
-A  docs/new.md           ← 新規ファイルをステージ済み
+```bash
+pnpm exec playwright test e2e/<ファイル名>.spec.ts
 ```
 
-- **`git add`の前**（手順1）は、ここに並んだパスが「今回変更したファイル」です。この中からコミットしたいものを選び、手順3の`<対象ファイル>`へ空白区切りで指定します。
-- **`git add`の後**（手順4）は、ステージしたファイルの印が**左の列へ移動します**。左が空白のままの行が残っていれば、そのファイルはステージされていないため、コミットに含まれません。
-- ファイルの中身の差分まで確認したい場合は、`git diff`（未ステージ分）と`git diff --staged`（ステージ済み分）を使います。
-- 変更したファイルをすべてまとめてステージする`git add -A`もありますが、意図しないファイルを巻き込みやすいため、**使う場合も必ず手順4で内容を確認してください**。
+**`.env`に置いた環境変数（パスワード等）は、上記コマンドだけでは読み込まれません。** Node.js（v20.6以降）の`--env-file`オプションで明示的に読み込んでください。
 
-`gh pr merge --delete-branch`は、**リモートブランチの削除・ローカルブランチの削除・`main`への切り替え・`git pull`までをまとめて実行します**。そのため、この方法では後片付けが不要です。
-
-### GitHubのサイト上で手作業する場合
-
-コミットとpush（上記の1〜6）はコマンドで行い、そこから先をブラウザで操作します。
-
-1. push後に表示されるURL、またはリポジトリ画面上部の`Compare & pull request`ボタンからPull Request作成画面を開きます。
-2. タイトルと説明を入力し、`Create pull request`を押します。
-3. Pull Requestページの下部にあるチェック欄で、CIの結果を確認します。
-
-   | 表示 | 意味 |
-   | --- | --- |
-   | 🟡 Some checks haven't completed yet | 実行中。待ちます |
-   | 🟢 All checks have passed | 成功。マージしてよい状態です |
-   | 🔴 Some checks were not successful | 失敗。`Details`リンクからログを確認して修正します |
-
-4. 緑になったら`Merge pull request`→`Confirm merge`を押します。ボタン右側の`▼`から`Squash and merge`を選ぶと、ブランチ上の複数のコミットが1つにまとまって`main`へ入ります。
-5. マージ後に表示される**`Delete branch`ボタンを押します**。これでリモートのブランチが削除されます（押すまで残り続けます。誤って消しても`Restore branch`から復元できます）。
-
-**サイト上の操作はリモートしか変更しません。** ローカルには古いブランチと古い`main`が残るため、手作業でマージした場合は次の後片付けが必要です。
-
-```powershell
-# 1. main へ戻る（作業中のブランチは削除できないため）
-git checkout main
-
-# 2. マージ結果を取り込む
-git pull
-
-# 3. 削除済みリモートブランチの参照を掃除する
-git fetch --prune
-
-# 4. ローカルブランチを削除する
-git branch -d docs/update-readme
-
-# 5. 4 が "not fully merged" で失敗した場合のみ、強制削除する
-git branch -D docs/update-readme
+```bash
+node --env-file=.env node_modules/@playwright/test/cli.js test e2e/<ファイル名>.spec.ts
 ```
 
-> **手順5が必要になる理由**: `git branch -d`は「そのブランチの内容が`main`に入っているか」を確認してから削除します。ところがsquashマージは元のコミットをそのまま`main`へ載せず、**新しい1つのコミットを作り直す**ため、Gitからは別物に見えて「まだマージされていない」と判定されます。Pull Requestがマージ済みであることを確認したうえで`-D`を使えば問題ありません。
+既定はヘッドレス実行（ブラウザ画面を表示せずバックグラウンドで動作）です。失敗した場合は次のコマンドで詳細なレポートを開けます。
 
-### ドキュメントだけの変更でCIを実行しない（`main`へ直接push）
-
-[`docs/todo/TODO.md`](docs/todo/TODO.md)や`README.md`のように、**アプリの動作に一切影響しないファイルだけを変更した場合**は、lint・型チェック・ビルドを実行する意味がありません。この場合に限り、**作業用ブランチもPull Requestも作らず**、`main`上で直接コミットしてpushし、CIをスキップできます。
-
-つまり、上で説明した通常のフローを丸ごと省略します。
-
-| | 通常のフロー | この方法 |
-|---|---|---|
-| 作業用ブランチ | 作る | **作らない**（`main`上で直接コミットする） |
-| Pull Request | 作る | **作らない** |
-| CI | Pull Request作成時に動く | 動かない |
-| ブランチの後片付け | 必要 | **不要**（削除するブランチがないため） |
-
-> `main`にブランチ保護は設定していないため、直接pushは技術的に可能です（[補足](#補足)参照）。**この方法を使ってよいのは下表の「CI不要」に該当する変更だけ**です。迷ったら通常どおりPull Requestを出してください。
-
-| 変更したファイル | 判断 | CIの止め方 |
-|---|---|---|
-| `README.md` / `README_SIMPLE.md` / `AGENTS.md` / `CLAUDE.md` / `docs/**` / その他すべての `*.md` | CI不要 | **自動でスキップ**（`paths-ignore`） |
-| `.claude/**` / `.agents/**` / `.codex/**` のうち `*.md` 以外（`settings.json`・`*.rules` など） | CI不要 | 手動でスキップ（`[skip ci]`） |
-| `src/**` / `prisma/**` / `package.json` / `pnpm-lock.yaml` / `*.ts` / `*.json` などの設定ファイル | **CI必須** | 止めない |
-| `.github/workflows/ci.yml` | **CI必須** | 止めない（CI自体の変更は、動かさないと検証できないため） |
-| `docker/**` | **CI必須** | 止めない |
-
-#### 仕組み1: `paths-ignore` による自動スキップ（設定済み）
-
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml)に、CIを起動しないパスを登録してあります。
-
-```yaml
-on:
-  pull_request:
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
+```bash
+pnpm exec playwright show-report
 ```
 
-- `"**.md"`はリポジトリ内のすべての`.md`ファイル（`README.md`・`AGENTS.md`・`docs/`配下など）に、`"docs/**"`は`docs/`配下のすべてのファイルに一致します。
-- **判定は「そのpush（またはPull Request）で変更されたファイルが1つ残らず一致した場合にのみスキップ」です。** 1ファイルでもコードが混ざっていれば、通常どおり全ステップが実行されます。安全側に倒れているため、うっかりコードの検証を飛ばしてしまうことはありません。
-- `ci.yml`自身はどちらのパターンにも一致しないため、**CIの設定変更は必ずCIで検証されます**。
+### AIエージェントに任せる場合
 
-この仕組みがあるので、ドキュメントだけを変更する場合は**特別なことをせず、そのままコミットしてpushするだけ**でCIは動きません。
-
-```powershell
-# 1. 変更したファイルを一覧で確認し、上表の「CI不要」だけであることを確かめる
-git status --short
-
-# 2. main へ移動する（新しくブランチを作るのではありません。すでに main にいれば何も起きません）
-git checkout main
-
-# 3. リモートの最新を取り込む（先に他の変更が入っていると push が弾かれるため）
-git pull
-
-# 4. 変更をステージする（4a・4b のどちらか一方を実行します）
-
-# 4a. ファイルを指定してステージする（例: git add README.md docs/todo/TODO.md）
-git add <対象ファイル>
-
-# 4b. 手順1の一覧がすべて「CI不要」だった場合は、変更ファイルを一式まとめてステージする
-git add -A
-
-# 5. ステージした内容を目視確認する（左端に印が付いた行だけがコミットされます）
-git status --short
-
-# 6. コミットする（[skip ci] は不要。paths-ignore が自動で判定します）
-git commit -m "docs: TODOの進捗を更新する"
-
-# 7. main へ直接 push する（Pull Request は作りません）
-git push
-
-# 8. CI が実行されていないことを確認する（今回の push に対応する行が増えていなければ成功）
-gh run list --limit 3
-```
-
-手順1・5の表示の読み方は「[`git status --short`の読み方（対象ファイルの決め方）](#git-status---shortの読み方対象ファイルの決め方)」を参照してください。**この方法ではPull Requestによる見直しの機会がないため、手順1でコード（`src/**`など）が混ざっていないことを必ず確認してください。**
-
-手順4bの`git add -A`（`--all`の短縮形）は、**変更・新規作成・削除のすべてをまとめてステージする**指定です。ドキュメントを何ファイルも直した場合に、1つずつ書き並べる手間を省けます。
-
-| | 対象 | 向いている場面 |
-|---|---|---|
-| `git add <対象ファイル>` | 指定したファイルだけ | 変更の一部だけをコミットしたいとき |
-| `git add -A` | リポジトリ内の変更ファイル一式 | 手順1の一覧が全部コミット対象のとき |
-
-- **カレントディレクトリではなくリポジトリ全体が対象**のため、どのディレクトリで実行しても結果は同じです。
-- [`.gitignore`](.gitignore)に登録されたファイル（`.env`・`node_modules/`・`.next/`など）は含まれません。ただし、**過去に一度コミットしてしまったファイルは`.gitignore`に書いても対象に残る**点に注意してください。
-- **手順1の一覧にコードが1つでも混ざっていれば、それも一緒にステージされます。** `git add -A`を使うのは、手順1で「CI不要」のファイルだけだと確認できた場合に限ってください。判断に迷う場合は4aでファイル名を明示します。
-
-手順8の`gh run list`は、CIの実行履歴を新しい順に表示するコマンドです。スキップに成功していれば、**今回のコミットに対応する行は現れません**（成功でも失敗でもなく、そもそも実行されないためです）。ブラウザで確認する場合は、リポジトリの`Actions`タブと、コミット一覧に🟢や🔴のマークが付いていないことを見ます。
-
-#### 仕組み2: `[skip ci]`（`paths-ignore`で拾えないファイル向け）
-
-`.claude/settings.json`のように、`**.md`にも`docs/**`にも当てはまらないけれどCIでの検証が不要なファイルもあります。この場合は、コミットメッセージに決められた文字列を含めることで、そのpushで起動するはずのワークフローを個別に止められます。
-
-```powershell
-git commit -m "chore: エージェントの権限設定を追加する [skip ci]"
-```
-
-使える文字列は次の5つです。どれを使っても効果は同じで、**角かっこも含めて**記述します。複数行のコミットメッセージにする場合も、1行目（件名）の末尾に付けると確認しやすくなります。
-
-```text
-[skip ci]  [ci skip]  [no ci]  [skip actions]  [actions skip]
-```
-
-- **こちらは人が判断する方式です。** `paths-ignore`と違い、コードを含む変更に付けてしまうと検証が丸ごと飛びます。基本は`paths-ignore`に任せ、これは例外的に使ってください。
-- **pushに含まれるコミットのうち1つでもこの文字列を含んでいれば、そのpush全体のCIがスキップされます。** コードの変更を含むコミットを同じpushに混ぜないでください。
-- Pull Requestの場合は、**HEAD（最新）コミットのメッセージだけ**が判定対象です。
-
-#### 共通の注意点
-
-- **スキップされた場合、Actionsタブに実行履歴そのものが残りません。** 「失敗」ではなく「最初から実行されない」状態になり、コミット一覧にもチェックマークが付きません。
-- **作業用ブランチを経由しないため、誤った内容もそのまま`main`に載ります。** Pull Requestのように、マージ前に内容を見直す機会がありません。取り消すには`git revert`が必要になるので、手順1と手順5の`git status --short`で内容を必ず確認してください。
-- すでに作業用ブランチを作ってしまった場合でも、コミット前であれば手順2の`git checkout main`で変更がそのまま`main`側へ引き継がれるため、手順4から続けられます。
-- **`paths-ignore`が効くのはGitHub Actionsだけです。** 本番デプロイを担うCloud Buildは別の仕組みのため、ドキュメントだけの変更でもデプロイが走ります。止めたい場合はCloud Build側のトリガー設定（「含まれるファイルと無視されるファイルのフィルタ」）で除外するか、コミットメッセージに`[skip ci]` / `[ci skip]`を付けます（Cloud Buildも同じ文字列に対応しています）。**2026-08-04にCloud Runを構築したため、`main`への push は本番デプロイを引き起こします。**
-- 将来`main`にブランチ保護を設定し`verify`を必須チェックにした場合、**ドキュメントだけのPull Requestは「チェックが未実行」のままマージできなくなります**（`paths-ignore`・`[skip ci]`のどちらでも同じです）。その時点で、ドキュメント変更は`main`へ直接pushする運用にするか、必須チェックの扱いを見直す必要があります。
-
-### 補足
-
-- **作業用ブランチへpushしただけではCIは動きません。** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)は`main`へのpushとPull Requestのみを対象にしているためです。CIはPull Requestを作成した時点で初めて実行されます（ただし変更が`*.md`と`docs/`だけの場合は、`paths-ignore`により実行されません）。
-- **`main`にブランチ保護は設定していません。** privateリポジトリでこの機能を使うにはGitHub Proまたはpublic化が必要なためです。したがって**CIが赤くてもマージボタンは押せてしまいます**。上記の流れは仕組みによる強制ではなく、運用ルールとして守るものです（[`docs/todo/TODO.md`](docs/todo/TODO.md)の「残っているタスク」参照）。
-- 日本語の複数行コミットメッセージをPowerShellから渡すときは、上記のヒアストリング（`@'` 〜 `'@`）を使います。**閉じる`'@`は行頭**に置いてください。インデントすると構文エラーになります。
+同じ作業をAIエージェントに依頼する場合は、[`create-unit-test-spec`](docs/skills/create-unit-test-spec.md)スキルでテスト仕様書を作成してから、[`playwright-evidence-test`](docs/skills/playwright-evidence-test.md)スキルで実行します。パスワードの安全な扱い方・本番DB/URLへの誤接続防止・スクリーンショットやDB状態の保存規則など、手動実行より詳しい安全ルールが定義されています。
 
 ## CI（GitHub Actions）
 
@@ -680,13 +508,13 @@ git commit -m "chore: エージェントの権限設定を追加する [skip ci]
 
 PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグレーションを適用して検証します。デプロイ自体は Cloud Build に任せるため、GitHub Actions からは行いません。
 
-ドキュメントだけを変更した場合など、この検証が不要なときの進め方は「[ドキュメントだけの変更でCIを実行しない（`main`へ直接push）](#ドキュメントだけの変更でciを実行しないmainへ直接push)」を参照してください。
+ドキュメントだけを変更した場合など、この検証が不要なときの進め方は [`docs/development/gitの操作ルール.md`](docs/development/gitの操作ルール.md#ドキュメントだけの変更でciを実行しないmainへ直接push) を参照してください。
 
 > **`prisma generate` が `typecheck` より前にある理由**: Prisma Client（`@prisma/client` の型）は`prisma/schema.prisma`から生成されるコードであり、`node_modules`配下に作られるため Git では管理していません。生成前に`tsc`を走らせると`Module '"@prisma/client"' has no exported member 'Party'`のように型が見つからず失敗します。ローカルで同じエラーが出たときも`pnpm prisma:generate`で解決します。
 
 ## 本番デプロイ（Google Cloud Run + Supabase）
 
-> **本番環境をゼロから構築する場合は [`docs/specs/99_infra/READ_ME_INFRA.md`](docs/specs/99_infra/READ_ME_INFRA.md)（インフラ構築手順書）を参照してください。** アカウント作成から動作確認まで、画面操作と用語の説明を含めて手順化してあります。以下はその要約です。
+> **本番環境をゼロから構築する場合は [`docs/specs/99_infra/`](docs/specs/99_infra/README.md)（インフラ構築手順書）を参照してください。** アカウント作成から動作確認まで、画面操作と用語の説明を含めて手順化してあります。以下はその要約です。
 
 - **本番DB / ストレージ**: [Supabase](https://supabase.com/) の PostgreSQL + Storage を使用。`STORAGE_TYPE=supabase`に切り替える。接続文字列は **Session pooler** のものを使う（Direct connection は IPv6 専用で Cloud Run から到達できず、Transaction pooler は `prisma migrate deploy` が通らない）。
 - **ホスティング**: [Google Cloud Run](https://cloud.google.com/run) に GitHub リポジトリを連携し、`main` ブランチへの push を契機に Cloud Build が [`docker/Dockerfile`](docker/Dockerfile) をビルドして自動デプロイする。リージョンは Always Free 対象の **us-central1**、最小インスタンス数は **0**、**最大インスタンス数は 2**（既定の 100 のままだと想定外のアクセスで無料枠を超えるため必ず絞る）。メモリは既定の **512MiB** で足りる（実測 77MB）。
@@ -697,7 +525,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 - **マイグレーション**: Cloud Run にはデプロイ前フックがないため、**ローカルから本番 DB に対して `prisma migrate deploy` を手動実行**する。
 - **初期データ**: `prisma migrate deploy` は seed を実行しないため、初回のみローカルから `pnpm prisma:seed` を本番 DB に対して実行する（`SEED_ADMIN_PASSWORD` を必ず指定する）。
 
-> ポートは Cloud Run が `PORT=8080` を注入し `next start` がそれを読むため、設定は不要です（`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されません）。進捗と残タスクは [`docs/todo/TODO.md`](docs/todo/TODO.md)、コマンド単位の手順（接続文字列の選び方・`migrate deploy` / seed の実行・本番の環境変数一覧）は [`docs/todo/TODO_補足.md`](docs/todo/TODO_補足.md) を参照してください。
+> ポートは Cloud Run が `PORT=8080` を注入し `next start` がそれを読むため、設定は不要です（`docker/Dockerfile` の `EXPOSE 3000` は Cloud Run では参照されません）。進捗と残タスクは [`docs/todo/TODO.md`](docs/todo/TODO.md)、コマンド単位の手順（接続文字列の選び方・`migrate deploy` / seed の実行・本番の環境変数一覧）は [`docs/todo/notes/`](docs/todo/notes/README.md) を参照してください。
 
 技術選定の背景・段階的な拡張方針は [`docs/foundation_plan.md`](docs/foundation_plan.md) を参照。
 
@@ -736,6 +564,8 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 |---|---|---|
 | `update-todo` | [`docs/todo/TODO.md`](docs/todo/TODO.md) を更新し、影響があれば `README.md` / `README_SIMPLE.md` も更新する | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) |
 | `push-skip-ci` | CIを起動させずに変更をpushする。ドキュメントに限らずソースコードでも使えるが、**実行前に必ず確認を求める** | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) |
+| `create-unit-test-spec` | コード・設計書・DBスキーマからMarkdown形式の単体テスト仕様書を作成する | [`docs/skills/create-unit-test-spec.md`](docs/skills/create-unit-test-spec.md) |
+| `playwright-evidence-test` | 単体テスト仕様書に沿ってPlaywrightで画面操作テストを行い、スクリーンショットとDB状態をエビデンスとして保存する。**DB書き込み・ファイル生成前に必ず確認を求める** | [`docs/skills/playwright-evidence-test.md`](docs/skills/playwright-evidence-test.md) |
 
 | エージェント | 入口ファイル | 起動方法 |
 |---|---|---|
@@ -780,14 +610,17 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code 向けの入口（`AGENTS.md` + Claude 固有の補足） |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot 向けの入口（`AGENTS.md` + Copilot 固有の補足） |
 | [`docs/foundation_plan.md`](docs/foundation_plan.md) | 設計・確定方針（設計の正本） |
-| [`docs/specs/99_infra/READ_ME_INFRA.md`](docs/specs/99_infra/READ_ME_INFRA.md) | **インフラ構築手順書**（本番環境をゼロから構築する手順の正本） |
+| [`docs/specs/99_infra/`](docs/specs/99_infra/README.md) | **インフラ構築手順書**（本番環境をゼロから構築する手順の正本） |
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
+| [`docs/development/gitの操作ルール.md`](docs/development/gitの操作ルール.md) | **開発フロー**（ブランチ → Pull Request → CI → マージ。`main` へ直接 push する例外を含む） |
 | [`docs/todo/TODO.md`](docs/todo/TODO.md) | 残タスク一覧・進捗・現在の状態 |
-| [`docs/todo/TODO_補足.md`](docs/todo/TODO_補足.md) | 残タスクの補足（Supabase / Cloud Run の設定値・手順・落とし穴） |
-| [`docs/todo/TODO_履歴.md`](docs/todo/TODO_履歴.md) | セッションごとの作業記録（引き継ぎメモ） |
+| [`docs/todo/notes/`](docs/todo/notes/README.md) | 残タスクの補足（Supabase / Cloud Run の設定値・手順・落とし穴） |
+| [`docs/todo/history/`](docs/todo/history/README.md) | セッションごとの作業記録（引き継ぎメモ） |
 | [`docs/skills/update-todo.md`](docs/skills/update-todo.md) | TODO / README の更新手順（スキルの正本・全エージェント共通） |
 | [`docs/skills/push-skip-ci.md`](docs/skills/push-skip-ci.md) | CI をスキップして push する手順（スキルの正本・全エージェント共通） |
+| [`docs/skills/create-unit-test-spec.md`](docs/skills/create-unit-test-spec.md) | 単体テスト仕様書（Markdown）の作成手順（スキルの正本・全エージェント共通） |
+| [`docs/skills/playwright-evidence-test.md`](docs/skills/playwright-evidence-test.md) | Playwrightによる画面操作テストとエビデンス保存の手順（スキルの正本・全エージェント共通） |
 | [`docs/agent_permissions.md`](docs/agent_permissions.md) | エージェント権限ポリシー（許可 / 禁止コマンドの正本・全エージェント共通） |
 | [`src/AGENTS.md`](src/AGENTS.md) | アーキテクチャ規約（feature-modular） |
 | [`prisma/AGENTS.md`](prisma/AGENTS.md) | DB 規約 |

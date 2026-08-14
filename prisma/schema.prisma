@@ -41,6 +41,53 @@ model Announcement {
   updatedAt DateTime @updatedAt
 }
 
+/// マスタ分類。id は画面上のマスタ分類コードの採番元として使用する。
+model MasterCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(30)
+  createdAt DateTime @default(now())
+  createdBy String? // 登録した利用者の User.id（FK は張らない）
+  updatedAt DateTime @updatedAt
+  updatedBy String? // 最後に更新した利用者の User.id（FK は張らない）
+
+  masters Master[]
+}
+
+/// マスタ。業務上の識別には id ではなく code を使用する。
+model Master {
+  id         Int            @id @default(autoincrement())
+  categoryId Int
+  category   MasterCategory @relation(fields: [categoryId], references: [id])
+  code       String         @db.VarChar(8)
+  content    String         @db.VarChar(30)
+  createdAt  DateTime       @default(now())
+  createdBy  String?
+  updatedAt  DateTime       @updatedAt
+  updatedBy  String?
+
+  @@unique([categoryId, code])
+  @@index([categoryId])
+}
+
+/// CSVダウンロードの依頼と生成物（マスタ機能 §13）。
+model MasterExport {
+  id          String   @id @default(cuid())
+  target      String // MASTER / MASTER_CATEGORY
+  categoryId  Int? // 検索条件（target = MASTER のときのみ）
+  keyword     String? // 検索条件（target = MASTER のときのみ）
+  status      String   @default("QUEUED") // QUEUED / RUNNING / READY / FAILED
+  filePath    String? // ストレージ上のパス（READY のときのみ）
+  fileName    String? // 利用者へ見せるファイル名
+  rowCount    Int?
+  errorCode   String? // FAILED のときのエラーコード
+  requestedBy String // 依頼した利用者の User.id（FK は張らない）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([requestedBy])
+}
+
 /// 契約先（汎用契約管理ドメインの最小雛形）。
 model Party {
   id          String   @id @default(cuid())

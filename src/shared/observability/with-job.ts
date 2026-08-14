@@ -5,15 +5,17 @@ import { newRequestId } from "@/shared/observability/request-id";
 type JobHandler<T> = (job: T) => Promise<void> | void;
 
 /**
- * pg-boss のジョブハンドラを包む境界ラッパー（§9）。
- * queue 名・jobId・requestId を束ねて開始/終了/例外を自動ログする。
- * 例外は再スローして pg-boss のリトライ/失敗処理に委ねる。
+ * 裏側で動く処理（順番待ちの列に入れて実行する処理）を包み、記録を自動的に残すようにする。
+ *
+ * 失敗したときは、記録を残したうえでそのまま呼び出し元へ伝える。
+ * 実行を管理する仕組みがそれを受け取り、やり直すかどうかを判断するため、ここでは止めない。
  */
 export function withJob<T extends { id?: string }>(
   queue: string,
   handler: JobHandler<T>,
 ): JobHandler<T> {
   return async (job: T): Promise<void> => {
+    // 1回の処理に固有の番号。同じ処理から出た記録を後からまとめて探せるようにする
     const requestId = newRequestId();
     const log = childLogger({ op: `job:${queue}`, queue, jobId: job?.id, requestId });
     const start = performance.now();

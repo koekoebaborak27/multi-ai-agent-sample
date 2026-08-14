@@ -1,20 +1,21 @@
 /**
  * 対象: shared/storage/supabase
- * 目的: Supabase Storage への REST 呼び出しが、新旧どちらの API キー形式でも認証が通るヘッダ
- *       （Authorization + apikey）を送ることを担保する。
- *       apikey が欠けると、新形式キー（`sb_secret_...`）は JWT ではないため Supabase 側の
- *       パースに失敗し `Invalid Compact JWS`（HTTP 400）で全操作が拒否される。
- *       あわせて、非公開バケット向けの署名 URL 発行（`/object/sign/`）が、正しいエンドポイント・
- *       有効期限で呼ばれ、相対パスの応答を完全な URL に組み立てることを担保する。
+ * 目的: Supabase のファイル保管場所への通信が、新旧どちらの形式の鍵でも認証を通せるよう、
+ *       鍵を 2 か所（Authorization と apikey）に入れて送ることを担保する。
+ *       apikey が欠けると、新しい形式の鍵は Supabase 側が読み取りに失敗し、すべての操作が拒否される。
+ *       あわせて、期限付きURLの発行が正しい宛先・有効期限で依頼され、
+ *       返ってきた途中までのURLを完全な形に組み立てることを担保する。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// server-only は react-server 条件でのみ空実装に解決されるため、テストでは無効化する
+// サーバー専用の印は試験環境では解決できないため、何もしないものに差し替える
 vi.mock("server-only", () => ({}));
 
+// 試験用の値。実在の鍵ではなく、新しい形式の鍵と同じ書き出しにしただけのもの。
 const KEY = "sb_secret_dummy";
 const BUCKET = "uploads";
 
+// 接続先の設定を固定する。環境変数の内容によって結果が変わらないようにするため。
 vi.mock("@/shared/config/env", () => ({
   env: {
     SUPABASE_URL: "https://example.supabase.co",
@@ -27,6 +28,8 @@ import { isAppError } from "@/shared/errors/app-error";
 import { supabaseStorage } from "@/shared/storage/supabase";
 import { DEFAULT_SIGNED_URL_EXPIRES_IN_SECONDS } from "@/shared/storage/types";
 
+// 実際に外部へ通信すると試験が外部の状態に左右されるため、通信の仕組みごと差し替える。
+// 差し替えることで「どこへ何を送ったか」を確認できるようにもなる。
 const fetchMock = vi.fn();
 
 beforeEach(() => {
@@ -34,7 +37,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 
-/** 直近の fetch 呼び出しに渡されたヘッダ */
+/** 送信時に添えられた情報（鍵など）を取り出す */
 function sentHeaders(): Record<string, string> {
   const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
   return (init?.headers ?? {}) as Record<string, string>;

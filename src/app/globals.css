@@ -23,6 +23,8 @@
   --border: oklch(0.929 0.013 255.508);
   --input: oklch(0.929 0.013 255.508);
   --ring: oklch(0.704 0.14 182.503);
+  /* 一覧テーブル: ヘッダー1行 + 本文10行（各3rem）を表示する */
+  --table-list-max-height: 33rem;
 
   /* ナビゲーション面（ヘッダー/サイドバー）: ライト/ダーク共通で常時ダークのシャドウ配色 */
   --sidebar: oklch(0.208 0.042 265.755);
@@ -105,4 +107,8 @@ body {
     100% 100%;
   background-attachment: fixed;
   color: var(--color-foreground);
+}
+
+.table-list-scroll-container {
+  max-height: var(--table-list-max-height);
 }

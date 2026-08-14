@@ -6,8 +6,10 @@ import { authService } from "@/modules/auth/service";
 import { credentialsLoginSchema } from "@/modules/auth/validation";
 
 /**
- * プロバイダ定義（§4）。Entra ID と Credentials を併置。
- * Entra は環境変数が揃っている場合のみ有効化する。
+ * 利用できるログイン方法の一覧を組み立てる。
+ * ID とパスワードによるログインは常に使える。
+ * Microsoft アカウントによるログインは案件によって使う・使わないが分かれるため、
+ * 必要な設定が環境変数に揃っているときだけ選べるようにしている。
  */
 export function buildProviders(): Provider[] {
   const providers: Provider[] = [];
@@ -30,10 +32,12 @@ export function buildProviders(): Provider[] {
         userId: { label: "ユーザーID", type: "text" },
         password: { label: "パスワード", type: "password" },
       },
+      // 入力された ID とパスワードが正しいかを確かめ、正しければ利用者の情報を返す。
+      // 返した内容が、ログイン状態を保つ引換券のもとになる。
       authorize: async (raw) => {
         const parsed = credentialsLoginSchema.safeParse(raw);
         if (!parsed.success) return null;
-        // 失敗時は service が AppError を throw（next-auth が認証エラーに変換）
+        // ID やパスワードが違う場合、この中でエラーが発生し、ログイン失敗として扱われる
         const user = await authService.verifyCredentials(parsed.data.userId, parsed.data.password);
         return {
           id: user.id,

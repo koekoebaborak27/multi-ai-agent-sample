@@ -6,9 +6,13 @@ import { NAV_ITEMS } from "@/shared/layout/nav-config";
 import { ROLES, type Role } from "@/shared/constants/roles";
 import { cn } from "@/shared/ui/utils";
 
-/** サイドバーとモバイルメニューの両方で使う共通ナビゲーション */
+/**
+ * メニューの中身。画面幅の広いときの左メニューと、狭いときの折りたたみメニューで共通に使う。
+ * onNavigate は、折りたたみメニューで項目を選んだときにメニューを閉じるために使う。
+ */
 export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () => void }) {
   const pathname = usePathname();
+  // 管理者向けの項目は、管理者以外には表示しない
   const items = NAV_ITEMS.filter((i) => !i.adminOnly || role === ROLES.ADMIN);
 
   return (
@@ -18,6 +22,8 @@ export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () =
       </div>
       <nav className="relative z-10 flex flex-col gap-1 p-2">
         {items.map((item) => {
+          // 今いる画面の項目を目立たせる。
+          // トップ画面だけは、すべてのURLの先頭に「/」が含まれてしまうため、完全一致で判定する。
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
@@ -40,11 +46,13 @@ export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () =
   );
 }
 
+// 画面左に固定表示するメニュー。画面幅が狭いときは表示せず、折りたたみメニューに切り替わる。
 export function Sidebar({ role }: { role: Role }) {
   return (
     <aside className="relative hidden w-56 shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex md:flex-col">
       <SidebarNav role={role} />
 
+      {/* メニュー下部の波型の飾り。操作の対象ではないため、読み上げの対象からも外している */}
       <svg
         className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full text-sidebar-accent opacity-30"
         viewBox="0 0 224 160"

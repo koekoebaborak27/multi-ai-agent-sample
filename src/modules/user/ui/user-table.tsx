@@ -1,19 +1,73 @@
 import { deleteUserAction } from "@/modules/user/actions";
-import type { UserSummary } from "@/modules/user/types";
+import type { UserSortField, UserSummary } from "@/modules/user/types";
+import type { SortOrder } from "@/shared/api/pagination";
 import { Button } from "@/shared/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import {
+  SortableTableHead,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/ui/table";
 
-export function UserTable({ users }: { users: UserSummary[] }) {
+interface UserTableProps {
+  users: UserSummary[];
+  sort: UserSortField;
+  order: SortOrder;
+  baseUrl: string;
+}
+
+// 利用者の一覧テーブル（管理者向け画面）。
+// 見出しをクリックしたときの並び替えは、並び順を変えたURLへのリンクとして実現している。
+export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>ユーザーID</TableHead>
-          <TableHead>表示名</TableHead>
-          <TableHead>ロール</TableHead>
-          <TableHead>認証</TableHead>
-          <TableHead>状態</TableHead>
-          <TableHead className="text-right">操作</TableHead>
+          <SortableTableHead
+            sortKey="userId"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={baseUrl}
+          >
+            ユーザーID
+          </SortableTableHead>
+          <SortableTableHead
+            sortKey="displayName"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={baseUrl}
+          >
+            表示名
+          </SortableTableHead>
+          <SortableTableHead
+            sortKey="role"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={baseUrl}
+          >
+            ロール
+          </SortableTableHead>
+          <SortableTableHead
+            sortKey="authMethod"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={baseUrl}
+          >
+            認証
+          </SortableTableHead>
+          <SortableTableHead
+            sortKey="status"
+            currentSort={sort}
+            currentOrder={order}
+            baseUrl={baseUrl}
+          >
+            状態
+          </SortableTableHead>
+          {/* 「操作」列には見出しの文字を表示しない。目の不自由な方向けの読み上げ用にラベルだけ付けている */}
+          <TableHead className="text-right" aria-label="操作" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -30,6 +84,11 @@ export function UserTable({ users }: { users: UserSummary[] }) {
               <TableCell>{u.displayName ?? "-"}</TableCell>
               <TableCell>{u.role}</TableCell>
               <TableCell>{u.authMethod}</TableCell>
+              {/*
+                「状態」はデータベースの項目そのままではなく、
+                利用停止中かどうか・初回パスワード変更が必要かを見て表示を切り替えている。
+                利用停止のほうが利用者に伝えるべき度合いが高いため、先に判定する。
+              */}
               <TableCell>
                 {u.locked ? (
                   <span className="text-destructive">ロック中</span>
@@ -40,6 +99,7 @@ export function UserTable({ users }: { users: UserSummary[] }) {
                 )}
               </TableCell>
               <TableCell className="text-right">
+                {/* 削除する利用者を伝えるため、行ごとに識別子を持たせた小さなフォームにしている */}
                 <form action={deleteUserAction} className="inline">
                   <input type="hidden" name="userId" value={u.userId} />
                   <Button type="submit" variant="ghost" size="sm">

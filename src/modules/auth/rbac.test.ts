@@ -1,3 +1,7 @@
+/**
+ * 対象: auth/rbac 役割による権限の判定
+ * 目的: 管理者だけができる操作と、登録・更新ができる役割の範囲を取り違えないことを担保する
+ */
 import { describe, expect, it } from "vitest";
 import { rbac } from "@/modules/auth/rbac";
 import { ROLES } from "@/shared/constants/roles";

@@ -1,7 +1,8 @@
 /**
  * 対象: auth/route-guard decideRedirect
- * 目的: proxy（middleware）のリダイレクト判定を担保する。
- *       とくに Server Action の POST を誘導しないこと（ログイン直後の無限ループ防止）を押さえる。
+ * 目的: どの画面へ移動させるかの判定を担保する。
+ *       とくに、保存などの処理の呼び出しでは移動させないこと
+ *       （移動させるとログイン直後に画面を行き来し続けてしまう）を押さえる。
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -11,7 +12,12 @@ import {
 } from "@/modules/auth/route-guard";
 import { ROLES } from "@/shared/constants/roles";
 
-/** 既定は「ログイン済み ADMIN が画面遷移(GET)でトップへ来た」状態。差分だけ override する */
+/**
+ * 試験用の入力を組み立てる。
+ * 既定は「管理者としてログイン済みの利用者が、画面を開いてトップに来た」状態。
+ * 各試験では、確認したい条件だけを渡して上書きする。
+ * こうすると、その試験が何を確かめているのかが渡した値だけで分かる。
+ */
 const input = (o: Partial<RouteGuardInput> = {}): RouteGuardInput => ({
   path: "/",
   isLoggedIn: true,

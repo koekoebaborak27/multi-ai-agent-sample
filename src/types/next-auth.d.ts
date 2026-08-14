@@ -1,7 +1,8 @@
 import type { DefaultSession } from "next-auth";
 import type { Role } from "@/shared/constants/roles";
 
-// Session / JWT に独自クレームを型拡張する（§4）
+// ログインの仕組みが元々持っている型に、このアプリ独自の項目（役割など）を足すための定義。
+// これを書いておくことで、画面側で利用者の役割を取り出すときに型の誤りを検出できる。
 declare module "next-auth" {
   interface Session {
     user: {
@@ -12,7 +13,7 @@ declare module "next-auth" {
     } & DefaultSession["user"];
   }
 
-  // Credentials provider の authorize が返す独自フィールド
+  // ID とパスワードの確認処理が返す、このアプリ独自の項目
   interface User {
     role?: Role;
     mustChangePassword?: boolean;
@@ -20,7 +21,8 @@ declare module "next-auth" {
   }
 }
 
-// JWT は @auth/core/jwt が実体（next-auth/jwt は re-export のみ）なのでこちらを拡張する
+// ログイン状態を保つ引換券の中身にも同じ項目を足す。
+// 別の名前でも読み込めるが、定義の実体はこちらにあるため、こちらを対象にする。
 declare module "@auth/core/jwt" {
   interface JWT {
     user_id: string;
