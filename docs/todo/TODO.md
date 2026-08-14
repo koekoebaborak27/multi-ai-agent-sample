@@ -39,7 +39,7 @@
 
 ```powershell
 docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する
-git log --oneline -1                                      # 現在のコミットを確認する
+git checkout -b feat/infra-cloud-run-jobs                # 作業用ブランチを作る
 ```
 
 手元の状態を確認するコマンド:
@@ -119,7 +119,7 @@ CSV は画面機能の完成後に着手する（設計書 §13）。
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `feat/master-management`。工程 18 まで push 済み、CI 成功 |
+| 作業ブランチ | `main`。`feat/master-management`（工程 1〜18）は [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でマージ済み、リモート・ローカルとも削除済み |
 | 本番 DB | **マスタのマイグレーションは未適用**（`20260723125616_init` のみ）。ローカルは `20260812093057_add_master_export` まで適用済み。本番への適用は第 5 段階の工程 |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み |
