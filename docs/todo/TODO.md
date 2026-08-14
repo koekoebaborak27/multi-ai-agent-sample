@@ -101,7 +101,7 @@ CSV は画面機能の完成後に着手する（設計書 §13）。
 
 ### 第5段階 本番構成と最終確認
 
-- [ ] **18. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §13.7、手順は [`docs/specs/99_infra/` §11](../specs/99_infra/infra_design_07_構築後の運用.md#11-構築後の運用)
+- [ ] **1. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §13.7、手順は [`docs/specs/99_infra/` §11](../specs/99_infra/infra_design_07_構築後の運用.md#11-構築後の運用)
 
 ## 残っているタスク
 
