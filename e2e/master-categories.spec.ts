@@ -15,13 +15,21 @@ function evidence(name: string) {
 }
 
 // テスト用アカウント。値そのものはコードに書かず環境変数（無ければseed.tsと同じ既定値）から読む。
-const ADMIN = { id: "admin", role: "ADMIN", password: process.env.SEED_ADMIN_PASSWORD ?? "Admin@123" };
+const ADMIN = {
+  id: "admin",
+  role: "ADMIN",
+  password: process.env.SEED_ADMIN_PASSWORD ?? "Admin@123",
+};
 const OPERATOR = {
   id: "opeTest",
   role: "OPERATOR",
   password: process.env.SEED_OPERATOR_PASSWORD ?? "test@123",
 };
-const VIEWER = { id: "viwTest", role: "VIEWER", password: process.env.SEED_VIEWER_PASSWORD ?? "test@123" };
+const VIEWER = {
+  id: "viwTest",
+  role: "VIEWER",
+  password: process.env.SEED_VIEWER_PASSWORD ?? "test@123",
+};
 
 // ページング確認用に一時作成する分類名の接頭辞
 const PAGING_PREFIX = "E2Eテスト分類";
@@ -95,10 +103,11 @@ test.describe.serial("マスタ分類一覧（MST-06）", () => {
 
     await page.getByRole("link", { name: "マスタ分類コードを降順で並べ替える" }).click();
     await expect(page).toHaveURL(/sort=code&order=desc/);
-    await page.screenshot({ path: evidence("003_ソート切替_分類コード.png"), fullPage: true });
+    await page.screenshot({ path: evidence("003_ソート切替_分類コード_降順.png"), fullPage: true });
 
     await page.getByRole("link", { name: "マスタ分類コードを昇順で並べ替える" }).click();
     await expect(page).toHaveURL(/sort=code&order=asc/);
+    await page.screenshot({ path: evidence("003_ソート切替_分類コード_昇順.png"), fullPage: true });
   });
 
   test("TC-004 並び替え見出しの操作（分類名・登録マスタ件数）", async ({ page }) => {
@@ -107,10 +116,11 @@ test.describe.serial("マスタ分類一覧（MST-06）", () => {
 
     await page.getByRole("link", { name: "マスタ分類名を昇順で並べ替える" }).click();
     await expect(page).toHaveURL(/sort=name&order=asc/);
+    await page.screenshot({ path: evidence("004_ソート切替_分類名.png"), fullPage: true });
 
     await page.getByRole("link", { name: "登録マスタ件数を昇順で並べ替える" }).click();
     await expect(page).toHaveURL(/sort=masterCount&order=asc/);
-    await page.screenshot({ path: evidence("004_ソート切替_分類名件数.png"), fullPage: true });
+    await page.screenshot({ path: evidence("004_ソート切替_登録マスタ件数.png"), fullPage: true });
   });
 
   test("TC-006 ページング", async ({ page }) => {
@@ -131,7 +141,10 @@ test.describe.serial("マスタ分類一覧（MST-06）", () => {
     await expect(page).toHaveURL(/page=2/);
     await expect(page.getByText("（2 / ")).toBeVisible();
     await expect(page.getByRole("link", { name: "前へ" })).toBeVisible();
-    await page.screenshot({ path: evidence("006_ページング確認.png"), fullPage: true });
+    await page.screenshot({ path: evidence("006_ページング確認_2ページ目.png"), fullPage: true });
+
+    // TC-005を実行しない単独実行でもゴミが残らないよう、このテストで追加した分は自分で消す
+    await prisma.masterCategory.deleteMany({ where: { name: { startsWith: PAGING_PREFIX } } });
   });
 
   test("TC-005 / TC-008 マスタ分類0件時の表示", async ({ page }) => {
