@@ -69,25 +69,6 @@ model Master {
   @@index([categoryId])
 }
 
-/// CSVダウンロードの依頼と生成物（マスタ機能 §13）。
-model MasterExport {
-  id          String   @id @default(cuid())
-  target      String // MASTER / MASTER_CATEGORY
-  categoryId  Int? // 検索条件（target = MASTER のときのみ）
-  keyword     String? // 検索条件（target = MASTER のときのみ）
-  status      String   @default("QUEUED") // QUEUED / RUNNING / READY / FAILED
-  filePath    String? // ストレージ上のパス（READY のときのみ）
-  fileName    String? // 利用者へ見せるファイル名
-  rowCount    Int?
-  errorCode   String? // FAILED のときのエラーコード
-  requestedBy String // 依頼した利用者の User.id（FK は張らない）
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([createdAt])
-  @@index([requestedBy])
-}
-
 /// 契約先（汎用契約管理ドメインの最小雛形）。
 model Party {
   id          String   @id @default(cuid())

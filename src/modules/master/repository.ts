@@ -1,12 +1,11 @@
 import {
   MASTER_EXPORT_MAX_ROWS,
   type MasterCategorySortField,
-  type MasterExportTarget,
   type MasterSortField,
 } from "@/modules/master/types";
 import type { SortOrder } from "@/shared/api/pagination";
 import { prisma } from "@/shared/db/prisma";
-import type { Master, MasterCategory, MasterExport, Prisma } from "@prisma/client";
+import type { Master, MasterCategory, Prisma } from "@prisma/client";
 
 // ここから 4 つは、データベースから取得する項目の組み合わせを表す型。
 // 画面ごとに必要な項目だけを取得しており、その「取得した結果の形」に名前を付けている。
@@ -358,70 +357,5 @@ export const masterRepository = {
       where: { id, updatedAt: expectedUpdatedAt },
     });
     return result.count === 1;
-  },
-
-  // CSVダウンロードの依頼を、生成待ち（QUEUED）の状態で1件作成する（§13.5.1・§13.6）。
-  createExport(data: {
-    target: MasterExportTarget;
-    categoryId?: number;
-    keyword?: string;
-    requestedBy: string;
-  }): Promise<MasterExport> {
-    return prisma.masterExport.create({
-      data: {
-        target: data.target,
-        categoryId: data.categoryId,
-        keyword: data.keyword,
-        requestedBy: data.requestedBy,
-      },
-    });
-  },
-
-  // 保持期限を過ぎた MasterExport を探す。ストレージ上のファイルを消すために filePath も一緒に取得する（§13.9.2）。
-  findExpiredExports(createdBefore: Date): Promise<Pick<MasterExport, "id" | "filePath">[]> {
-    return prisma.masterExport.findMany({
-      where: { createdAt: { lt: createdBefore } },
-      select: { id: true, filePath: true },
-    });
-  },
-
-  // 指定した MasterExport の行をまとめて削除する（受け取り後の削除・期限切れの掃除の両方で使う）。
-  async deleteExports(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    await prisma.masterExport.deleteMany({ where: { id: { in: ids } } });
-  },
-
-  // worker がCSVを生成するために、依頼1件の内容を読む（§13.5.2）。
-  findExportById(id: string): Promise<MasterExport | null> {
-    return prisma.masterExport.findUnique({ where: { id } });
-  },
-
-  // 生成中（RUNNING）へ更新する。対象が QUEUED のときだけ更新し、更新できたかどうかを返す。
-  // 何らかの理由で同じジョブが二重に実行されても、後から来た方は何もしないようにするための保険。
-  async markExportRunning(id: string): Promise<boolean> {
-    const result = await prisma.masterExport.updateMany({
-      where: { id, status: "QUEUED" },
-      data: { status: "RUNNING" },
-    });
-    return result.count === 1;
-  },
-
-  // 生成が完了した（READY）ことを記録する。
-  updateExportReady(
-    id: string,
-    data: { filePath: string; fileName: string; rowCount: number },
-  ): Promise<MasterExport> {
-    return prisma.masterExport.update({
-      where: { id },
-      data: { status: "READY", ...data },
-    });
-  },
-
-  // 生成に失敗した（FAILED）ことを記録する。
-  updateExportFailed(id: string, errorCode: string): Promise<MasterExport> {
-    return prisma.masterExport.update({
-      where: { id },
-      data: { status: "FAILED", errorCode },
-    });
   },
 };
