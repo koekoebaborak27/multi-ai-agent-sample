@@ -74,25 +74,43 @@
 
 ## 05.1.5 環境変数を設定する
 
-同じ画面の「コンテナ、ネットワーキング、セキュリティ」→「変数とシークレット」で、次の 9 個を登録します。
+**パスワードや鍵にあたる項目は、直接値を入力せず Secret Manager（Google Cloud の専用の金庫）に登録してから参照する形にします。** Cloud Run は環境変数を直接値で設定すると、実行のたびに Cloud Audit Log（監査ログ）へ値がそのまま複製されます。Cloud Logging を見られる人なら誰でもその値を読めてしまうため、パスワードや鍵は必ず Secret Manager 経由にしてください。
 
-| 変数名                         | 値                                 | 説明                                      |
-| --------------------------- | --------------------------------- | --------------------------------------- |
-| `DATABASE_URL`              | [03.1.3](infra_design_03_Supabase作成.md#0313-接続文字列を取得する) の接続文字列      | Session pooler のもの                      |
-| `AUTH_SECRET`               | ランダムな長い文字列                        | ログイン情報の改ざんを防ぐ署名に使います                    |
-| `AUTH_URL`                  | Cloud Run のエンドポイント URL            | 下記参照。**末尾のスラッシュは付けません**                 |
-| `AUTH_TRUST_HOST`           | `true`                            | Cloud Run は転送用のサーバー経由でリクエストを受けるため必要です   |
-| `LOG_PRETTY`                | `false`                           | 本番は構造化ログ（JSON 形式）で出力します                 |
-| `STORAGE_TYPE`              | `supabase`                        | ファイルの保管先を Supabase に切り替えます              |
-| `SUPABASE_URL`              | `https://<プロジェクトref>.supabase.co` | [03.1.5](infra_design_03_Supabase作成.md#0315-api-キーを取得する)                  |
-| `SUPABASE_SERVICE_ROLE_KEY` | `secret` キー                       | [03.1.5](infra_design_03_Supabase作成.md#0315-api-キーを取得する)。**管理者権限の鍵です**    |
-| `SUPABASE_STORAGE_BUCKET`   | `uploads`                         | [03.1.4](infra_design_03_Supabase作成.md#0314-ファイル保管用のバケットを作成する) で作成したバケット名 |
+### 事前準備1 Secret Manager にあらかじめ登録する
 
-`AUTH_SECRET` は次のコマンドで生成できます。
+コンソール上部の検索バーで「Secret Manager」と入力して開き、**「シークレットを作成」**から次の 3 つを登録します（値以外は既定のままで構いません）。
+
+| シークレット名 | 値 |
+| --- | --- |
+| `database-url` | [03.1.3](infra_design_03_Supabase作成.md#0313-接続文字列を取得する) の接続文字列（Session pooler のもの） |
+| `auth-secret` | ランダムな長い文字列（生成方法は下記） |
+| `supabase-service-role-key` | [03.1.5](infra_design_03_Supabase作成.md#0315-api-キーを取得する) の `secret` キー。**管理者権限の鍵です** |
+
+`auth-secret` の値は次のコマンドで生成できます。
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
+
+### 事前準備2 サービスアカウントに参照権限を与える
+
+作成した 3 つのシークレットそれぞれで「権限」タブを開き、このサービスの実行サービスアカウント（[サービスアカウントについて](#サービスアカウントについて)）に **「Secret Manager のシークレット アクセサー」（`roles/secretmanager.secretAccessor`）** を追加してください。プロジェクト全体ではなく、**シークレットごとに個別に**付与するのが安全です（そのシークレット以外は読めないようにするため）。
+
+### 事前準備3 Cloud Run の画面で環境変数を設定する
+
+同じ画面の「コンテナ、ネットワーキング、セキュリティ」→「変数とシークレット」で、次の 9 個を登録します。`DATABASE_URL` / `AUTH_SECRET` / `SUPABASE_SERVICE_ROLE_KEY` の 3 つは、値を直接入力せず**「シークレットを参照」を選び、事前準備1で作成したシークレットとバージョン `latest` を指定してください。**
+
+| 変数名                         | 設定方法                                   | 説明                                      |
+| --------------------------- | --------------------------------------- | --------------------------------------- |
+| `DATABASE_URL`              | シークレットを参照: `database-url` / `latest`   | Session pooler のもの                      |
+| `AUTH_SECRET`               | シークレットを参照: `auth-secret` / `latest`    | ログイン情報の改ざんを防ぐ署名に使います                    |
+| `AUTH_URL`                  | 直接値: Cloud Run のエンドポイント URL            | 下記参照。**末尾のスラッシュは付けません**                 |
+| `AUTH_TRUST_HOST`           | 直接値: `true`                            | Cloud Run は転送用のサーバー経由でリクエストを受けるため必要です   |
+| `LOG_PRETTY`                | 直接値: `false`                           | 本番は構造化ログ（JSON 形式）で出力します                 |
+| `STORAGE_TYPE`              | 直接値: `supabase`                        | ファイルの保管先を Supabase に切り替えます              |
+| `SUPABASE_URL`              | 直接値: `https://<プロジェクトref>.supabase.co` | [03.1.5](infra_design_03_Supabase作成.md#0315-api-キーを取得する)。公開情報のため直接値でよい |
+| `SUPABASE_SERVICE_ROLE_KEY` | シークレットを参照: `supabase-service-role-key` / `latest` | [03.1.5](infra_design_03_Supabase作成.md#0315-api-キーを取得する)。**管理者権限の鍵です** |
+| `SUPABASE_STORAGE_BUCKET`   | 直接値: `uploads`                         | [03.1.4](infra_design_03_Supabase作成.md#0314-ファイル保管用のバケットを作成する) で作成したバケット名 |
 
 ### エンドポイント URL は作成前に分かる
 

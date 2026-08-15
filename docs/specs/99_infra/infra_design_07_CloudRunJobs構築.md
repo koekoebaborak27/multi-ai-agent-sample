@@ -133,30 +133,31 @@ docker push $image
 
 > ジョブ作成後に改めて編集する画面（「新しいリビジョンの編集とデプロイ」）でも同じ「変数とシークレット」タブから設定できます。作成時にまとめて入力しても、後から編集しても構いません。
 
-| 変数名 | 値 | 説明 |
+**`DATABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` は、直接値を入力せず「シークレットを参照」を選んでください。** [05.1.5](infra_design_05_CloudRun構築.md#0515-環境変数を設定する) の事前準備1で作成した `database-url` / `supabase-service-role-key` をそのまま参照します（新しく作り直す必要はありません）。Cloud Run は環境変数を直接値で設定すると、実行のたびに監査ログへ値がそのまま複製されるため、Cloud Logging を見られる人なら誰でも読めてしまいます。
+
+| 変数名 | 設定方法 | 説明 |
 | --- | --- | --- |
-| `DATABASE_URL` | app と同じ接続文字列（[03.1.3](infra_design_03_Supabase作成.md#0313-接続文字列を取得する)） | Session pooler のもの |
-| `LOG_PRETTY` | `false` | 本番は構造化ログ（JSON 形式）で出力する |
-| `STORAGE_TYPE` | `supabase` | ファイルの保管先を Supabase に切り替える |
-| `SUPABASE_URL` | app と同じ値（[03.1.5](infra_design_03_Supabase作成.md#0315-api-キーを取得する)） | |
-| `SUPABASE_SERVICE_ROLE_KEY` | app と同じ値（[03.1.5](infra_design_03_Supabase作成.md#0315-api-キーを取得する)） | **管理者権限の鍵です** |
-| `SUPABASE_STORAGE_BUCKET` | `uploads` | app と同じバケット名 |
+| `DATABASE_URL` | シークレットを参照: `database-url` / `latest` | Session pooler のもの |
+| `LOG_PRETTY` | 直接値: `false` | 本番は構造化ログ（JSON 形式）で出力する |
+| `STORAGE_TYPE` | 直接値: `supabase` | ファイルの保管先を Supabase に切り替える |
+| `SUPABASE_URL` | 直接値: app と同じ値（[03.1.5](infra_design_03_Supabase作成.md#0315-api-キーを取得する)） | 公開情報のため直接値でよい |
+| `SUPABASE_SERVICE_ROLE_KEY` | シークレットを参照: `supabase-service-role-key` / `latest` | **管理者権限の鍵です** |
+| `SUPABASE_STORAGE_BUCKET` | 直接値: `uploads` | app と同じバケット名 |
 
-> `DATABASE_URL` が未設定の場合、worker はコンテナ起動直後に「環境変数の検証に失敗しました」を出して異常終了します（[`src/shared/config/env.ts`](../../../src/shared/config/env.ts)）。**他の5項目は未設定でも起動はしますが、CSV生成やファイル保存が失敗します。**
+> `DATABASE_URL` が未設定の場合、worker はコンテナ起動直後に「環境変数の検証に失敗しました」を出して異常終了します（[`src/shared/config/env.ts`](../../../src/shared/config/env.ts)）。**他の4項目は未設定でも起動はしますが、CSV生成やファイル保存が失敗します。**
 
-> **「app と同じ値」を確認する方法**: [01.1.3](infra_design_01_事前準備.md#0113-作業中に控えておく情報) の控えが手元にない場合は、ブラウザで別タブを開き、Cloud Run の「サービス」タブ →  app のサービス（`contract-app`）→「新しいリビジョンの編集とデプロイ」→「変数とシークレット」で既存の値を確認し、コピーして貼り付けてください。`SUPABASE_SERVICE_ROLE_KEY` は管理者権限の鍵なので、チャットやメモアプリなど、この端末以外に貼り付けないよう注意してください。
+> **worker 用のサービスアカウントにも参照権限が必要です。** [05.1.5 の事前準備2](infra_design_05_CloudRun構築.md#0515-環境変数を設定する) で app の実行サービスアカウントへ付与済みですが、worker が別のサービスアカウントを使う場合（[1-4](../../todo/TODO.md) で専用アカウントへ差し替えた場合など）は、`database-url` / `supabase-service-role-key` それぞれの「権限」タブで、そのアカウントにも `roles/secretmanager.secretAccessor` を追加してください。
 
 ## 07.1.5 app 側に worker の起動先を設定する
 
-app（既存の Cloud Run サービス）の環境変数へ、次の 3 項目を追加します。「新しいリビジョンの編集とデプロイ」から行います（[05.1.4](infra_design_05_CloudRun構築.md#0514-サービスの設定値)）。
+app（既存の Cloud Run サービス）の環境変数へ、次の 4 項目を追加します。「新しいリビジョンの編集とデプロイ」から行います（[05.1.4](infra_design_05_CloudRun構築.md#0514-サービスの設定値)）。
 
 | 変数名 | 値 | 説明 |
 | --- | --- | --- |
 | `WORKER_INVOKE_MODE` | `cloud-run-job` | 既定の `none` から切り替える。依頼のたびに worker（Cloud Run Jobs）を起動する |
 | `CLOUD_RUN_JOB_NAME` | [07.1.3](#0713-cloud-run-jobs-を作成する) で決めたジョブ名 | |
 | `CLOUD_RUN_JOB_REGION` | `us-central1` | |
-
-`GOOGLE_CLOUD_PROJECT` は Cloud Run 上では既定で自動設定されるため、通常は追加不要です（[`src/shared/config/env.ts`](../../../src/shared/config/env.ts)）。
+| `GOOGLE_CLOUD_PROJECT` | プロジェクト ID（[05.1.2](infra_design_05_CloudRun構築.md#0512-google-cloud-プロジェクトを作成する) で決めたもの） | worker（Cloud Run Jobs）がどのプロジェクトに属するかを表す（[`src/shared/config/env.ts`](../../../src/shared/config/env.ts)）。**必ず明示的に設定してください。自動で設定されるとは限りません**（環境変数を一括で設定し直した際に消えて起動エラーになった実例があります） |
 
 ## 07.1.6 app にジョブ実行権限を付与する
 

@@ -27,14 +27,14 @@
 | 土台（ローカル環境 / Git / Supabase / 署名 URL / Docker 軽量化 / Cloud Run） | 48 / 48 |
 | マスタ機能（設計） | 6 / 6 |
 | **マスタ機能（製造）** | **18 / 18 工程** |
-| 第5段階（本番構成と最終確認） | 4 / 8 |
+| 第5段階（本番構成と最終確認） | 5 / 9 |
 | 残っているタスク（期限なしの宿題） | 未対応 5 件 |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
 
 ## 次にやること
 
-**工程1-3・1-6（Cloud Run Jobs の構築、[`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_CloudRunJobs構築.md#071-手順6-cloud-run-jobsworkerを構築する)）が完了した。** 次は [§08.1.1〜08.1.2](../specs/99_infra/infra_design_08_CloudRunJobs動作確認.md#0811-jobs-単体を手動実行する)（Jobs 単体の手動実行とログ確認）から進める。**§08.1.3（app と連携させた依頼→生成→受け取りの確認）は、本番 DB へマイグレーション（工程1-7）を適用してからでないと `MasterExport` テーブルが無くエラーになるため、先に工程1-7を済ませる必要がある。** 設計書 §30.1.7.4。
+**工程1-3・1-6・1-9（Cloud Run Jobs の構築と Secret Manager 化）と §08.1.1〜08.1.2（Jobs 単体実行とログ確認）が完了した**（[履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobs単体実行で監査ログへの機密情報平文記録を発見しsecret-manager化で対応)）。次は工程1-7（本番 DB へのマイグレーション適用）。**§08.1.3・1-8は、本番 DB へマイグレーションを適用してからでないと `MasterExport` テーブルが無くエラーになる。** 設計書 §30.1.7.4。
 
 手元の状態を確認するコマンド:
 
@@ -106,6 +106,7 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
   - [x] 1-6. 本番のアプリ側に「worker は Cloud Run Jobs で動かす」という設定値を追加する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobsを構築しapp側の起動設定と実行権限を追加)
   - [ ] 1-7. 本番のデータベースに、マスタ機能でのデータベースの変更内容（マイグレーション）を反映する
   - [ ] 1-8. 本番で実際に CSV ダウンロードを最初から最後まで動かして確認する（依頼 → 生成 → 受け取り）
+  - [x] 1-9. パスワードや鍵にあたる環境変数（`DATABASE_URL` / `AUTH_SECRET` / `SUPABASE_SERVICE_ROLE_KEY`）を、直接値ではなく Secret Manager 経由に切り替える（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobs単体実行で監査ログへの機密情報平文記録を発見しsecret-manager化で対応)
 
 ## 残っているタスク
 
@@ -127,8 +128,8 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 | 本番 DB | **マスタのマイグレーションは未適用**（`20260723125616_init` のみ）。ローカルは `20260812093057_add_master_export` まで適用済み。本番への適用は第 5 段階の工程1-7 |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み |
-| 直近の検証 | 2026-08-15、工程1-2実装後に `lint` / `format:check` / `typecheck` / 14 ファイル 188 テストが成功。`docker build --target worker` でイメージを作成し、単発モード（`--once`、キュー空で正常終了）・常駐モードの両方をコンテナ実機で確認。同日、工程1-3として worker イメージを Artifact Registry へ push、Cloud Run Jobs `contract-worker`（us-central1）を作成し環境変数6項目を設定、app側にも起動設定3項目を追加して再デプロイ、appの実行サービスアカウントへ `roles/run.invoker` を付与済み。**Jobs の単体実行によるログ確認（§08.1.1〜08.1.2）はまだ** |
-| 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。Cloud Run Jobs `contract-worker`（us-central1）も作成済みだが未実行。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
+| 直近の検証 | 2026-08-15、工程1-3・1-6に続き §08.1.1〜08.1.2 で `contract-worker` を手動実行し、期待するログ（`worker 起動完了` → `処理すべきジョブが無いため終了`）と正常終了を確認。その過程で監査ログへ機密環境変数が平文記録されることを発見し、工程1-9として `DATABASE_URL` / `AUTH_SECRET` / `SUPABASE_SERVICE_ROLE_KEY` を Secret Manager 経由に切り替え。切り替え後の `contract-app` 再デプロイで `GOOGLE_CLOUD_PROJECT` の設定漏れにより一時的に Internal Server Error が発生したが、追加設定で復旧を確認。切り替え後の `contract-worker` 再実行では監査ログに平文が出ないことを確認 |
+| 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。Cloud Run Jobs `contract-worker`（us-central1）は手動実行で正常動作を確認済み。機密環境変数3項目はSecret Manager経由。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 
 ## 完了済みの作業
