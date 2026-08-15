@@ -122,7 +122,7 @@ node: .env: not found
 >
 > **着手条件が変わった。** 2026-08-02 に standalone 化は残作業から [残っているタスク](../TODO.md#残っているタスク) へ差し戻された。**適時は「worker 用イメージを `runner` から分離するとき」**。単独でやる価値が低い理由は [Docker イメージの軽量化と worker の .env 依存解消](../history/2026-08-w1.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消) を参照。
 >
-> **2026-08-15、着手条件が整った。** 第5段階工程1-2で `worker` ステージを `runner`（`runner-base` を継承）から分離した → [履歴](../history/2026-08-w3.md#2026-08-15-worker専用の実行用イメージをdockerfileに用意)。standalone 化自体はこの工程では実施していない（下記の論点参照）。
+> **2026-08-15、着手条件が整った。** 「Cloud Run Jobs本番構成の構築」の1で `worker` ステージを `runner`（`runner-base` を継承）から分離した → [履歴](../history/2026-08-w3.md#2026-08-15-worker専用の実行用イメージをdockerfileに用意)。standalone 化自体はこの工程では実施していない（下記の論点参照）。
 
 ### standalone 化の設計上の論点
 

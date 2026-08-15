@@ -27,14 +27,21 @@
 | 土台（ローカル環境 / Git / Supabase / 署名 URL / Docker 軽量化 / Cloud Run） | 48 / 48 |
 | マスタ機能（設計） | 6 / 6 |
 | **マスタ機能（製造）** | **18 / 18 工程** |
-| 第5段階（本番構成と最終確認） | 6 / 9 |
+| 第5段階（マスタ機能を本番で仕上げる） | 1 / 4 |
+| Cloud Run Jobs本番構成の構築（workerサンプルの土台） | 3 / 7 |
+| マスタ情報Excel取得機能（workerサンプル） | 0 / 8 工程 |
 | 残っているタスク（期限なしの宿題） | 未対応 5 件 |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
 
 ## 次にやること
 
-**工程1-7（本番データベースへのマイグレーション適用）が完了した**（[履歴](history/2026-08-w3.md#2026-08-15-本番データベースへマスタ機能のマイグレーションを適用)）。次は工程1-8（本番で CSV ダウンロードを最初から最後まで動かして確認する、設計書 §30.1.7.4・手順書 §08.1.3）。
+**本番でCSVダウンロードの動作確認を進める過程で、Cloud Run Jobs（worker）の起動待ちが毎回1〜3分かかる問題が見つかり、マスタCSVはworkerを使わずappの中で完結する同期方式に作り直した**（詳しい経緯は [履歴](history/README.md) を参照）。設計は [`30_CSVダウンロード.md`](../specs/02_basic-design/master/30_CSVダウンロード.md) §30.1.9 に記録済み。
+
+次は次の2点。
+
+1. この変更を `feat/master-csv-sync` ブランチのPRとしてマージし、本番へデプロイする
+2. 本番で実際にCSVダウンロードを試し、待ち時間なく動くことを確認する（詳細は下記「第5段階」の2・3参照）
 
 手元の状態を確認するコマンド:
 
@@ -93,20 +100,49 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
   - [x] 18-9. マスタ更新（MST-05 / MST-03） → `UT_13_マスタ更新.md`（2026-08-14）→ [履歴](history/2026-08-w2.md#2026-08-14-マスタ機能の単体テスト仕様書作成と画面操作テストを完了工程18-2〜18-10)
   - [x] 18-10. マスタ削除（MST-04） → `UT_14_マスタ削除.md`（2026-08-14）→ [履歴](history/2026-08-w2.md#2026-08-14-マスタ機能の単体テスト仕様書作成と画面操作テストを完了工程18-2〜18-10)
 
-### 第5段階 本番構成と最終確認
+### 第5段階 マスタ機能を本番で仕上げる
 
-設計書 [`docs/specs/02_basic-design/master/30_CSVダウンロード.md`](../specs/02_basic-design/master/30_CSVダウンロード.md) §30.1.7.4 を実装の正本とし、**1-1 から順に進める**。実装内容と検証結果は [`docs/todo/history/`](history/README.md) に書く。
+実装内容と検証結果は [`docs/todo/history/`](history/README.md) に書く。CSVダウンロードは、Cloud Run Jobsの起動待ちが毎回1〜3分かかる問題が見つかったため、workerを使わない同期方式に作り直した（[履歴](history/2026-08-w3.md#2026-08-16-マスタcsvをworker経由の非同期方式からapp内の同期方式へ作り直し)、設計書 [`30_CSVダウンロード.md`](../specs/02_basic-design/master/30_CSVダウンロード.md) §30.1.9）。
 
-- [ ] **1. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §30.1.7、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_CloudRunJobs構築.md#071-手順6-cloud-run-jobsworkerを構築する)
-  - [x] 1-1. アプリから worker を呼び出す処理をコードで作る（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-アプリからworkerを呼び出す処理を実装)
-  - [x] 1-2. worker 専用の実行用イメージ（アプリを動かすための入れ物）を用意する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-worker専用の実行用イメージをdockerfileに用意)
-  - [x] 1-3. 「Cloud Run Jobs」（本番で worker を1回だけ動かす仕組み）を作る。データベースへの接続先やファイルの保存先の設定値も一緒に登録する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobsを構築しapp側の起動設定と実行権限を追加)
-  - [ ] 1-4. worker 専用の実行アカウントを作り、アプリ側からそのJobsを起動できる権限だけを与える。TODO に残っている宿題「実行アカウントを権限なしのものに差し替える」を、「必要最小限の権限だけ持たせる」という形に直して一緒に片づける。**実行権限の付与自体は1-3と合わせて完了済み（既定のサービスアカウントに付与）。ここでの残作業は専用アカウントの新規作成と差し替え**
-  - [ ] 1-5. 本番への自動反映の仕組み（Cloud Build）が、アプリ用の入れ物と同時に worker 用の入れ物も作り直すようにする
-  - [x] 1-6. 本番のアプリ側に「worker は Cloud Run Jobs で動かす」という設定値を追加する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobsを構築しapp側の起動設定と実行権限を追加)
-  - [x] 1-7. 本番のデータベースに、マスタ機能でのデータベースの変更内容（マイグレーション）を反映する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-本番データベースへマスタ機能のマイグレーションを適用)
-  - [ ] 1-8. 本番で実際に CSV ダウンロードを最初から最後まで動かして確認する（依頼 → 生成 → 受け取り）
-  - [x] 1-9. パスワードや鍵にあたる環境変数（`DATABASE_URL` / `AUTH_SECRET` / `SUPABASE_SERVICE_ROLE_KEY`）を、直接値ではなく Secret Manager 経由に切り替える（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobs単体実行で監査ログへの機密情報平文記録を発見しsecret-manager化で対応)
+- [x] 1. 本番DBへマスタ機能のマイグレーション（`add_master_tables` / `add_master_export`）を適用する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-本番データベースへマスタ機能のマイグレーションを適用)
+- [ ] 2. `feat/master-csv-sync`（CSVを同期方式へ作り直す変更）をマージし、本番へデプロイする
+- [ ] 3. 本番で実際にCSVダウンロードを動かし、待ち時間なく動くことを確認する
+- [ ] 4. 本番DBへ `drop_master_export`（`MasterExport`テーブルの削除）マイグレーションを適用する — コードのデプロイ・動作確認が終わってから、ユーザー承認のうえ実施する
+
+### Cloud Run Jobs本番構成の構築（workerサンプル機能の土台）
+
+**当初はマスタCSVダウンロードのために着手したが、CSVが同期方式に変わったため、現在は下記「マスタ情報Excel取得機能」で再利用する土台という位置づけ。** 手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_CloudRunJobs構築.md#071-手順6-cloud-run-jobsworkerを構築する)。
+
+- [x] 1. worker専用の実行用イメージ（アプリを動かすための入れ物）を用意する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-worker専用の実行用イメージをdockerfileに用意)
+- [x] 2. 「Cloud Run Jobs」（本番で worker を1回だけ動かす仕組み）を作る。データベースへの接続先やファイルの保存先の設定値も一緒に登録する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobsを構築しapp側の起動設定と実行権限を追加)
+- [x] 3. パスワードや鍵にあたる環境変数（`DATABASE_URL` / `AUTH_SECRET` / `SUPABASE_SERVICE_ROLE_KEY`）を、直接値ではなく Secret Manager 経由に切り替える（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobs単体実行で監査ログへの機密情報平文記録を発見しsecret-manager化で対応)
+- [ ] 4. アプリから worker を呼び出す処理を作る — CSV用に一度実装した（[履歴](history/2026-08-w3.md#2026-08-15-アプリからworkerを呼び出す処理を実装)）が、CSVの同期化に伴いコード（`src/shared/jobs/invoke-worker.ts`）ごと削除した。実装時はこの履歴を参考に作り直す
+- [ ] 5. 本番のアプリ側に「worker は Cloud Run Jobs で動かす」という設定値を追加する — 同上の理由で削除済み（`WORKER_INVOKE_MODE` 等）。作り直す
+- [ ] 6. worker 専用の実行アカウントを作り、アプリ側からそのJobsを起動できる権限だけを与える。TODO に残っている宿題「実行アカウントを権限なしのものに差し替える」を、「必要最小限の権限だけ持たせる」という形に直して一緒に片づける。**実行権限の付与自体は完了済み（既定のサービスアカウントに付与）。残作業は専用アカウントの新規作成と差し替え**
+- [ ] 7. 本番への自動反映の仕組み（Cloud Build）が、アプリ用の入れ物と同時に worker 用の入れ物も作り直すようにする
+
+## マスタ情報Excel取得機能の製造工程（workerサンプル）
+
+worker（Cloud Run Jobs）の利用サンプルとして「依頼 → worker生成 → 受け取り」の型でExcel出力バッチを作る。着手前に設計書（`docs/specs/02_basic-design/master/` 配下）を作成すること。**設計未着手のため、下記は仮の工程分割。設計時に見直してよい**。
+
+Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secret Manager）は上記「Cloud Run Jobs本番構成の構築」の1〜3で完成済み。残るのは同4〜7（app→worker起動処理の作り直し・専用サービスアカウント・Cloud Build自動化）で、下記工程7で仕上げる。
+
+要件メモ（設計書作成時にここから転記し、このファイルからは削除する）:
+
+- 出力内容: マスタ分類データとマスタデータをそれぞれ別シートにした1つのExcelファイル
+- 生成処理はworkerで実施する。生成に2分ほどかかる見込みのため、Cloud Run Jobsのタイムアウト設定に注意する
+- 画面「マスタ情報Excel取得」を新設し、バッチ実行ボタンと過去の実行履歴一覧を置く
+- 履歴一覧のリンクからSupabaseストレージ上のファイルをダウンロードする
+- マスタ管理画面（`/master`）で「マスタ分類の管理」ボタンの左に、この画面へ遷移するボタンを置く
+
+- [ ] **1. 設計書を作成する** — 画面項目・データモデル・Excelのシート構成・タイムアウト対策を確定する
+- [ ] **2. Excel出力の依頼処理とデータモデルを実装する** — CSVの`MasterExport`モデルは同期方式への変更に伴い削除済み（[履歴](history/2026-08-w3.md#2026-08-16-マスタcsvをworker経由の非同期方式からapp内の同期方式へ作り直し)）のため、新規モデルとして設計する
+- [ ] **3. Excelを生成するworkerを実装する** — マスタ分類シート・マスタシートの2シート構成。2分想定の処理時間に耐えるタイムアウト設定にする
+- [ ] **4. 「マスタ情報Excel取得」画面を実装する** — バッチ実行ボタン、過去の実行履歴一覧
+- [ ] **5. 履歴一覧からのダウンロード処理を実装する** — Supabaseストレージの署名URL経由でファイルを取得する
+- [ ] **6. マスタ管理画面にこの画面へのボタンを追加する** — 「マスタ分類の管理」ボタンの左に配置する
+- [ ] **7. 本番構成を仕上げる** — 上記「Cloud Run Jobs本番構成の構築」の残り（4〜7: app→worker起動処理・専用サービスアカウント・Cloud Build自動化）を完了させ、本番デプロイと動作確認まで行う
+- [ ] **8. 単体テストを実施する**
 
 ## 残っているタスク
 
@@ -114,7 +150,7 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 - [ ] **`main` のブランチ保護をどうするか決める** — 当面は運用ルールで守る。選択肢 3 つと確認コマンドは [`docs/specs/99_infra/` §02.1.6](../specs/99_infra/infra_design_02_GitHubリポジトリ.md#0216-ブランチ保護を設定する)
 - [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §09.1.1](../specs/99_infra/infra_design_09_構築後の運用.md#0911-本番へ反映する)
-- [ ] **`output: "standalone"` 化を検討する** — 第5段階工程1-2で worker 用イメージの分離が完了し、着手条件は整った。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
+- [ ] **`output: "standalone"` 化を検討する** — 「Cloud Run Jobs本番構成の構築」の1で worker 用イメージの分離が完了し、着手条件は整った。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
 - [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §09.1.2](../specs/99_infra/infra_design_09_構築後の運用.md#0912-データベースの構造を変更する)
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 
@@ -124,12 +160,12 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `main`。`feat/worker-image`（工程1-2）は [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15) でマージ済み、リモート・ローカルとも削除済み。`feat/infra-cloud-run-jobs`（工程1-1）は [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）は [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み。工程1-3の手順書ドラフト（[`docs/specs/99_infra/`](../specs/99_infra/README.md) 07・08、既存06〜10のリネーム含む）はドキュメントのみのため `main` へ直接コミット |
-| 本番 DB | ローカルと同じ `20260812093057_add_master_export` まで**適用済み**（工程1-7で反映） |
+| 作業ブランチ | `feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更。PR未作成）。`main` 側は、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み。Cloud Run Jobs構築の手順書ドラフト（[`docs/specs/99_infra/`](../specs/99_infra/README.md) 07・08、既存06〜10のリネーム含む）はドキュメントのみのため `main` へ直接コミット |
+| 本番 DB | `20260812093057_add_master_export` まで**適用済み**（第5段階の1で反映）。`feat/master-csv-sync` の `drop_master_export` はローカルのみ適用で、**本番へは未適用**（マージ・デプロイ後にユーザー確認のうえ適用する） |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
-| ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み |
-| 直近の検証 | 2026-08-15、工程1-7として本番 DB へマイグレーションを適用（`add_master_tables` / `add_master_export` の2件、いずれもテーブル追加のみ）。`prisma migrate deploy` で「All migrations have been successfully applied.」を確認 |
-| 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。Cloud Run Jobs `contract-worker`（us-central1）は手動実行で正常動作を確認済み。機密環境変数3項目はSecret Manager経由。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
+| ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカルでマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（本番はデプロイ後に確認） |
+| 直近の検証 | 2026-08-16、`contract-worker` に `SUPABASE_URL` が設定されていない不具合を本番で発見・修正（`gcloud run jobs update` で追加）。同時に、Cloud Run Jobs の起動待ちが毎回1〜3分かかることが判明し、マスタCSVを同期方式へ作り直した |
+| 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。Cloud Run Jobs `contract-worker`（us-central1）は `SUPABASE_URL` 設定漏れを2026-08-16に修正済み。機密環境変数3項目はSecret Manager経由。`feat/master-csv-sync` は未デプロイ（本番は旧async方式のCSVがまだ動いている）。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 
 ## 完了済みの作業

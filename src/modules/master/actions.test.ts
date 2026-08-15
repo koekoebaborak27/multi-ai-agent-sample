@@ -9,8 +9,6 @@ import {
   createMasterCategoryAction,
   deleteMasterAction,
   deleteMasterCategoryAction,
-  requestMasterCategoryExportAction,
-  requestMasterExportAction,
   updateMasterAction,
   updateMasterCategoryAction,
   type DeleteMasterCategoryFormState,
@@ -36,7 +34,6 @@ vi.mock("@/modules/master/service", () => ({
     createCategory: vi.fn(),
     updateCategory: vi.fn(),
     deleteCategory: vi.fn(),
-    requestExport: vi.fn(),
   },
 }));
 
@@ -103,7 +100,6 @@ function resetMasterServiceMocks(): void {
   vi.mocked(masterService.createCategory).mockReset();
   vi.mocked(masterService.updateCategory).mockReset();
   vi.mocked(masterService.deleteCategory).mockReset();
-  vi.mocked(masterService.requestExport).mockReset();
 }
 
 const admin = {
@@ -1000,97 +996,6 @@ describe("master/actions deleteMasterCategoryAction", () => {
         error: "マスタ分類IDが不正です",
       });
       expect(masterService.deleteCategory).not.toHaveBeenCalled();
-    });
-  });
-});
-
-function createExportFormData(categoryId?: string, keyword?: string): FormData {
-  const formData = new FormData();
-  if (categoryId !== undefined) formData.set("categoryId", categoryId);
-  if (keyword !== undefined) formData.set("keyword", keyword);
-  return formData;
-}
-
-describe("master/actions requestMasterExportAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    resetMasterServiceMocks();
-  });
-
-  describe("ログイン中の場合", () => {
-    it("検索条件をそのままservice.requestExportへ渡し、依頼結果を返す（ロール制限は無い）", async () => {
-      vi.mocked(getCurrentUser).mockResolvedValue({
-        id: "viewer",
-        role: "VIEWER",
-        mustChangePassword: false,
-        authMethod: "credentials",
-      });
-      vi.mocked(masterService.requestExport).mockResolvedValue({ exportId: "export1" });
-
-      await expect(
-        requestMasterExportAction(createExportFormData("3", "  con  ")),
-      ).resolves.toEqual({ exportId: "export1" });
-      expect(masterService.requestExport).toHaveBeenCalledWith(
-        "MASTER",
-        { categoryId: 3, keyword: "con" },
-        "viewer",
-      );
-    });
-
-    it("分類が「all」のときは絞り込み無しとして渡す", async () => {
-      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
-      vi.mocked(masterService.requestExport).mockResolvedValue({ exportId: "export2" });
-
-      await requestMasterExportAction(createExportFormData("all"));
-
-      expect(masterService.requestExport).toHaveBeenCalledWith(
-        "MASTER",
-        { categoryId: undefined, keyword: undefined },
-        "admin",
-      );
-    });
-  });
-
-  describe("未ログインの場合", () => {
-    it("AppError(UNAUTHORIZED) を投げ、依頼は行わない", async () => {
-      vi.mocked(getCurrentUser).mockResolvedValue(null);
-
-      await expect(requestMasterExportAction(createExportFormData())).rejects.toMatchObject({
-        code: "UNAUTHORIZED",
-        httpStatus: 401,
-      });
-      expect(masterService.requestExport).not.toHaveBeenCalled();
-    });
-  });
-});
-
-describe("master/actions requestMasterCategoryExportAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    resetMasterServiceMocks();
-  });
-
-  describe("ログイン中の場合", () => {
-    it("検索条件を持たせずservice.requestExportを呼び、依頼結果を返す", async () => {
-      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
-      vi.mocked(masterService.requestExport).mockResolvedValue({ exportId: "export3" });
-
-      await expect(requestMasterCategoryExportAction()).resolves.toEqual({
-        exportId: "export3",
-      });
-      expect(masterService.requestExport).toHaveBeenCalledWith("MASTER_CATEGORY", {}, "admin");
-    });
-  });
-
-  describe("未ログインの場合", () => {
-    it("AppError(UNAUTHORIZED) を投げ、依頼は行わない", async () => {
-      vi.mocked(getCurrentUser).mockResolvedValue(null);
-
-      await expect(requestMasterCategoryExportAction()).rejects.toMatchObject({
-        code: "UNAUTHORIZED",
-        httpStatus: 401,
-      });
-      expect(masterService.requestExport).not.toHaveBeenCalled();
     });
   });
 });

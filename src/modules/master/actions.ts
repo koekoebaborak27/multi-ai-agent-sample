@@ -3,14 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { masterService } from "@/modules/master/service";
-import type { MasterExportRequest } from "@/modules/master/types";
 import {
   createMasterCategorySchema,
   createMasterSchema,
   deleteMasterCategorySchema,
   deleteMasterSchema,
   parseMasterReturnTo,
-  requestMasterExportSchema,
   updateMasterCategorySchema,
   updateMasterSchema,
 } from "@/modules/master/validation";
@@ -454,36 +452,4 @@ export const deleteMasterCategoryAction = withOp(
   },
   // 削除は元に戻せないため、「誰がいつ何を削除したか」を後から追えるようにログにも残す
   { includeArgsInSuccessLog: true },
-);
-
-// マスタ一覧（MST-01）のCSVダウンロードを依頼する（§13.5.1）。
-// 一覧と同じ検索条件（分類・キーワード）を受け取り、その条件のままの対象をCSV化する。
-// ロールによる制限は行わない（§3）ため、ログインしているかどうかだけを確認する。
-export const requestMasterExportAction = withOp(
-  "master.export.request",
-  async (formData: FormData): Promise<MasterExportRequest> => {
-    const user = await getCurrentUser();
-    if (!user) throw Errors.unauthorized();
-
-    const parsed = requestMasterExportSchema.parse({
-      categoryId: String(formData.get("categoryId") ?? ""),
-      keyword: String(formData.get("keyword") ?? ""),
-    });
-    // 一覧画面と同じく、「all」は「分類を指定しない」ことを表す
-    const categoryId = parsed.categoryId === "all" ? undefined : parsed.categoryId;
-
-    return masterService.requestExport("MASTER", { categoryId, keyword: parsed.keyword }, user.id);
-  },
-);
-
-// マスタ分類一覧（MST-06）のCSVダウンロードを依頼する（§13.5.1）。
-// マスタ分類には検索条件が無いため、常に全件を対象にする。
-export const requestMasterCategoryExportAction = withOp(
-  "master.category.export.request",
-  async (): Promise<MasterExportRequest> => {
-    const user = await getCurrentUser();
-    if (!user) throw Errors.unauthorized();
-
-    return masterService.requestExport("MASTER_CATEGORY", {}, user.id);
-  },
 );

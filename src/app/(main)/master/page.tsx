@@ -9,7 +9,6 @@ import {
   type MasterSortField,
   masterSearchQuerySchema,
   masterService,
-  requestMasterExportAction,
 } from "@/modules/master";
 import type { SortOrder } from "@/shared/api/pagination";
 import { getCurrentUser } from "@/shared/auth/session";
@@ -97,11 +96,12 @@ export default async function MasterPage({
     query.order,
   );
 
-  // CSVダウンロードは今の検索条件のままの対象を出力する（§13.5.1）。
-  // Server Action へ渡す条件をここで固定し、クライアント側では検索条件を持たずに済むようにする。
-  const exportFormData = new FormData();
-  exportFormData.set("categoryId", String(selectedCategoryId ?? "all"));
-  if (query.keyword) exportFormData.set("keyword", query.keyword);
+  // CSVダウンロードは今の検索条件のままの対象を出力する。
+  // ダウンロード用Route Handlerへ渡す条件をここでクエリパラメータとして組み立てる。
+  const exportQuery = new URLSearchParams();
+  exportQuery.set("categoryId", String(selectedCategoryId ?? "all"));
+  if (query.keyword) exportQuery.set("keyword", query.keyword);
+  const exportHref = `/api/master/exports/csv?${exportQuery.toString()}`;
   const exportDisabled = result.total === 0 || result.total > MASTER_EXPORT_MAX_ROWS;
   const exportDisabledReason =
     result.total === 0
@@ -137,7 +137,7 @@ export default async function MasterPage({
           </CardTitle>
           <div className="flex flex-col gap-2 sm:flex-row">
             <MasterExportButton
-              action={requestMasterExportAction.bind(null, exportFormData)}
+              href={exportHref}
               disabled={exportDisabled}
               disabledReason={exportDisabledReason}
             />

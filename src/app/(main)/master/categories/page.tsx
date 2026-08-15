@@ -7,7 +7,6 @@ import {
   MasterDeletedToast,
   MasterExportButton,
   masterService,
-  requestMasterCategoryExportAction,
 } from "@/modules/master";
 import { parseListQuery } from "@/shared/api/pagination";
 import { getCurrentUser } from "@/shared/auth/session";
@@ -70,7 +69,7 @@ export default async function MasterCategoriesPage({
           </CardTitle>
           <div className="flex flex-col gap-2 sm:flex-row">
             <MasterExportButton
-              action={requestMasterCategoryExportAction}
+              href="/api/master/categories/exports/csv"
               disabled={exportDisabled}
               disabledReason={exportDisabledReason}
             />

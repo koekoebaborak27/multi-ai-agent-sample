@@ -58,22 +58,3 @@ export type MasterExportTarget = (typeof MASTER_EXPORT_TARGETS)[number];
 // 案件ごとに変える値ではなく、増やす場合は生成方式（分割出力・ストリーミング）自体を見直すべき値のため、
 // 環境変数にはせずこの定数として持つ。
 export const MASTER_EXPORT_MAX_ROWS = 10000;
-
-// 生成済みのCSV（MasterExport）を保持する時間。これを過ぎた行は、次回の依頼時にまとめて掃除する。
-// 受け取り時に削除されなかった取り残し（生成失敗・ダウンロードされなかった等）を回収するための値であり、
-// 案件ごとに変える値ではないため定数として持つ。
-export const MASTER_EXPORT_RETENTION_HOURS = 24;
-
-// pg-boss へCSV生成を依頼するキューの名前。
-export const MASTER_EXPORT_QUEUE = "master.export";
-
-/** CSV生成の依頼結果。受け取り・状態確認の画面がこのIDを使って問い合わせる */
-export interface MasterExportRequest {
-  exportId: string;
-}
-
-/** CSV生成の進み具合。画面はこれを2秒間隔で問い合わせ、READYになったら受け取りへ進む（§13.5.3） */
-export interface MasterExportStatus {
-  status: "QUEUED" | "RUNNING" | "READY" | "FAILED";
-  errorCode?: string;
-}

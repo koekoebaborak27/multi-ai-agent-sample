@@ -10,20 +10,13 @@ import {
   type MasterDetailRecord,
   type MasterListRecord,
 } from "@/modules/master/repository";
-import {
-  MASTER_EXPORT_MAX_ROWS,
-  MASTER_EXPORT_QUEUE,
-  MASTER_EXPORT_RETENTION_HOURS,
-} from "@/modules/master/types";
+import { MASTER_EXPORT_MAX_ROWS } from "@/modules/master/types";
 import type {
   MasterCategoryDetail,
   MasterCategoryOption,
   MasterCategorySortField,
   MasterCategorySummary,
   MasterDetail,
-  MasterExportRequest,
-  MasterExportStatus,
-  MasterExportTarget,
   MasterSearchCriteria,
   MasterSortField,
   MasterSummary,
@@ -37,10 +30,7 @@ import type {
   UpdateMasterInput,
 } from "@/modules/master/validation";
 import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
-import { AppError, isAppError } from "@/shared/errors/app-error";
-import { getBoss } from "@/shared/jobs/boss";
-import { invokeWorker } from "@/shared/jobs/invoke-worker";
-import { storage } from "@/shared/storage";
+import { AppError } from "@/shared/errors/app-error";
 import { Prisma } from "@prisma/client";
 
 // マスタ分類コードの桁数。
@@ -176,40 +166,6 @@ function masterExportLimitExceeded(count: number, max: number): AppError {
     `対象が${count}件あります。${max}件以下になるよう検索条件で絞り込んでください`,
     { count, max },
   );
-}
-
-// 指定された依頼が存在しない、または依頼した本人と異なるときのエラー（§13.5.3）。
-// 他人の依頼が存在することを知らせないため、403ではなく404にする。
-function masterExportNotFound(): AppError {
-  return new AppError("MASTER_EXPORT_NOT_FOUND", 404, "指定されたダウンロードが見つかりません");
-}
-
-// 生成がまだ終わっていない（READYでない）のに受け取ろうとしたときのエラー（§13.10.2）。
-// 通常は状態確認でREADYを確認してから受け取りを呼ぶため、画面には見せない想定のエラーである。
-function masterExportNotReady(): AppError {
-  return new AppError("MASTER_EXPORT_NOT_READY", 409, "まだ生成が終わっていません");
-}
-
-/**
- * 保持期限（MASTER_EXPORT_RETENTION_HOURS）を過ぎた生成物を掃除する（§13.9.2）。
- * 受け取られなかった、または生成に失敗して残ったままの MasterExport をまとめて片付ける。
- * ストレージ側の削除に失敗しても、行の削除は続ける。取り残しは次回また掃除の対象になるため。
- */
-async function cleanupExpiredExports(): Promise<void> {
-  const cutoff = new Date(Date.now() - MASTER_EXPORT_RETENTION_HOURS * 60 * 60 * 1000);
-  const expired = await masterRepository.findExpiredExports(cutoff);
-  if (expired.length === 0) return;
-
-  await Promise.all(
-    expired
-      .filter((row) => row.filePath)
-      .map((row) =>
-        storage.remove(row.filePath as string).catch(() => {
-          // ファイルが既に無い等の理由で消せなくても、行の削除は止めない
-        }),
-      ),
-  );
-  await masterRepository.deleteExports(expired.map((row) => row.id));
 }
 
 /**
@@ -524,130 +480,37 @@ export const masterService = {
     return { code: formatMasterCategoryCode(existing.id), name: existing.name };
   },
 
-  // CSVダウンロードを依頼する（§13.5.1）。マスタ一覧（MASTER）とマスタ分類一覧（MASTER_CATEGORY）の
-  // どちらも同じ流れで扱うが、対象件数の数え方と検索条件の持たせ方だけが異なる。
-  async requestExport(
-    target: MasterExportTarget,
+  // マスタ一覧（MST-01）のCSVをその場で作って返す。件数が上限を超えていれば作らずエラーにする。
+  async exportMasterCsv(
     criteria: MasterSearchCriteria,
-    userId: string,
-  ): Promise<MasterExportRequest> {
+  ): Promise<{ fileName: string; data: Buffer }> {
     const keyword = criteria.keyword?.trim() || undefined;
-    const count =
-      target === "MASTER"
-        ? await masterRepository.countMasters({ categoryId: criteria.categoryId, keyword })
-        : await masterRepository.countCategories();
+    const count = await masterRepository.countMasters({ categoryId: criteria.categoryId, keyword });
     if (count > MASTER_EXPORT_MAX_ROWS) {
       throw masterExportLimitExceeded(count, MASTER_EXPORT_MAX_ROWS);
     }
 
-    // 依頼のたびに、前回までの取り残し（受け取られなかった生成物）を片付ける
-    await cleanupExpiredExports();
-
-    const exportRow = await masterRepository.createExport({
-      target,
-      categoryId: target === "MASTER" ? criteria.categoryId : undefined,
-      keyword: target === "MASTER" ? keyword : undefined,
-      requestedBy: userId,
-    });
-
-    // 検索条件は MasterExport 側に持たせているため、ジョブには exportId だけを積む（§13.5.1）。
-    // キューは worker 側（工程16）で先に作られる想定だが、その順序に依存しないよう、
-    // 送る前に自分でも作成しておく（既にあれば何もしない）。
-    // start() は2回目以降すぐ返る作りのため、リクエストのたびに呼んでも問題ない。
-    // worker とは別プロセス（別の PgBoss インスタンス）であり、ここで開始しないと
-    // 接続が開かれないまま createQueue / send が失敗する。
-    const boss = getBoss();
-    await boss.start();
-    await boss.createQueue(MASTER_EXPORT_QUEUE);
-    await boss.send(MASTER_EXPORT_QUEUE, { exportId: exportRow.id });
-
-    // 本番のときだけ、積んだジョブを処理させるため worker（Cloud Run Jobs）を起動する（§30.1.7）。
-    // ローカルは常駐 worker が既に動いているため何もしない（invokeWorker 内で判定）。
-    await invokeWorker();
-
-    return { exportId: exportRow.id };
+    // 並び順は一覧（MST-01）の既定と同じにする（設計書§13.2）。
+    const rows = await masterRepository.listMastersForExport(
+      { categoryId: criteria.categoryId, keyword },
+      "category",
+      "asc",
+    );
+    const csv = buildMasterExportCsv(rows.map(toMasterDetail));
+    const fileName = buildMasterExportFileName("MASTER", new Date());
+    return { fileName, data: Buffer.from(csv, "utf-8") };
   },
 
-  /**
-   * CSVを実際に生成する（worker から呼ばれる。§13.5.2）。
-   * 依頼が見つからない、または既に処理済み（QUEUEDでない）場合は何もしない。
-   * これは同じジョブが二重に実行されたときの保険であり、通常の流れでは起きない。
-   */
-  async processExport(exportId: string): Promise<void> {
-    const exportRow = await masterRepository.findExportById(exportId);
-    if (!exportRow) return;
-    if (!(await masterRepository.markExportRunning(exportId))) return;
-
-    try {
-      const target = exportRow.target as MasterExportTarget;
-      let csv: string;
-      let rowCount: number;
-      if (target === "MASTER") {
-        // 並び順は一覧（MST-01）の既定と同じにする（§13.2）。件数の再確認は行わない（§13.8）。
-        const rows = await masterRepository.listMastersForExport(
-          {
-            categoryId: exportRow.categoryId ?? undefined,
-            keyword: exportRow.keyword ?? undefined,
-          },
-          "category",
-          "asc",
-        );
-        csv = buildMasterExportCsv(rows.map(toMasterDetail));
-        rowCount = rows.length;
-      } else {
-        const rows = await masterRepository.listCategoriesForExport("code", "asc");
-        csv = buildMasterCategoryExportCsv(rows.map(toCategoryDetail));
-        rowCount = rows.length;
-      }
-
-      // 保存パスは exportId で一意にする。利用者へ見せるファイル名とは別物（§13.9.1）。
-      const filePath = `master-export/${exportId}.csv`;
-      const fileName = buildMasterExportFileName(target, new Date());
-      await storage.upload(filePath, Buffer.from(csv, "utf-8"), "text/csv");
-      await masterRepository.updateExportReady(exportId, { filePath, fileName, rowCount });
-    } catch (err) {
-      // 記録だけここで行い、ログは呼び出し元（withJob）が処理境界で1回だけ出す
-      const errorCode = isAppError(err) ? err.code : "MASTER_EXPORT_FAILED";
-      await masterRepository.updateExportFailed(exportId, errorCode);
-      throw err;
+  // マスタ分類一覧（MST-06）のCSVをその場で作って返す。検索条件が無いため常に全件が対象。
+  async exportCategoryCsv(): Promise<{ fileName: string; data: Buffer }> {
+    const count = await masterRepository.countCategories();
+    if (count > MASTER_EXPORT_MAX_ROWS) {
+      throw masterExportLimitExceeded(count, MASTER_EXPORT_MAX_ROWS);
     }
+
+    const rows = await masterRepository.listCategoriesForExport("code", "asc");
+    const csv = buildMasterCategoryExportCsv(rows.map(toCategoryDetail));
+    const fileName = buildMasterExportFileName("MASTER_CATEGORY", new Date());
+    return { fileName, data: Buffer.from(csv, "utf-8") };
   },
-
-  // CSVの生成状況を問い合わせる（画面から2秒間隔で呼ばれる。§13.5.3・§13.10.1）。
-  // 依頼が見つからない、または依頼した本人と異なる場合は同じエラーにする（本人以外へ存在を知らせないため）。
-  async getExportStatus(exportId: string, userId: string): Promise<MasterExportStatus> {
-    const exportRow = await masterRepository.findExportById(exportId);
-    if (!exportRow || exportRow.requestedBy !== userId) {
-      throw masterExportNotFound();
-    }
-    return {
-      status: exportRow.status as MasterExportStatus["status"],
-      errorCode: exportRow.errorCode ?? undefined,
-    };
-  },
-
-  // 生成済みのCSVを受け取る（§13.5.3）。本人確認のうえファイルを取得し、
-  // 取り残しを残さないよう、返した直後にファイルと MasterExport の行を削除する（§13.9.2）。
-  async downloadExport(
-    exportId: string,
-    userId: string,
-  ): Promise<{ fileName: string; data: Buffer }> {
-    const exportRow = await masterRepository.findExportById(exportId);
-    if (!exportRow || exportRow.requestedBy !== userId) {
-      throw masterExportNotFound();
-    }
-    if (exportRow.status !== "READY" || !exportRow.filePath || !exportRow.fileName) {
-      throw masterExportNotReady();
-    }
-
-    const data = await storage.download(exportRow.filePath);
-    await storage.remove(exportRow.filePath).catch(() => {
-      // 消せなくても応答は成功として返す。取り残しは次回依頼時の掃除で回収する（§13.9.2）
-    });
-    await masterRepository.deleteExports([exportRow.id]);
-
-    return { fileName: exportRow.fileName, data };
-  },
-
-  cleanupExpiredExports,
 };

@@ -8,16 +8,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * CSVダウンロードの受け取り窓口（§13.5.3）。
- * 生成済みのファイルを1回だけ返し、返した直後にファイルと依頼の記録を削除する（§13.9.2）。
- * 署名URLへのリダイレクトは行わず、本人確認を通ったこのアプリ経由でだけファイルを渡す。
+ * マスタ分類一覧（MST-06）のCSVダウンロードの窓口。
+ * 検索条件が無いため常に全件を対象に、その場でCSVを組み立てて1回のレスポンスで返す。
  */
-export const GET = withRoute("master.export.download", async (_req: Request, ctx?: unknown) => {
+export const GET = withRoute("master.category.export.csv", async () => {
   const user = await getCurrentUser();
   if (!user) throw Errors.unauthorized();
 
-  const { exportId } = await (ctx as { params: Promise<{ exportId: string }> }).params;
-  const { fileName, data } = await masterService.downloadExport(exportId, user.id);
+  const { fileName, data } = await masterService.exportCategoryCsv();
 
   return new Response(new Uint8Array(data), {
     status: 200,
