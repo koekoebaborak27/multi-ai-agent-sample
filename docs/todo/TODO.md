@@ -33,7 +33,7 @@
 
 ## 次にやること
 
-**工程1-3（Cloud Run Jobs の作成）に着手する準備が整った。** 手順書のドラフトを用意したので、[`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_CloudRunJobs構築.md#071-手順6-cloud-run-jobsworkerを構築する)（構築）→ [§08.1](../specs/99_infra/infra_design_08_CloudRunJobs動作確認.md#081-手順7-cloud-run-jobs-の動作を確認する)（動作確認）の順に Google Cloud コンソールで進める。設計書 §30.1.7.4。**作業はコンソール操作が中心のため、事前に打つコマンドは無い。**
+**工程1-3（Cloud Run Jobs の作成）に着手する準備が整った。** 手順書のドラフトを用意したので、[`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_CloudRunJobs構築.md#071-手順6-cloud-run-jobsworkerを構築する)（構築）→ [§08.1](../specs/99_infra/infra_design_08_CloudRunJobs動作確認.md#081-手順7-cloud-run-jobs-の動作を確認する)（動作確認）の順に進める。設計書 §30.1.7.4。**最初の§07.1.2（worker 用イメージのビルド・push）だけは PC 上で gcloud CLI と Docker のコマンドを打つ。gcloud CLI が未導入なら [§01.1.2](../specs/99_infra/infra_design_01_事前準備.md#0112-用意するツール) で先にインストールする。それ以降（§07.1.3〜）は Google Cloud コンソールでの操作。**
 
 手元の状態を確認するコマンド:
 

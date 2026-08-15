@@ -19,18 +19,27 @@
 
 PC 側で使うツールです。[`README.md`](../../../README.md#1-必要なソフトウェアをインストールする) の手順で導入済みであれば、追加の作業は不要です。
 
-| ツール               | 用途                 | 確認コマンド                              |
-| ----------------- | ------------------ | ----------------------------------- |
-| Git               | ソースコードの登録          | `git --version`                     |
-| GitHub CLI（`gh`）  | GitHub の操作をコマンドで行う | `gh --version`                      |
-| Node.js 22 / pnpm | マイグレーション・seed の実行  | `node --version` / `pnpm --version` |
-| Docker Desktop    | 事前のローカル確認（任意）      | `docker --version`                  |
+| ツール               | 用途                                                                                               | 確認コマンド                              |
+| ----------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Git               | ソースコードの登録                                                                                        | `git --version`                     |
+| GitHub CLI（`gh`）  | GitHub の操作をコマンドで行う                                                                               | `gh --version`                      |
+| Node.js 22 / pnpm | マイグレーション・seed の実行                                                                                | `node --version` / `pnpm --version` |
+| Docker Desktop    | 事前のローカル確認（任意）／手順6で worker 用イメージを作るとき（必須）                                                         | `docker --version`                  |
+| gcloud CLI        | 手順6で worker 用イメージを Google Cloud へ登録するとき（**worker を使う機能（CSVダウンロードやアップロードなど時間がかかる機能）を採用する場合のみ必須**） | `gcloud --version`                  |
 
 GitHub CLI を導入していない場合は [GitHub CLI](https://cli.github.com/) からインストールし、次のコマンドで認証します。
 
 ```powershell
 gh auth login
 ```
+
+gcloud CLI を導入していない場合は [Google Cloud CLI のインストール手順](https://cloud.google.com/sdk/docs/install) からインストールし、次のコマンドでログインします（初回のみ）。**手順6（[`infra_design_07_CloudRunJobs構築.md`](infra_design_07_CloudRunJobs構築.md)）に進むまでは不要です。**
+
+```powershell
+gcloud init
+```
+
+> ここまでの手順1〜5（GitHub リポジトリ作成 〜 Cloud Run の動作確認）は、すべてブラウザの Google Cloud コンソール上の操作だけで完結します。gcloud CLI が必要になるのは、手順6で worker 用のコンテナイメージを**お使いの PC 上で**手動ビルドするときだけです。
 
 ## 01.1.3 作業中に控えておく情報
 

@@ -17,32 +17,67 @@ worker の実行方式（Cloud Run Jobs として単発実行し、app が起動
 
 ## 07.1.2 worker 用のコンテナイメージを用意する
 
-**この時点では、Cloud Build による自動ビルドはまだ設定されていません。** app 用のビルド設定（[05.1.6](infra_design_05_CloudRun構築.md#0516-cloud-build-のビルド設定を修正する)）は `--target runner` を指定しており、worker 用のイメージは作られません。自動化はあとの工程（Cloud Build のトリガーに worker 用のビルドを追加する）で行うため、**この手順では一度だけ手動でビルドして登録します。**
+**ここで行うこと**: worker（CSV 生成など、時間のかかる処理を裏側で動かすプログラム）を、Google Cloud 上に送信して登録します。次の4ステップです。
 
-### イメージの登録先（Artifact Registry）を確認する
+1. PC から Google Cloud にログインする（初回のみ）
+2. PC の Docker が Google Cloud へ送信できるように設定する（初回のみ）
+3. worker を「コンテナイメージ」（プログラムとその実行に必要なものを1つにまとめたファイル。Google Cloud 上で動かすにはこの形式にする必要がある）に変換する（**ビルド**すると言います）
+4. 変換したコンテナイメージを Google Cloud へ送る（**push** すると言います）
 
-app のビルド（[05.1.6](infra_design_05_CloudRun構築.md#0516-cloud-build-のビルド設定を修正する)）により、Artifact Registry に `cloud-run-source-deploy` という名前のリポジトリが自動的に作られています。左メニューの **Artifact Registry** から確認できます。worker 用のイメージも同じリポジトリへ登録します。
+以下、この4ステップを順番に進めます。
 
-### ビルドして登録する
+> **なぜここだけ PC 上でコマンドを打つのか**: 手順1〜5（[`infra_design_02_GitHubリポジトリ.md`](infra_design_02_GitHubリポジトリ.md)〜[`infra_design_06_CloudRun動作確認.md`](infra_design_06_CloudRun動作確認.md)）はすべてブラウザ操作でした。app（Webサイト本体）は GitHub へ push すると Google Cloud 側が自動でコンテナイメージへ変換してくれるため、PC 上でコマンドを打つ必要がなかったのです。worker 用の自動変換はまだ設定されておらず（あとの工程 1-5 で対応します）、それまでの間はこの節だけ一度限りの手作業で行います。
 
-PC 上で、Google Cloud への認証と Docker の設定を行います（初回のみ）。
+**事前に必要なもの**: 操作場所はブラウザではなく PC の PowerShell（ターミナル）です。「gcloud CLI」（Google Cloud をコマンドで操作するための専用ソフト）が入っていない場合は、先に [事前準備 §01.1.2](infra_design_01_事前準備.md#0112-用意するツール) の手順でインストールしてください。
+
+### ① PC から Google Cloud にログインする（初回のみ）
 
 ```powershell
 gcloud auth login
+```
+
+実行するとブラウザが自動で開きます。**普段 Google Cloud を操作しているのと同じ Google アカウント**でログインしてください。
+
+### ② Docker が Google Cloud へ送信できるようにする（初回のみ）
+
+```powershell
 gcloud auth configure-docker us-central1-docker.pkg.dev
 ```
 
-worker 用イメージをビルドし、push します。**リポジトリのルート**（`docker/Dockerfile` があるディレクトリの1つ上）で実行してください。
+このあとの④「送信する」を、PC 上の Docker が Google Cloud に対して行えるようにするための、一度きりの設定です。
+
+### ③ worker をコンテナイメージに変換する（ビルドする）
+
+以下を実行する前に、PowerShell の場所（カレントディレクトリ）が**このリポジトリの一番上の階層**（`docker` フォルダと同じ階層。`prisma` や `src` フォルダもここにあります）になっていることを確認してください。
+
+`<プロジェクトID>` の部分は、お使いの Google Cloud のプロジェクト ID（[05.1.2](infra_design_05_CloudRun構築.md#0512-google-cloud-プロジェクトを作成する) で決めたもの）に書き換えてください。
 
 ```powershell
 $project="<プロジェクトID>"
 $image="us-central1-docker.pkg.dev/$project/cloud-run-source-deploy/worker:latest"
 
 docker build --target worker -f docker/Dockerfile -t $image .
+```
+
+[`docker/Dockerfile`](../../../docker/Dockerfile) には、app 用と worker 用、2種類の変換手順がまとめて書かれています。`--target worker` を付けることで「worker 用の手順だけを使ってください」と指定しています。
+
+> **`--target worker` を書き忘れないでください。** 書き忘れると既定の app 用の手順で変換されてしまい、worker として動きません。
+
+### ④ 変換したコンテナイメージを Google Cloud へ送る（push する）
+
+**③と同じ PowerShell の画面で続けて**、次を実行してください（`$project` や `$image` は③で設定した値をそのまま使います）。
+
+```powershell
 docker push $image
 ```
 
-> **`--target worker` を忘れないでください。** 指定しない場合、既定の最終ステージ（`runner`）がビルドされ、`next start` が起動コマンドになってしまいます。
+送信先の `cloud-run-source-deploy` という保管場所（Artifact Registry）は、app 用のビルド（[05.1.6](infra_design_05_CloudRun構築.md#0516-cloud-build-のビルド設定を修正する)）のときに Google Cloud が自動で作ってくれたものです。worker のコンテナイメージも同じ場所へ送ります。
+
+### 送信できたか確認する
+
+ブラウザで Google Cloud コンソールを開き、左メニューの **Artifact Registry → `cloud-run-source-deploy`** を開いてください。`worker` という名前のイメージが増えていれば成功です。
+
+ここまでで PC 上での作業は終わりです。ここから先（[07.1.3](#0713-cloud-run-jobs-を作成する) 以降）は、再びブラウザでの Google Cloud コンソール操作に戻ります。
 
 ## 07.1.3 Cloud Run Jobs を作成する
 
