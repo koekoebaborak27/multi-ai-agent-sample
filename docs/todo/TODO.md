@@ -33,13 +33,12 @@
 
 ## 次にやること
 
-**工程 18「単体テスト実施」が完了した。次は第5段階の工程「Cloud Run Jobs を含む本番構成を完成させる」に進む。** 8つの工程（1-1〜1-8）に分割済み。**まず 1-1（アプリから worker を呼び出す処理をコードで作る）から着手する。** 設計書 §30.1.7.4、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用) を参照する。
+**工程1-1（アプリから worker を呼び出す処理）が完了した。次は 1-2（worker 専用の実行用イメージを Dockerfile に用意する）から着手する。** 1-3以降はGoogle Cloudコンソールでの操作が中心になるため、着手前に手順書のドラフトを用意してから進める。設計書 §30.1.7.4、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用) を参照する。
 
 最初に打つコマンド:
 
 ```powershell
-docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する
-git checkout -b feat/infra-cloud-run-jobs                # 作業用ブランチを作る
+docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する（ブランチは feat/infra-cloud-run-jobs のまま続ける）
 ```
 
 手元の状態を確認するコマンド:
@@ -104,7 +103,7 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 設計書 [`docs/specs/02_basic-design/master/30_CSVダウンロード.md`](../specs/02_basic-design/master/30_CSVダウンロード.md) §30.1.7.4 を実装の正本とし、**1-1 から順に進める**。実装内容と検証結果は [`docs/todo/history/`](history/README.md) に書く。
 
 - [ ] **1. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §30.1.7、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用)
-  - [ ] 1-1. アプリから worker を呼び出す処理をコードで作る。本番のときだけ「WORKER_INVOKE_MODE」という設定を見て、Google Cloud に「worker を1回動かして」と頼む処理を追加する。`.env.example` にも設定項目を書き足す
+  - [x] 1-1. アプリから worker を呼び出す処理をコードで作る（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-アプリからworkerを呼び出す処理を実装)
   - [ ] 1-2. worker 専用の実行用イメージ（アプリを動かすための入れ物）を用意する。今の Dockerfile に worker 用の起動手順を追加するか、アプリと同じ土台を使って起動コマンドだけ変える
   - [ ] 1-3. 「Cloud Run Jobs」（本番で worker を1回だけ動かす仕組み）を作る。データベースへの接続先やファイルの保存先の設定値も一緒に登録する
   - [ ] 1-4. worker 専用の実行アカウントを作り、アプリ側からそのJobsを起動できる権限だけを与える。TODO に残っている宿題「実行アカウントを権限なしのものに差し替える」を、「必要最小限の権限だけ持たせる」という形に直して一緒に片づける
@@ -129,11 +128,11 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `main`。`feat/master-management`（工程 1〜18）は [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でマージ済み、リモート・ローカルとも削除済み |
-| 本番 DB | **マスタのマイグレーションは未適用**（`20260723125616_init` のみ）。ローカルは `20260812093057_add_master_export` まで適用済み。本番への適用は第 5 段階の工程 |
+| 作業ブランチ | `feat/infra-cloud-run-jobs`（第5段階の工程1-1、未push）。`feat/master-management`（工程 1〜18）は [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でマージ済み、リモート・ローカルとも削除済み |
+| 本番 DB | **マスタのマイグレーションは未適用**（`20260723125616_init` のみ）。ローカルは `20260812093057_add_master_export` まで適用済み。本番への適用は第 5 段階の工程1-7 |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み |
-| 直近の検証 | 2026-08-14、工程18完了後の状態で `lint` / `format:check` / `typecheck` / 13 ファイル 184 テストが成功。Playwright 9 ファイル・79 ケースが全て成功（工程18-2〜18-10） |
+| 直近の検証 | 2026-08-15、工程1-1実装後に `lint` / `format:check` / `typecheck` / 14 ファイル 188 テストが成功。ローカルの常駐 worker を手動起動しCSVダウンロード（依頼→生成→受け取り）が回帰なく動作することをブラウザで確認 |
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 

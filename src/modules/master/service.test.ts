@@ -7,6 +7,7 @@ import { masterRepository } from "@/modules/master/repository";
 import { formatMasterCategoryCode, masterService } from "@/modules/master/service";
 import { AppError } from "@/shared/errors/app-error";
 import { getBoss } from "@/shared/jobs/boss";
+import { invokeWorker } from "@/shared/jobs/invoke-worker";
 import { storage } from "@/shared/storage";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -50,6 +51,9 @@ vi.mock("@/shared/storage", () => ({
 }));
 vi.mock("@/shared/jobs/boss", () => ({
   getBoss: vi.fn(),
+}));
+vi.mock("@/shared/jobs/invoke-worker", () => ({
+  invokeWorker: vi.fn(),
 }));
 
 // 更新の試験で使う「画面を開いた時点の最終更新日時」。
@@ -1065,6 +1069,7 @@ describe("master/service requestExport", () => {
       });
       expect(boss.createQueue).toHaveBeenCalledWith("master.export");
       expect(boss.send).toHaveBeenCalledWith("master.export", { exportId: "export1" });
+      expect(invokeWorker).toHaveBeenCalledTimes(1);
     });
   });
 

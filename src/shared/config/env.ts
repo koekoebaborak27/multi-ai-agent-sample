@@ -48,6 +48,32 @@ const envSchema = z.object({
   SUPABASE_URL: optionalUrl,
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_STORAGE_BUCKET: z.string().default("uploads"),
+
+  // worker の起動（本番のみ）。none（既定）ではアプリから worker を起動する処理を行わない。
+  // cloud-run-job では Cloud Run Admin API 経由で Cloud Run Jobs を単発起動する（設計書§30.1.7）。
+  WORKER_INVOKE_MODE: z.enum(["none", "cloud-run-job"]).default("none"),
+  CLOUD_RUN_JOB_NAME: z.string().optional(),
+  CLOUD_RUN_JOB_REGION: z.string().optional(),
+  GOOGLE_CLOUD_PROJECT: z.string().optional(),
+});
+
+// WORKER_INVOKE_MODE が cloud-run-job のときは、起動先を特定するための3項目が必須になる。
+// 設定漏れを実際に使う場面（依頼のたび）ではなく起動時点で気付けるようにするための検証。
+const envSchemaWithWorkerInvoke = envSchema.superRefine((val, ctx) => {
+  if (val.WORKER_INVOKE_MODE !== "cloud-run-job") return;
+  for (const key of [
+    "CLOUD_RUN_JOB_NAME",
+    "CLOUD_RUN_JOB_REGION",
+    "GOOGLE_CLOUD_PROJECT",
+  ] as const) {
+    if (!val[key]) {
+      ctx.addIssue({
+        code: "custom",
+        path: [key],
+        message: `WORKER_INVOKE_MODE=cloud-run-job のときは ${key} が必須です`,
+      });
+    }
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -55,7 +81,7 @@ export type Env = z.infer<typeof envSchema>;
 // 環境変数を読み込んで確認する。
 // 誤りがあれば、どの項目が何の理由で駄目なのかを並べて起動を止める。
 function loadEnv(): Env {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchemaWithWorkerInvoke.safeParse(process.env);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
