@@ -33,12 +33,12 @@
 
 ## 次にやること
 
-**工程1-1（アプリから worker を呼び出す処理）が完了した。次は 1-2（worker 専用の実行用イメージを Dockerfile に用意する）から着手する。** 1-3以降はGoogle Cloudコンソールでの操作が中心になるため、着手前に手順書のドラフトを用意してから進める。設計書 §30.1.7.4、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用) を参照する。
+**工程1-2（worker 専用の実行用イメージを Dockerfile に用意する）が完了した。次は 1-3（Cloud Run Jobs の作成）から着手する。** 1-3以降はGoogle Cloudコンソールでの操作が中心になるため、着手前に手順書のドラフトを用意してから進める。設計書 §30.1.7.4、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用) を参照する。
 
 最初に打つコマンド:
 
 ```powershell
-docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する（ブランチは feat/infra-cloud-run-jobs のまま続ける）
+docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する（ブランチは feat/worker-image のまま続ける）
 ```
 
 手元の状態を確認するコマンド:
@@ -104,7 +104,7 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 - [ ] **1. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §30.1.7、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用)
   - [x] 1-1. アプリから worker を呼び出す処理をコードで作る（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-アプリからworkerを呼び出す処理を実装)
-  - [ ] 1-2. worker 専用の実行用イメージ（アプリを動かすための入れ物）を用意する。今の Dockerfile に worker 用の起動手順を追加するか、アプリと同じ土台を使って起動コマンドだけ変える
+  - [x] 1-2. worker 専用の実行用イメージ（アプリを動かすための入れ物）を用意する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-worker専用の実行用イメージをdockerfileに用意)
   - [ ] 1-3. 「Cloud Run Jobs」（本番で worker を1回だけ動かす仕組み）を作る。データベースへの接続先やファイルの保存先の設定値も一緒に登録する
   - [ ] 1-4. worker 専用の実行アカウントを作り、アプリ側からそのJobsを起動できる権限だけを与える。TODO に残っている宿題「実行アカウントを権限なしのものに差し替える」を、「必要最小限の権限だけ持たせる」という形に直して一緒に片づける
   - [ ] 1-5. 本番への自動反映の仕組み（Cloud Build）が、アプリ用の入れ物と同時に worker 用の入れ物も作り直すようにする
@@ -118,7 +118,7 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 - [ ] **`main` のブランチ保護をどうするか決める** — 当面は運用ルールで守る。選択肢 3 つと確認コマンドは [`docs/specs/99_infra/` §02.1.6](../specs/99_infra/infra_design_02_GitHubリポジトリ.md#0216-ブランチ保護を設定する)
 - [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §07.1.1](../specs/99_infra/infra_design_07_構築後の運用.md#0711-本番へ反映する)
-- [ ] **`output: "standalone"` 化を検討する** — 着手の適時は工程 18 で worker 用イメージを分離するとき。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
+- [ ] **`output: "standalone"` 化を検討する** — 第5段階工程1-2で worker 用イメージの分離が完了し、着手条件は整った。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
 - [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §07.1.2](../specs/99_infra/infra_design_07_構築後の運用.md#0712-データベースの構造を変更する)
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 
@@ -128,11 +128,11 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `feat/infra-cloud-run-jobs`（第5段階の工程1-1、未push）。`feat/master-management`（工程 1〜18）は [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でマージ済み、リモート・ローカルとも削除済み |
+| 作業ブランチ | `feat/worker-image`（第5段階の工程1-2、未push）。`feat/infra-cloud-run-jobs`（工程1-1）は [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14) でマージ済み、リモート・ローカルとも削除済み。`feat/master-management`（工程 1〜18）は [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でマージ済み、リモート・ローカルとも削除済み |
 | 本番 DB | **マスタのマイグレーションは未適用**（`20260723125616_init` のみ）。ローカルは `20260812093057_add_master_export` まで適用済み。本番への適用は第 5 段階の工程1-7 |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み |
-| 直近の検証 | 2026-08-15、工程1-1実装後に `lint` / `format:check` / `typecheck` / 14 ファイル 188 テストが成功。ローカルの常駐 worker を手動起動しCSVダウンロード（依頼→生成→受け取り）が回帰なく動作することをブラウザで確認 |
+| 直近の検証 | 2026-08-15、工程1-2実装後に `lint` / `format:check` / `typecheck` / 14 ファイル 188 テストが成功。`docker build --target worker` でイメージを作成し、単発モード（`--once`、キュー空で正常終了）・常駐モードの両方をコンテナ実機で確認 |
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1）。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 
