@@ -33,7 +33,7 @@
 
 ## 次にやること
 
-**工程 18「単体テスト実施」が完了した。次は第5段階の工程「Cloud Run Jobs を含む本番構成を完成させる」に進む。** worker 用イメージ・Cloud Run Jobs・専用サービスアカウント・Cloud Build の app / worker ビルドを整備し、本番 DB へマスタのマイグレーションを適用する。設計書 §13.7、手順は [`docs/specs/99_infra/` §11](../specs/99_infra/infra_design_07_構築後の運用.md#11-構築後の運用) を参照する。
+**工程 18「単体テスト実施」が完了した。次は第5段階の工程「Cloud Run Jobs を含む本番構成を完成させる」に進む。** 8つの工程（1-1〜1-8）に分割済み。**まず 1-1（アプリから worker を呼び出す処理をコードで作る）から着手する。** 設計書 §30.1.7.4、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用) を参照する。
 
 最初に打つコマンド:
 
@@ -49,7 +49,7 @@ git log --oneline -1                                     # 現在のコミット
 git status --porcelain                                   # 未コミット差分がないか確認
 ```
 
-本番の疎通確認は [`docs/specs/99_infra/` §10](../specs/99_infra/infra_design_06_動作確認.md#10-手順5-動作を確認する)、`main` への push の進め方は [`gitの操作ルール.md`](../development/gitの操作ルール.md) を参照する。**`main` への push は本番デプロイを引き起こす。**
+本番の疎通確認は [`docs/specs/99_infra/` §06.1](../specs/99_infra/infra_design_06_動作確認.md#061-手順5-動作を確認する)、`main` への push の進め方は [`gitの操作ルール.md`](../development/gitの操作ルール.md) を参照する。**`main` への push は本番デプロイを引き起こす。**
 
 ## マスタ機能の製造工程
 
@@ -80,7 +80,7 @@ git status --porcelain                                   # 未コミット差分
 
 ### 第4段階 CSVダウンロードをローカルで完成させる
 
-CSV は画面機能の完成後に着手する（設計書 §13）。
+CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 - [x] **13. `withRoute` に実行者情報を追加する**（2026-08-12）→ [履歴](history/2026-08-w2.md#2026-08-12-withroute-に実行者情報を追加)
 - [x] **14. `MasterExport` と CSV 生成処理を実装する**（2026-08-12）→ [履歴](history/2026-08-w2.md#2026-08-12-masterexportとcsv生成処理を実装)
@@ -101,16 +101,26 @@ CSV は画面機能の完成後に着手する（設計書 §13）。
 
 ### 第5段階 本番構成と最終確認
 
-- [ ] **1. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §13.7、手順は [`docs/specs/99_infra/` §11](../specs/99_infra/infra_design_07_構築後の運用.md#11-構築後の運用)
+設計書 [`docs/specs/02_basic-design/master/30_CSVダウンロード.md`](../specs/02_basic-design/master/30_CSVダウンロード.md) §30.1.7.4 を実装の正本とし、**1-1 から順に進める**。実装内容と検証結果は [`docs/todo/history/`](history/README.md) に書く。
+
+- [ ] **1. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §30.1.7、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用)
+  - [ ] 1-1. アプリから worker を呼び出す処理をコードで作る。本番のときだけ「WORKER_INVOKE_MODE」という設定を見て、Google Cloud に「worker を1回動かして」と頼む処理を追加する。`.env.example` にも設定項目を書き足す
+  - [ ] 1-2. worker 専用の実行用イメージ（アプリを動かすための入れ物）を用意する。今の Dockerfile に worker 用の起動手順を追加するか、アプリと同じ土台を使って起動コマンドだけ変える
+  - [ ] 1-3. 「Cloud Run Jobs」（本番で worker を1回だけ動かす仕組み）を作る。データベースへの接続先やファイルの保存先の設定値も一緒に登録する
+  - [ ] 1-4. worker 専用の実行アカウントを作り、アプリ側からそのJobsを起動できる権限だけを与える。TODO に残っている宿題「実行アカウントを権限なしのものに差し替える」を、「必要最小限の権限だけ持たせる」という形に直して一緒に片づける
+  - [ ] 1-5. 本番への自動反映の仕組み（Cloud Build）が、アプリ用の入れ物と同時に worker 用の入れ物も作り直すようにする
+  - [ ] 1-6. 本番のアプリ側に「worker は Cloud Run Jobs で動かす」という設定値を追加する
+  - [ ] 1-7. 本番のデータベースに、マスタ機能でのデータベースの変更内容（マイグレーション）を反映する
+  - [ ] 1-8. 本番で実際に CSV ダウンロードを最初から最後まで動かして確認する（依頼 → 生成 → 受け取り）
 
 ## 残っているタスク
 
 いずれも**期限のない宿題**。判断材料は各リンク先にまとまっている。
 
-- [ ] **`main` のブランチ保護をどうするか決める** — 当面は運用ルールで守る。選択肢 3 つと確認コマンドは [`docs/specs/99_infra/` §6.6](../specs/99_infra/infra_design_02_GitHubリポジトリ.md#66-ブランチ保護を設定する)
-- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §11.1](../specs/99_infra/infra_design_07_構築後の運用.md#111-本番へ反映する)
+- [ ] **`main` のブランチ保護をどうするか決める** — 当面は運用ルールで守る。選択肢 3 つと確認コマンドは [`docs/specs/99_infra/` §02.1.6](../specs/99_infra/infra_design_02_GitHubリポジトリ.md#0216-ブランチ保護を設定する)
+- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §07.1.1](../specs/99_infra/infra_design_07_構築後の運用.md#0711-本番へ反映する)
 - [ ] **`output: "standalone"` 化を検討する** — 着手の適時は工程 18 で worker 用イメージを分離するとき。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
-- [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §11.2](../specs/99_infra/infra_design_07_構築後の運用.md#112-データベースの構造を変更する)
+- [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §07.1.2](../specs/99_infra/infra_design_07_構築後の運用.md#0712-データベースの構造を変更する)
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 
 ## 現在の状態
@@ -139,7 +149,7 @@ CSV は画面機能の完成後に着手する（設計書 §13）。
 | 1. 署名 URL 化（PR #7） | 5 | [署名 URL 化](history/2026-08-w1.md#2026-08-02-署名-url-化) |
 | 2. Docker イメージの軽量化（PR #8 / #9） | 6 | [軽量化と worker の .env 依存解消](history/2026-08-w1.md#2026-08-02-docker-イメージの軽量化と-worker-の-env-依存解消)（1.73GB → 1.31GB。当初の standalone 化から差し替え） |
 | 3. Google Cloud Run（PR #11） | 8 | [Cloud Run の構築とログイン不能バグの修正](history/2026-08-w1.md#2026-08-04-cloud-run-の構築とログイン不能バグの修正) |
-| マスタ機能の設計 | 6 | [削除機能](history/2026-08-w2.md#2026-08-08-マスタ削除機能の設計)・[コードと分類の変更](history/2026-08-w2.md#2026-08-08-マスタコードとマスタ分類の変更機能の設計)・[残り 4 項目と CSV](history/2026-08-w2.md#2026-08-09-マスタ設計の残り4項目を決着させcsvダウンロードを設計)（3 項目は不採用で決着 → 設計書 §14.1） |
+| マスタ機能の設計 | 6 | [削除機能](history/2026-08-w2.md#2026-08-08-マスタ削除機能の設計)・[コードと分類の変更](history/2026-08-w2.md#2026-08-08-マスタコードとマスタ分類の変更機能の設計)・[残り 4 項目と CSV](history/2026-08-w2.md#2026-08-09-マスタ設計の残り4項目を決着させcsvダウンロードを設計)（3 項目は不採用で決着 → 設計書 §00.9.1） |
 | 一覧 UI の共通化 | 3 | [スクロールと固定ヘッダー](history/2026-08-w2.md#2026-08-10-一覧テーブルのスクロールと固定ヘッダーを共通化)・[検索条件アコーディオン](history/2026-08-w2.md#2026-08-10-検索条件アコーディオンと一覧規約を共通化)・[ヘッダーソート](history/2026-08-w2.md#2026-08-10-全一覧のヘッダーソートとマスタ初期分類を実装)（規約は [`DESIGN.md`](../../DESIGN.md)） |
 | 宿題から片づけたもの | 4 | `onlyBuiltDependencies` の検証、`paths-ignore` の実機確認、Storage の疎通（PR #6）、GitHub Actions の更新（PR #2） |
 
