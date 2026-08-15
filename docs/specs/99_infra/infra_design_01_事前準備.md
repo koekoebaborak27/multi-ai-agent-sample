@@ -33,11 +33,14 @@ GitHub CLI を導入していない場合は [GitHub CLI](https://cli.github.com
 gh auth login
 ```
 
-gcloud CLI を導入していない場合は [Google Cloud CLI のインストール手順](https://cloud.google.com/sdk/docs/install) からインストールし、次のコマンドでログインします（初回のみ）。**手順6（[`infra_design_07_CloudRunJobs構築.md`](infra_design_07_CloudRunJobs構築.md)）に進むまでは不要です。**
+gcloud CLI を導入していない場合は、**手順6（[`infra_design_07_CloudRunJobs構築.md`](infra_design_07_CloudRunJobs構築.md)）に進むまでは不要です。** 手順6に進むタイミングで、次の手順でインストールしてください。
 
-```powershell
-gcloud init
-```
+1. [Google Cloud CLI のインストール手順](https://cloud.google.com/sdk/docs/install) を開き、Windows 向けのインストーラー（`GoogleCloudSDKInstaller.exe`）をダウンロードする
+2. ダウンロードしたファイルをダブルクリックして実行し、画面の指示どおりに進める（既定の設定のままで問題ない）
+3. インストール後、**使用中の PowerShell の画面を一度閉じて開き直す**（新しく追加されたコマンドを認識させるため）
+4. 開き直した PowerShell で `gcloud --version` を実行し、バージョン情報が表示されることを確認する
+
+ログインや Docker との連携設定は、実際に使うタイミングである [07.1.2](infra_design_07_CloudRunJobs構築.md#0712-worker-用のコンテナイメージを用意する) にまとめて手順があるので、そちらに従ってください。
 
 > ここまでの手順1〜5（GitHub リポジトリ作成 〜 Cloud Run の動作確認）は、すべてブラウザの Google Cloud コンソール上の操作だけで完結します。gcloud CLI が必要になるのは、手順6で worker 用のコンテナイメージを**お使いの PC 上で**手動ビルドするときだけです。
 
