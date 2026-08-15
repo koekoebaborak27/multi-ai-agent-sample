@@ -39,6 +39,7 @@ import type {
 import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError, isAppError } from "@/shared/errors/app-error";
 import { getBoss } from "@/shared/jobs/boss";
+import { invokeWorker } from "@/shared/jobs/invoke-worker";
 import { storage } from "@/shared/storage";
 import { Prisma } from "@prisma/client";
 
@@ -559,6 +560,10 @@ export const masterService = {
     await boss.start();
     await boss.createQueue(MASTER_EXPORT_QUEUE);
     await boss.send(MASTER_EXPORT_QUEUE, { exportId: exportRow.id });
+
+    // 本番のときだけ、積んだジョブを処理させるため worker（Cloud Run Jobs）を起動する（§30.1.7）。
+    // ローカルは常駐 worker が既に動いているため何もしない（invokeWorker 内で判定）。
+    await invokeWorker();
 
     return { exportId: exportRow.id };
   },
