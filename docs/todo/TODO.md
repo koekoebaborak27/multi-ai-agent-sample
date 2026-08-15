@@ -33,13 +33,7 @@
 
 ## 次にやること
 
-**工程1-2（worker 専用の実行用イメージを Dockerfile に用意する）が完了した。次は 1-3（Cloud Run Jobs の作成）から着手する。** 1-3以降はGoogle Cloudコンソールでの操作が中心になるため、着手前に手順書のドラフトを用意してから進める。設計書 §30.1.7.4、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用) を参照する。
-
-最初に打つコマンド:
-
-```powershell
-docker compose -f docker/docker-compose.yml up -d db     # ローカル開発を再開する（ブランチは feat/worker-image のまま続ける）
-```
+**工程1-3（Cloud Run Jobs の作成）に着手する準備が整った。** 手順書のドラフトを用意したので、[`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_CloudRunJobs構築.md#071-手順6-cloud-run-jobsworkerを構築する)（構築）→ [§08.1](../specs/99_infra/infra_design_08_CloudRunJobs動作確認.md#081-手順7-cloud-run-jobs-の動作を確認する)（動作確認）の順に Google Cloud コンソールで進める。設計書 §30.1.7.4。**作業はコンソール操作が中心のため、事前に打つコマンドは無い。**
 
 手元の状態を確認するコマンド:
 
@@ -48,7 +42,7 @@ git log --oneline -1                                     # 現在のコミット
 git status --porcelain                                   # 未コミット差分がないか確認
 ```
 
-本番の疎通確認は [`docs/specs/99_infra/` §06.1](../specs/99_infra/infra_design_06_動作確認.md#061-手順5-動作を確認する)、`main` への push の進め方は [`gitの操作ルール.md`](../development/gitの操作ルール.md) を参照する。**`main` への push は本番デプロイを引き起こす。**
+本番の疎通確認は [`docs/specs/99_infra/` §06.1](../specs/99_infra/infra_design_06_CloudRun動作確認.md#061-手順5-動作を確認する)、`main` への push の進め方は [`gitの操作ルール.md`](../development/gitの操作ルール.md) を参照する。**`main` への push は本番デプロイを引き起こす。**
 
 ## マスタ機能の製造工程
 
@@ -102,7 +96,7 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 設計書 [`docs/specs/02_basic-design/master/30_CSVダウンロード.md`](../specs/02_basic-design/master/30_CSVダウンロード.md) §30.1.7.4 を実装の正本とし、**1-1 から順に進める**。実装内容と検証結果は [`docs/todo/history/`](history/README.md) に書く。
 
-- [ ] **1. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §30.1.7、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_構築後の運用.md#071-構築後の運用)
+- [ ] **1. Cloud Run Jobs を含む本番構成を完成させる** — worker 用イメージ、Cloud Run Jobs、専用サービスアカウント、Cloud Build の app / worker ビルド。**本番 DB へのマイグレーション適用**を含む。設計書 §30.1.7、手順は [`docs/specs/99_infra/` §07.1](../specs/99_infra/infra_design_07_CloudRunJobs構築.md#071-手順6-cloud-run-jobsworkerを構築する)
   - [x] 1-1. アプリから worker を呼び出す処理をコードで作る（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-アプリからworkerを呼び出す処理を実装)
   - [x] 1-2. worker 専用の実行用イメージ（アプリを動かすための入れ物）を用意する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-worker専用の実行用イメージをdockerfileに用意)
   - [ ] 1-3. 「Cloud Run Jobs」（本番で worker を1回だけ動かす仕組み）を作る。データベースへの接続先やファイルの保存先の設定値も一緒に登録する
@@ -117,9 +111,9 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 いずれも**期限のない宿題**。判断材料は各リンク先にまとまっている。
 
 - [ ] **`main` のブランチ保護をどうするか決める** — 当面は運用ルールで守る。選択肢 3 つと確認コマンドは [`docs/specs/99_infra/` §02.1.6](../specs/99_infra/infra_design_02_GitHubリポジトリ.md#0216-ブランチ保護を設定する)
-- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §07.1.1](../specs/99_infra/infra_design_07_構築後の運用.md#0711-本番へ反映する)
+- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §09.1.1](../specs/99_infra/infra_design_09_構築後の運用.md#0911-本番へ反映する)
 - [ ] **`output: "standalone"` 化を検討する** — 第5段階工程1-2で worker 用イメージの分離が完了し、着手条件は整った。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
-- [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §07.1.2](../specs/99_infra/infra_design_07_構築後の運用.md#0712-データベースの構造を変更する)
+- [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §09.1.2](../specs/99_infra/infra_design_09_構築後の運用.md#0912-データベースの構造を変更する)
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 
 ## 現在の状態
@@ -128,7 +122,7 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `feat/worker-image`（第5段階の工程1-2、未push）。`feat/infra-cloud-run-jobs`（工程1-1）は [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14) でマージ済み、リモート・ローカルとも削除済み。`feat/master-management`（工程 1〜18）は [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でマージ済み、リモート・ローカルとも削除済み |
+| 作業ブランチ | `main`。`feat/worker-image`（工程1-2）は [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15) でマージ済み、リモート・ローカルとも削除済み。`feat/infra-cloud-run-jobs`（工程1-1）は [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）は [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み。工程1-3の手順書ドラフト（[`docs/specs/99_infra/`](../specs/99_infra/README.md) 07・08、既存06〜10のリネーム含む）はドキュメントのみのため `main` へ直接コミット |
 | 本番 DB | **マスタのマイグレーションは未適用**（`20260723125616_init` のみ）。ローカルは `20260812093057_add_master_export` まで適用済み。本番への適用は第 5 段階の工程1-7 |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み |

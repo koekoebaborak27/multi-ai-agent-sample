@@ -27,7 +27,7 @@ Invoke-WebRequest "$base/login" -UseBasicParsing                 # 200
 
 | 確認内容                   | 期待する結果       | 失敗した場合                                |
 | ---------------------- | ------------ | ------------------------------------- |
-| `/api/health`          | `status: ok` | アプリが起動していません → [09.1 章](infra_design_09_トラブルシュート.md#091-トラブルシュート)   |
+| `/api/health`          | `status: ok` | アプリが起動していません → [11.1 章](infra_design_11_トラブルシュート.md#111-トラブルシュート)   |
 | `/api/health?check=db` | `db: up`     | データベースへ接続できていません → `DATABASE_URL` を確認 |
 | `/login`               | 200          | ログイン画面の配信に問題があります                     |
 
