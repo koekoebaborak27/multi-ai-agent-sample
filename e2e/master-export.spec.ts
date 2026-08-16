@@ -116,7 +116,10 @@ test.describe.serial("マスタCSVダウンロード（MST-01起点）", () => {
       expect(line).not.toContain("XX02");
     }
 
-    await page.screenshot({ path: evidence("002_CSVダウンロード検索条件指定.png"), fullPage: true });
+    await page.screenshot({
+      path: evidence("002_CSVダウンロード検索条件指定.png"),
+      fullPage: true,
+    });
   });
 
   test("TC-003 未ログインでURLを直接開く", async ({ browser }) => {
