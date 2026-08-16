@@ -5,6 +5,7 @@
  */
 import { masterRepository } from "@/modules/master/repository";
 import { formatMasterCategoryCode, masterService } from "@/modules/master/service";
+import { MASTER_EXCEL_EXPORT_QUEUE } from "@/modules/master/types";
 import { AppError } from "@/shared/errors/app-error";
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,12 +32,24 @@ vi.mock("@/modules/master/repository", () => ({
     updateMasterIfUnchanged: vi.fn(),
     deleteMasterIfUnchanged: vi.fn(),
     deleteCategoryIfUnchanged: vi.fn(),
+    createExcelExport: vi.fn(),
   },
 }));
 
 // 環境変数の内容によって結果が変わらないよう、1ページの件数を固定する
 vi.mock("@/shared/config/env", () => ({
   env: { PAGE_SIZE: 30 },
+}));
+
+// 順番待ちの列（キュー）への接続は差し替える。実際のデータベース接続をせず、
+// start / createQueue / send がどう呼ばれたかだけを確認できるようにするため。
+const bossMock = {
+  start: vi.fn(),
+  createQueue: vi.fn(),
+  send: vi.fn(),
+};
+vi.mock("@/shared/jobs/boss", () => ({
+  getBoss: vi.fn(() => bossMock),
 }));
 
 // 更新の試験で使う「画面を開いた時点の最終更新日時」。
@@ -1087,6 +1100,101 @@ describe("master/service exportCategoryCsv", () => {
         context: { count: 10001, max: 10000 },
       } satisfies Partial<AppError>);
       expect(masterRepository.listCategoriesForExport).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("master/service requestExcelExport", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("分類・マスタとも上限（10,000件）以下の場合", () => {
+    it("実行履歴をQUEUEDで作り、順番待ちの列へexportIdだけを積み、exportIdを返す", async () => {
+      vi.mocked(masterRepository.countCategories).mockResolvedValue(2);
+      vi.mocked(masterRepository.countMasters).mockResolvedValue(35);
+      vi.mocked(masterRepository.createExcelExport).mockResolvedValue({
+        id: "export-1",
+        status: "QUEUED",
+        filePath: null,
+        fileName: null,
+        categoryRowCount: null,
+        masterRowCount: null,
+        errorCode: null,
+        requestedBy: "admin",
+        startedAt: null,
+        finishedAt: null,
+        expiresAt: null,
+        createdAt: new Date("2026-08-17T00:00:00.000Z"),
+        updatedAt: new Date("2026-08-17T00:00:00.000Z"),
+      });
+
+      const result = await masterService.requestExcelExport("admin");
+
+      expect(masterRepository.createExcelExport).toHaveBeenCalledWith({ requestedBy: "admin" });
+      expect(bossMock.start).toHaveBeenCalled();
+      expect(bossMock.createQueue).toHaveBeenCalledWith(MASTER_EXCEL_EXPORT_QUEUE);
+      expect(bossMock.send).toHaveBeenCalledWith(MASTER_EXCEL_EXPORT_QUEUE, {
+        exportId: "export-1",
+      });
+      expect(result).toEqual({ exportId: "export-1" });
+    });
+  });
+
+  describe("分類・マスタとも、ちょうど上限（10,000件）の場合", () => {
+    it("上限を超えていないため正常に受け付ける", async () => {
+      vi.mocked(masterRepository.countCategories).mockResolvedValue(10000);
+      vi.mocked(masterRepository.countMasters).mockResolvedValue(10000);
+      vi.mocked(masterRepository.createExcelExport).mockResolvedValue({
+        id: "export-2",
+        status: "QUEUED",
+        filePath: null,
+        fileName: null,
+        categoryRowCount: null,
+        masterRowCount: null,
+        errorCode: null,
+        requestedBy: "admin",
+        startedAt: null,
+        finishedAt: null,
+        expiresAt: null,
+        createdAt: new Date("2026-08-17T00:00:00.000Z"),
+        updatedAt: new Date("2026-08-17T00:00:00.000Z"),
+      });
+
+      const result = await masterService.requestExcelExport("admin");
+
+      expect(result).toEqual({ exportId: "export-2" });
+      expect(bossMock.send).toHaveBeenCalled();
+    });
+  });
+
+  describe("マスタの件数が上限（10,000件）を超える場合", () => {
+    it("実行履歴を作らずキューにも積まず、AppError(MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED) を投げる", async () => {
+      vi.mocked(masterRepository.countCategories).mockResolvedValue(2);
+      vi.mocked(masterRepository.countMasters).mockResolvedValue(10001);
+
+      await expect(masterService.requestExcelExport("admin")).rejects.toMatchObject({
+        code: "MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED",
+        httpStatus: 422,
+        context: { categoryCount: 2, masterCount: 10001, max: 10000 },
+      } satisfies Partial<AppError>);
+      expect(masterRepository.createExcelExport).not.toHaveBeenCalled();
+      expect(bossMock.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("マスタ分類の件数が上限（10,000件）を超える場合", () => {
+    it("実行履歴を作らずキューにも積まず、AppError(MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED) を投げる", async () => {
+      vi.mocked(masterRepository.countCategories).mockResolvedValue(10001);
+      vi.mocked(masterRepository.countMasters).mockResolvedValue(35);
+
+      await expect(masterService.requestExcelExport("admin")).rejects.toMatchObject({
+        code: "MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED",
+        httpStatus: 422,
+        context: { categoryCount: 10001, masterCount: 35, max: 10000 },
+      } satisfies Partial<AppError>);
+      expect(masterRepository.createExcelExport).not.toHaveBeenCalled();
+      expect(bossMock.send).not.toHaveBeenCalled();
     });
   });
 });

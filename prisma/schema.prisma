@@ -111,3 +111,23 @@ model ContractItem {
 
   @@index([contractId])
 }
+
+/// マスタ情報Excel取得の実行履歴。マスタ分類・マスタをまとめて1つのExcelファイルに出力する依頼を記録する。
+/// 旧CSV用の MasterExport（削除済み）とは別モデル。受け取り後も行を削除せず、履歴として残す。
+model MasterExcelExport {
+  id               String    @id @default(cuid())
+  status           String    @default("QUEUED") // QUEUED / RUNNING / READY / FAILED
+  filePath         String?
+  fileName         String?
+  categoryRowCount Int? // worker側が生成完了時に書き込む（依頼時点ではnull）
+  masterRowCount   Int? // worker側が生成完了時に書き込む（依頼時点ではnull）
+  errorCode        String?
+  requestedBy      String // 依頼した利用者の User.id（FK は張らない）
+  startedAt        DateTime? // workerが処理を開始した日時
+  finishedAt       DateTime? // workerが処理を終えた日時（完了・失敗いずれも記録）
+  expiresAt        DateTime? // ファイルの保持期限（生成完了時にworkerが設定する）
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([createdAt])
+}

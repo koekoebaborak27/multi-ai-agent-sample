@@ -58,3 +58,27 @@ export type MasterExportTarget = (typeof MASTER_EXPORT_TARGETS)[number];
 // 案件ごとに変える値ではなく、増やす場合は生成方式（分割出力・ストリーミング）自体を見直すべき値のため、
 // 環境変数にはせずこの定数として持つ。
 export const MASTER_EXPORT_MAX_ROWS = 10000;
+
+// マスタ情報Excel取得の依頼を積む順番待ちの列（キュー）の名前。
+// 依頼側（service.ts）と、生成側（workerのキュー購読処理）の両方がこの名前を使うため、
+// 文字列を2か所に書いてずれる事故を防ぐ目的で定数にしている。
+export const MASTER_EXCEL_EXPORT_QUEUE = "master.excel-export";
+
+// マスタ情報Excel取得1回あたりの出力上限（分類・マスタそれぞれの件数。設計書§40.8）。
+// CSVダウンロードの MASTER_EXPORT_MAX_ROWS と値は同じだが、対象が別機能のため別の定数として持つ。
+export const MASTER_EXCEL_EXPORT_MAX_ROWS = 10000;
+
+// マスタ情報Excel取得の実行履歴の状態。データベース上は文字列で持つが、
+// コード上はこの4値に限定することで、状態名の打ち間違いを防ぐ。
+export const MASTER_EXCEL_EXPORT_STATUSES = ["QUEUED", "RUNNING", "READY", "FAILED"] as const;
+export type MasterExcelExportStatus = (typeof MASTER_EXCEL_EXPORT_STATUSES)[number];
+
+/** Excel取得の依頼を受け付けたときの戻り値。作成した実行履歴のIDだけを返す */
+export interface MasterExcelExportRequest {
+  exportId: string;
+}
+
+/** 順番待ちの列に積む依頼の中身。全件固定出力で検索条件を持たないため、履歴のIDだけで足りる */
+export interface MasterExcelExportJobData {
+  exportId: string;
+}

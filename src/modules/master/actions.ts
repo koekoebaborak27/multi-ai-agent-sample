@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { masterService } from "@/modules/master/service";
+import type { MasterExcelExportRequest } from "@/modules/master/types";
 import {
   createMasterCategorySchema,
   createMasterSchema,
@@ -452,4 +453,17 @@ export const deleteMasterCategoryAction = withOp(
   },
   // 削除は元に戻せないため、「誰がいつ何を削除したか」を後から追えるようにログにも残す
   { includeArgsInSuccessLog: true },
+);
+
+// マスタ情報Excel取得（MST-11）の依頼を受け付ける。
+// 他の操作と異なり、書き込み権限（ADMIN/OPERATOR）は確認しない。ログインしていれば
+// VIEWERを含む全ロールが実行できる仕様のため（設計書§40.4）。
+// 生成の完了は待たず、履歴行を作ってキューへ積んだ直後に応答する。
+export const requestMasterExcelExportAction = withOp(
+  "master.excel-export.request",
+  async (): Promise<MasterExcelExportRequest> => {
+    const user = await getCurrentUser();
+    if (!user) throw Errors.unauthorized();
+    return masterService.requestExcelExport(user.id);
+  },
 );

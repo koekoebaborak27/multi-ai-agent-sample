@@ -28,7 +28,7 @@
 | マスタ機能（設計） | 6 / 6 |
 | **マスタ機能（製造。工程1〜18＋第5段階1〜4）** | **22 / 22** |
 | Cloud Run Jobs本番構成の構築（workerサンプルの土台） | 3 / 7 |
-| マスタ情報Excel取得機能（workerサンプル） | 1 / 8 工程 |
+| マスタ情報Excel取得機能（workerサンプル） | 2 / 8 工程 |
 | 残っているタスク（期限なしの宿題） | 未対応 5 件 |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
@@ -37,9 +37,9 @@
 
 **マスタ機能の製造（工程1〜18＋第5段階1〜4）が完了した。** 直近では2026-08-16に本番DBへ `drop_master_export` マイグレーションを適用し、使われなくなった `MasterExport` テーブルを削除した（詳しい経緯は [履歴](history/README.md) を参照）。
 
-「マスタ情報Excel取得機能（workerサンプル）」の工程1、**設計書の作成が完了した**（2026-08-17）→ [`40_マスタ情報Excel取得.md`](../specs/02_basic-design/master/40_マスタ情報Excel取得.md)。
+「マスタ情報Excel取得機能（workerサンプル）」の工程2、**Excel出力の依頼処理とデータモデルの実装が完了した**（2026-08-17）→ [履歴](history/2026-08-w3.md#2026-08-17-マスタ情報excel取得機能の依頼処理とデータモデルを実装)。
 
-次は工程2、**Excel出力の依頼処理とデータモデルを実装する**。`MasterExcelExport` モデルをPrismaへ追加し、マイグレーションを作成する（設計書 §40.6）。
+次は工程3、**Excelを生成するworkerを実装する**。`exceljs` を依存に追加し、`src/worker/index.ts` の `--once` を「キューが空になるまで処理してから終了する」実装へ作り替え、処理に意図的な待機（約2分）を入れる（設計書 §40.2・§40.7.2）。
 
 手元の状態を確認するコマンド:
 
@@ -73,7 +73,7 @@ worker（Cloud Run Jobs）の利用サンプルとして「依頼 → worker生�
 Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secret Manager）は上記「Cloud Run Jobs本番構成の構築」の1〜3で完成済み。残るのは同4〜7（app→worker起動処理の作り直し・専用サービスアカウント・Cloud Build自動化）で、下記工程7で仕上げる。
 
 - [x] **1. 設計書を作成する**（2026-08-17）→ [`40_マスタ情報Excel取得.md`](../specs/02_basic-design/master/40_マスタ情報Excel取得.md)
-- [ ] **2. Excel出力の依頼処理とデータモデルを実装する** — `MasterExcelExport` モデルをPrismaへ追加する。CSVの`MasterExport`モデル（削除済み）とは別名とする（設計書 §40.6）
+- [x] **2. Excel出力の依頼処理とデータモデルを実装する**（2026-08-17）→ [履歴](history/2026-08-w3.md#2026-08-17-マスタ情報excel取得機能の依頼処理とデータモデルを実装)
 - [ ] **3. Excelを生成するworkerを実装する** — `exceljs` を依存に追加し、マスタ分類シート・マスタシートの2シート構成で生成する。`src/worker/index.ts` の `--once` を「キューが空になるまで処理してから終了する」実装へ作り替え、処理に意図的な待機（約2分）を入れる（設計書 §40.2・§40.7.2）
 - [ ] **4. 「マスタ情報Excel取得」画面を実装する**（`/master/exports`） — 実行ボタン、ページング付き実行履歴一覧（設計書 §40.3）
 - [ ] **5. 履歴一覧からのダウンロード処理を実装する** — アプリ経由で統一する（署名URLは採らない。設計書 §40.9）
@@ -98,9 +98,9 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `main`（作業用ブランチなし）。`feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更）が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
+| 作業ブランチ | `feat/master-excel-export-model`（マスタ情報Excel取得機能の依頼処理とデータモデルを追加。工程2）で作業中、未PR。`feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更）が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
 | 本番 DB | `20260815153832_drop_master_export` まで**適用済み**（2026-08-16、第5段階の4で反映。使われなくなった `MasterExport` テーブルを削除） |
-| ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
+| ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている。`MasterExcelExport` テーブルを追加済み（2026-08-17、データは未投入） |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番（2026-08-16）の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし） |
 | 直近の検証 | 2026-08-16、本番URL（`contract-app`）にログインし、マスタ検索一覧・マスタ分類一覧のCSVダウンロードが待ち時間なく動くことを確認。最新リビジョン `contract-app-00027-kqd`（PR #16 マージの4分後に作成、`gcloud run revisions list` で確認）が稼働中 |
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1、`https://contract-app-4i3b5yuroq-uc.a.run.app`）。Cloud Run Jobs `contract-worker`（us-central1）は `SUPABASE_URL` 設定漏れを2026-08-16に修正済み。機密環境変数3項目はSecret Manager経由。`feat/master-csv-sync` はデプロイ済みで、CSVダウンロードは新しい同期方式で稼働中。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |

@@ -5,7 +5,7 @@ import {
 } from "@/modules/master/types";
 import type { SortOrder } from "@/shared/api/pagination";
 import { prisma } from "@/shared/db/prisma";
-import type { Master, MasterCategory, Prisma } from "@prisma/client";
+import type { Master, MasterCategory, MasterExcelExport, Prisma } from "@prisma/client";
 
 // ここから 4 つは、データベースから取得する項目の組み合わせを表す型。
 // 画面ごとに必要な項目だけを取得しており、その「取得した結果の形」に名前を付けている。
@@ -357,5 +357,11 @@ export const masterRepository = {
       where: { id, updatedAt: expectedUpdatedAt },
     });
     return result.count === 1;
+  },
+
+  // マスタ情報Excel取得の実行履歴を「受付済み(QUEUED)」で1件作る。
+  // 状態の初期値はスキーマ側の @default("QUEUED") に任せ、ここでは指定しない。
+  createExcelExport(data: { requestedBy: string }): Promise<MasterExcelExport> {
+    return prisma.masterExcelExport.create({ data });
   },
 };

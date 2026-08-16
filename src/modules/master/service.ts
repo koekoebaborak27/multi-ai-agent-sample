@@ -10,13 +10,19 @@ import {
   type MasterDetailRecord,
   type MasterListRecord,
 } from "@/modules/master/repository";
-import { MASTER_EXPORT_MAX_ROWS } from "@/modules/master/types";
+import {
+  MASTER_EXCEL_EXPORT_MAX_ROWS,
+  MASTER_EXCEL_EXPORT_QUEUE,
+  MASTER_EXPORT_MAX_ROWS,
+} from "@/modules/master/types";
 import type {
   MasterCategoryDetail,
   MasterCategoryOption,
   MasterCategorySortField,
   MasterCategorySummary,
   MasterDetail,
+  MasterExcelExportJobData,
+  MasterExcelExportRequest,
   MasterSearchCriteria,
   MasterSortField,
   MasterSummary,
@@ -31,6 +37,7 @@ import type {
 } from "@/modules/master/validation";
 import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError } from "@/shared/errors/app-error";
+import { getBoss } from "@/shared/jobs/boss";
 import { Prisma } from "@prisma/client";
 
 // マスタ分類コードの桁数。
@@ -165,6 +172,20 @@ function masterExportLimitExceeded(count: number, max: number): AppError {
     422,
     `対象が${count}件あります。${max}件以下になるよう検索条件で絞り込んでください`,
     { count, max },
+  );
+}
+
+/** マスタ情報Excel取得の対象件数（分類・マスタのいずれか）が上限を超えているときのエラー（設計書§40.8） */
+function masterExcelExportLimitExceeded(
+  categoryCount: number,
+  masterCount: number,
+  max: number,
+): AppError {
+  return new AppError(
+    "MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED",
+    422,
+    "対象の件数が多く、Excelを作成できません。管理者に相談してください",
+    { categoryCount, masterCount, max },
   );
 }
 
@@ -512,5 +533,35 @@ export const masterService = {
     const csv = buildMasterCategoryExportCsv(rows.map(toCategoryDetail));
     const fileName = buildMasterExportFileName("MASTER_CATEGORY", new Date());
     return { fileName, data: Buffer.from(csv, "utf-8") };
+  },
+
+  // マスタ情報Excel取得（MST-11）の依頼を受け付ける。
+  // 件数が上限を超えていなければ実行履歴を「受付済み」で1件作り、順番待ちの列（キュー）へ
+  // 依頼を積んで、生成の完了を待たずにすぐ応答する（生成そのものはworker側が行う）。
+  async requestExcelExport(userId: string): Promise<MasterExcelExportRequest> {
+    const [categoryCount, masterCount] = await Promise.all([
+      masterRepository.countCategories(),
+      masterRepository.countMasters({}),
+    ]);
+    if (
+      categoryCount > MASTER_EXCEL_EXPORT_MAX_ROWS ||
+      masterCount > MASTER_EXCEL_EXPORT_MAX_ROWS
+    ) {
+      throw masterExcelExportLimitExceeded(
+        categoryCount,
+        masterCount,
+        MASTER_EXCEL_EXPORT_MAX_ROWS,
+      );
+    }
+
+    const record = await masterRepository.createExcelExport({ requestedBy: userId });
+
+    const boss = getBoss();
+    await boss.start();
+    await boss.createQueue(MASTER_EXCEL_EXPORT_QUEUE);
+    const jobData: MasterExcelExportJobData = { exportId: record.id };
+    await boss.send(MASTER_EXCEL_EXPORT_QUEUE, jobData);
+
+    return { exportId: record.id };
   },
 };
