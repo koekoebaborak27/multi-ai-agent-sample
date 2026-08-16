@@ -27,7 +27,7 @@
 | 土台（ローカル環境 / Git / Supabase / 署名 URL / Docker 軽量化 / Cloud Run） | 48 / 48 |
 | マスタ機能（設計） | 6 / 6 |
 | **マスタ機能（製造）** | **18 / 18 工程** |
-| 第5段階（マスタ機能を本番で仕上げる） | 3 / 4 |
+| 第5段階（マスタ機能を本番で仕上げる） | 4 / 4 |
 | Cloud Run Jobs本番構成の構築（workerサンプルの土台） | 3 / 7 |
 | マスタ情報Excel取得機能（workerサンプル） | 0 / 8 工程 |
 | 残っているタスク（期限なしの宿題） | 未対応 5 件 |
@@ -36,9 +36,9 @@
 
 ## 次にやること
 
-**マスタCSVをworker経由の非同期方式からapp内の同期方式へ作り直した変更（`feat/master-csv-sync`、PR #16）は、2026-08-15にmainへマージ・本番デプロイ済み。** 2026-08-16に本番で実際にCSVダウンロードを試し、待ち時間なく動くことも確認できた（詳しい経緯は [履歴](history/README.md) を参照）。設計は [`30_CSVダウンロード.md`](../specs/02_basic-design/master/30_CSVダウンロード.md) §30.1.9 に記録済み。
+**第5段階（マスタ機能を本番で仕上げる）が完了した（4/4）。** 2026-08-16に本番DBへ `drop_master_export` マイグレーションを適用し、使われなくなった `MasterExport` テーブルを削除した（詳しい経緯は [履歴](history/README.md) を参照）。
 
-次は第5段階の残り1点、**本番DBへ `drop_master_export` マイグレーションを適用する**（下記「第5段階」の4参照）。`MasterExport` テーブルを本番から削除する操作のため、実施前に必ずユーザーの承認を得る。
+次は「マスタ情報Excel取得機能（workerサンプル）」の工程1、**設計書を作成する**。着手前に、下記「マスタ情報Excel取得機能の製造工程」の節にある要件メモを基に、画面項目・データモデル・Excelのシート構成・タイムアウト対策を確定する。
 
 手元の状態を確認するコマンド:
 
@@ -46,8 +46,6 @@
 git log --oneline -1                                     # 現在のコミット
 git status --porcelain                                   # 未コミット差分がないか確認
 ```
-
-マイグレーション適用の手順は [`prisma_operations.md`](../prisma_operations.md) と [`docs/specs/99_infra/` §09.1.2](../specs/99_infra/infra_design_09_構築後の運用.md#0912-データベースの構造を変更する) を参照する。
 
 ## マスタ機能の製造工程
 
@@ -104,7 +102,7 @@ CSV は画面機能の完成後に着手する（設計書 §30.1）。
 - [x] 1. 本番DBへマスタ機能のマイグレーション（`add_master_tables` / `add_master_export`）を適用する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-本番データベースへマスタ機能のマイグレーションを適用)
 - [x] 2. `feat/master-csv-sync`（CSVを同期方式へ作り直す変更）をマージし、本番へデプロイする（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-16-本番でcsvダウンロードの同期方式を確認しtodoを最新化)
 - [x] 3. 本番で実際にCSVダウンロードを動かし、待ち時間なく動くことを確認する（2026-08-16）→ [履歴](history/2026-08-w3.md#2026-08-16-本番でcsvダウンロードの同期方式を確認しtodoを最新化)
-- [ ] 4. 本番DBへ `drop_master_export`（`MasterExport`テーブルの削除）マイグレーションを適用する — コードのデプロイ・動作確認が終わってから、ユーザー承認のうえ実施する
+- [x] 4. 本番DBへ `drop_master_export`（`MasterExport`テーブルの削除）マイグレーションを適用する（2026-08-16）→ [履歴](history/2026-08-w3.md#2026-08-16-本番dbへdrop_master_exportマイグレーションを適用)
 
 ### Cloud Run Jobs本番構成の構築（workerサンプル機能の土台）
 
@@ -150,6 +148,7 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 - [ ] **`output: "standalone"` 化を検討する** — 「Cloud Run Jobs本番構成の構築」の1で worker 用イメージの分離が完了し、着手条件は整った。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
 - [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §09.1.2](../specs/99_infra/infra_design_09_構築後の運用.md#0912-データベースの構造を変更する)
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
+- [ ] **Prismaのマイグレーション履歴を1本に統合するか検討する** — 今のこの本番運用中プロジェクトでは統合しない（本番DBの`_prisma_migrations`の記録とファイルの中身が食い違い、次回の`prisma migrate deploy`が失敗するため。[`prisma_operations.md`](../prisma_operations.md) §1-6「やってはいけないこと」参照）。次にこのリポジトリを新しい案件のテンプレートとして複製する際（[`foundation_plan.md`](../foundation_plan.md) §9、Supabase/Google Cloudのプロジェクトを新規作成するタイミング）、真っさらなDBに対して `migrations` を1本の初期マイグレーションへ作り直すことを検討する
 
 ## 現在の状態
 
@@ -158,7 +157,7 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
 | 作業ブランチ | `main`（作業用ブランチなし）。`feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更）が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
-| 本番 DB | `20260812093057_add_master_export` まで**適用済み**（第5段階の1で反映）。`feat/master-csv-sync` の `drop_master_export` はローカルのみ適用で、**本番へは未適用**（コードのデプロイ・本番動作確認は完了。ユーザー承認のうえ適用予定 → 第5段階の4） |
+| 本番 DB | `20260815153832_drop_master_export` まで**適用済み**（2026-08-16、第5段階の4で反映。使われなくなった `MasterExport` テーブルを削除） |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番（2026-08-16）の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし） |
 | 直近の検証 | 2026-08-16、本番URL（`contract-app`）にログインし、マスタ検索一覧・マスタ分類一覧のCSVダウンロードが待ち時間なく動くことを確認。最新リビジョン `contract-app-00027-kqd`（PR #16 マージの4分後に作成、`gcloud run revisions list` で確認）が稼働中 |
