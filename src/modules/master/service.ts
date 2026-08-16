@@ -64,8 +64,11 @@ function toCategorySummary(category: MasterCategoryListRecord): MasterCategorySu
   };
 }
 
-/** 分類詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える */
-function toCategoryDetail(category: MasterCategoryDetailRecord): MasterCategoryDetail {
+/**
+ * 分類詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える。
+ * マスタ情報Excel取得（jobs.ts）でも同じ詰め替えを使うため、export している。
+ */
+export function toCategoryDetail(category: MasterCategoryDetailRecord): MasterCategoryDetail {
   return {
     id: category.id,
     code: formatMasterCategoryCode(category.id),
@@ -89,8 +92,11 @@ function toMasterSummary(master: MasterListRecord): MasterSummary {
   };
 }
 
-/** マスタ詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える */
-function toMasterDetail(master: MasterDetailRecord): MasterDetail {
+/**
+ * マスタ詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える。
+ * マスタ情報Excel取得（jobs.ts）でも同じ詰め替えを使うため、export している。
+ */
+export function toMasterDetail(master: MasterDetailRecord): MasterDetail {
   return {
     id: master.id,
     categoryId: master.categoryId,

@@ -73,6 +73,11 @@ export const MASTER_EXCEL_EXPORT_MAX_ROWS = 10000;
 export const MASTER_EXCEL_EXPORT_STATUSES = ["QUEUED", "RUNNING", "READY", "FAILED"] as const;
 export type MasterExcelExportStatus = (typeof MASTER_EXCEL_EXPORT_STATUSES)[number];
 
+// マスタ情報Excel取得で作ったファイルを残しておく日数（設計書§40.9）。
+// 生成が完了した時点で「いつまで取得できるか」を計算するために使う。
+// ダウンロードできる期限が切れているかどうかの判定（工程5で実装予定）でも、同じ値を参照する。
+export const MASTER_EXCEL_EXPORT_RETENTION_DAYS = 7;
+
 /** Excel取得の依頼を受け付けたときの戻り値。作成した実行履歴のIDだけを返す */
 export interface MasterExcelExportRequest {
   exportId: string;

@@ -1,6 +1,7 @@
 import {
   MASTER_EXPORT_MAX_ROWS,
   type MasterCategorySortField,
+  type MasterExcelExportStatus,
   type MasterSortField,
 } from "@/modules/master/types";
 import type { SortOrder } from "@/shared/api/pagination";
@@ -363,5 +364,44 @@ export const masterRepository = {
   // 状態の初期値はスキーマ側の @default("QUEUED") に任せ、ここでは指定しない。
   createExcelExport(data: { requestedBy: string }): Promise<MasterExcelExport> {
     return prisma.masterExcelExport.create({ data });
+  },
+
+  // マスタ情報Excel取得の実行履歴を「受付済み(QUEUED)」から「作成中(RUNNING)」へ進める。
+  // 「受付済み」のときだけ進み、進められたかどうかを true / false で返す。
+  // Cloud Run Jobsは同じ依頼を最大3回まで実行し直すことがあるが、2回目以降はここが false になるため、
+  // ファイルが二重に作られることはない（設計書§40.7.3）。
+  async markExcelExportRunning(id: string): Promise<boolean> {
+    const result = await prisma.masterExcelExport.updateMany({
+      where: { id, status: "QUEUED" satisfies MasterExcelExportStatus },
+      data: { status: "RUNNING" satisfies MasterExcelExportStatus, startedAt: new Date() },
+    });
+    return result.count === 1;
+  },
+
+  // 実行履歴を「完了(READY)」にし、出力できた件数・保存先・取得できる期限を記録する。
+  markExcelExportReady(
+    id: string,
+    data: {
+      filePath: string;
+      fileName: string;
+      categoryRowCount: number;
+      masterRowCount: number;
+      finishedAt: Date;
+      expiresAt: Date;
+    },
+  ): Promise<MasterExcelExport> {
+    return prisma.masterExcelExport.update({
+      where: { id },
+      data: { status: "READY" satisfies MasterExcelExportStatus, ...data },
+    });
+  },
+
+  // 実行履歴を「失敗(FAILED)」にし、失敗の種類を記録する。
+  // 終わった日時も一緒に残すことで、どこまで動いてから失敗したのかを後から確認できるようにする。
+  markExcelExportFailed(id: string, errorCode: string): Promise<MasterExcelExport> {
+    return prisma.masterExcelExport.update({
+      where: { id },
+      data: { status: "FAILED" satisfies MasterExcelExportStatus, errorCode, finishedAt: new Date() },
+    });
   },
 };
