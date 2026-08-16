@@ -67,11 +67,12 @@ Prisma の標準的な命名規約に従う（テーブル名・カラム名と�
 - `worker`: 同一イメージ、起動コマンドは `tsx src/worker/index.ts`（pg-boss 待受の雛形）
 - `db`: `postgres:16`、volume 永続化、`:5432`（ローカル開発専用。本番は使わない）
 
-本番は Cloud Run 上でアプリのみ動かし、DBはSupabaseを使うため `db` サービスは本番では起動しない。`worker` も本番では起動しない（登録済みジョブがゼロの雛形のため。実ジョブ追加時に Cloud Run Jobs か常駐サービスかを判断する）。
+本番は Cloud Run 上でアプリのみ動かし、DBはSupabaseを使うため `db` サービスは本番では起動しない。`worker` は定期バッチ処理などを実装する場合や、一時的に重い処理を動かす場合のみ本番で起動する。**なお、CSVダウンロード機能のような、利用者が画面の前で即座に完了を待つ処理を Cloud Run Jobs に載せないこと**（起動待ちが1〜3分かかるため。詳細は §6 を参照）。
 
 ## 6. 本番構成（Google Cloud Run + Supabase）
 
 - **ホスティング**: Google Cloud Run。GitHub リポジトリを連携し、`main` ブランチへの push を契機に Cloud Build が `docker/Dockerfile` をビルドして自動デプロイする。リージョンは **us-central1**（Always Free は US リージョン限定）、最小インスタンス数 **0**（コールドスタートを受け入れて無料枠に収める）。
+- **Cloud Run Jobs の起動待ち**: Cloud Run には**サービス**（リクエストを受けて応答し続ける形。最小インスタンス数で待機させられる）と**ジョブ**（1回動いて終わる形）の2種類がある。**ジョブは実行を受け付けてから実際に処理が始まるまで1〜3分待たされることがある。** これはGoogle側で実行環境を割り当てるまでの待ち時間で、イメージを小さくしても資源を増やしても縮まらない。ジョブは定期実行のバッチのように「多少待たされても困らない処理」向けの仕組みであり、**利用者が画面の前で完了を待つ処理には使わない**（その種の処理はapp側＝Cloud Runのサービスで完結させる）。実際にマスタCSVダウンロードはこの待ち時間のためworker（Cloud Run Jobs）方式をやめ、appのリクエスト内で完結する同期方式へ作り直した。実測値と比較表は [`30_CSVダウンロード.md` §30.1.9](specs/02_basic-design/master/30_CSVダウンロード.md#3019-同期方式を採用した理由) を参照。
 - **DB**: Supabase PostgreSQL。**Session pooler** の接続文字列を Cloud Run の環境変数 `DATABASE_URL` に設定する。Direct connection は 2024-01-15 以降 IPv6 専用となり Cloud Run から到達できず、Transaction pooler（6543）はプリペアドステートメント非対応で `prisma migrate deploy` が通らない。`schema.prisma` に `directUrl` を持たないため、Session pooler 一本で運用する。
 - **ストレージ**: Supabase Storage。ローカル開発時はファイルシステム保存で代替する（`src/shared/storage/`、環境変数 `STORAGE_TYPE` で切り替え）。
 - **マイグレーション**: Cloud Run には Railway の Pre-Deploy Command に相当する仕組みがないため、当面は**ローカルから本番 DB に対して `prisma migrate deploy` を手動実行**する。自動化する場合は Cloud Run Jobs か Cloud Build のデプロイ後ステップを使う。

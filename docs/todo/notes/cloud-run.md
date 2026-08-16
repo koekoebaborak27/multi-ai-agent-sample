@@ -139,6 +139,6 @@ $l=(Invoke-WebRequest "$base/login" -UseBasicParsing).Content
 ### 本番で動かさないもの
 
 - **pg-boss ワーカー**は本番では起動しない。`src/worker/index.ts` は待受のみで登録済みジョブがゼロのため、常駐させても無料枠を消費するだけになる。実ジョブを追加する段階で、Cloud Run Jobs か常駐サービスかを改めて判断する。
-  - **将来的には CSV アップロード / ダウンロードを worker に載せる想定**（2026-08-02 に判明）。その段階で worker 用イメージを `runner` から分離し、[standalone 化](docker-image.md#standalone-化の設計上の論点) も併せて検討する。
+  - CSVダウンロードは当初worker（Cloud Run Jobs）に載せる想定だったが、実行を受け付けてから実際に処理が始まるまで1〜3分の起動待ちがあることが判明したため、appのリクエスト内で完結する同期方式に決着した（[`30_CSVダウンロード.md` §30.1.9](../../specs/02_basic-design/master/30_CSVダウンロード.md#3019-同期方式を採用した理由)）。アップロード等、本当に時間のかかる処理が出てきた場合は、改めてworkerの採用を検討する。
   - 起動コマンドは環境ごとに違う。**本番コンテナ内では `pnpm worker` ではなく `./node_modules/.bin/tsx src/worker/index.ts`** → [worker の起動コマンド](docker-image.md#worker-の起動コマンド)
 - **`docker/docker-compose.yml` の `db` サービス**はローカル専用。本番は Supabase を使う。

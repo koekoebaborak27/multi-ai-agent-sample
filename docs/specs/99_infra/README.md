@@ -18,7 +18,7 @@
 | [`infra_design_04_本番データベース初期化.md`](infra_design_04_本番データベース初期化.md) | 手順3。マイグレーション適用と初期管理者の投入。 |
 | [`infra_design_05_CloudRun構築.md`](infra_design_05_CloudRun構築.md) | 手順4。Google Cloud プロジェクト作成・サービス作成・環境変数・Cloud Build のビルド設定。 |
 | [`infra_design_06_CloudRun動作確認.md`](infra_design_06_CloudRun動作確認.md) | 手順5。疎通確認・ログイン確認・自動デプロイの確認。 |
-| [`infra_design_07_CloudRunJobs構築.md`](infra_design_07_CloudRunJobs構築.md) | 手順6（**該当する場合のみ**）。worker を使う機能（CSVダウンロード等）を採用する案件だけ実施。worker 用イメージ・Cloud Run Jobs・環境変数の構築。 |
+| [`infra_design_07_CloudRunJobs構築.md`](infra_design_07_CloudRunJobs構築.md) | 手順6（**該当する場合のみ**）。worker を使う機能（現時点では「マスタ情報Excel取得機能」を想定）を採用する案件だけ実施。worker 用イメージ・Cloud Run Jobs・環境変数の構築。 |
 | [`infra_design_08_CloudRunJobs動作確認.md`](infra_design_08_CloudRunJobs動作確認.md) | 手順7（**該当する場合のみ**）。Cloud Run Jobs の単体実行と、app と連携させた動作の確認。 |
 | [`infra_design_09_構築後の運用.md`](infra_design_09_構築後の運用.md) | デプロイ・マイグレーション・ログ・費用・切り戻し・鍵の管理・本番で動かさないもの。 |
 | [`infra_design_10_2つ目以降のシステム.md`](infra_design_10_2つ目以降のシステム.md) | テンプレートを複製して別システムを作る場合の考え方と作業手順。 |

@@ -25,7 +25,7 @@ PC 側で使うツールです。[`README.md`](../../../README.md#1-必要なソ
 | GitHub CLI（`gh`）  | GitHub の操作をコマンドで行う                                                                               | `gh --version`                      |
 | Node.js 22 / pnpm | マイグレーション・seed の実行                                                                                | `node --version` / `pnpm --version` |
 | Docker Desktop    | 事前のローカル確認（任意）／手順6で worker 用イメージを作るとき（必須）                                                         | `docker --version`                  |
-| gcloud CLI        | 手順6で worker 用イメージを Google Cloud へ登録するとき（**worker を使う機能（CSVダウンロードやアップロードなど時間がかかる機能）を採用する場合のみ必須**） | `gcloud --version`                  |
+| gcloud CLI        | 手順6で worker 用イメージを Google Cloud へ登録するとき（**worker を使う機能（時間がかかる処理を裏側で動かす機能）を採用する場合のみ必須**） | `gcloud --version`                  |
 
 GitHub CLI を導入していない場合は [GitHub CLI](https://cli.github.com/) からインストールし、次のコマンドで認証します。
 
