@@ -75,8 +75,19 @@ export type MasterExcelExportStatus = (typeof MASTER_EXCEL_EXPORT_STATUSES)[numb
 
 // マスタ情報Excel取得で作ったファイルを残しておく日数（設計書§40.9）。
 // 生成が完了した時点で「いつまで取得できるか」を計算するために使う。
-// ダウンロードできる期限が切れているかどうかの判定（工程5で実装予定）でも、同じ値を参照する。
+// ダウンロードできる期限が切れているかどうかの判定でも、同じ値を参照する。
 export const MASTER_EXCEL_EXPORT_RETENTION_DAYS = 7;
+
+// 保持期限切れファイルの掃除処理（jobs.ts）で、1回の依頼処理につきまとめて削除する件数の上限。
+// 長期間workerが動かなかった場合でも一度に大量のファイルを消しに行かないようにするための値で、
+// 溢れた分は次回以降の依頼が処理されたタイミングで片付く（設計書§40.9）。
+export const MASTER_EXCEL_EXPORT_CLEANUP_MAX_FILES = 50;
+
+// マスタ情報Excelのファイル種別を表す値（.xlsx形式であることを相手に伝える値）。
+// ファイルを保存するとき（jobs.ts）と、ダウンロードとして受け渡すとき（Route Handler）の
+// 両方で同じ値を使うため、文字列を2か所に書いてずれる事故を防ぐ目的で定数にしている。
+export const MASTER_EXCEL_EXPORT_CONTENT_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 /** Excel取得の依頼を受け付けたときの戻り値。作成した実行履歴のIDだけを返す */
 export interface MasterExcelExportRequest {
@@ -86,4 +97,23 @@ export interface MasterExcelExportRequest {
 /** 順番待ちの列に積む依頼の中身。全件固定出力で検索条件を持たないため、履歴のIDだけで足りる */
 export interface MasterExcelExportJobData {
   exportId: string;
+}
+
+/**
+ * マスタ情報Excel取得（MST-11）の実行履歴一覧に表示する1行分の情報。
+ * status は分岐やテストで使う内部の状態値、statusLabel は画面にそのまま出す日本語ラベル。
+ * expired は「完了はしたが保持期限（7日）を過ぎている」ときだけ true になり、
+ * このときダウンロードリンクは出さない（設計書§40.9）。
+ */
+export interface MasterExcelExportSummary {
+  id: string;
+  status: MasterExcelExportStatus;
+  statusLabel: string;
+  expired: boolean;
+  requestedByName: string;
+  createdAt: Date;
+  categoryRowCount: number | null;
+  masterRowCount: number | null;
+  errorMessage: string | null;
+  downloadHref: string | null;
 }

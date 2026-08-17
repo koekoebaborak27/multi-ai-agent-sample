@@ -47,6 +47,14 @@ export const requestMasterExportSchema = z.object({
 
 export type RequestMasterExportInput = z.infer<typeof requestMasterExportSchema>;
 
+// マスタ情報Excel取得（MST-11）の実行履歴一覧のURLパラメータ。
+// 検索条件・並び替えは無く、ページ番号だけを受け取る（依頼日時の降順固定）。
+export const masterExcelExportListQuerySchema = z.object({
+  page: masterSearchQuerySchema.shape.page,
+});
+
+export type MasterExcelExportListQuery = z.infer<typeof masterExcelExportListQuerySchema>;
+
 // マスタ一覧画面のURL。戻り先として認めるかどうかの判定基準に使う
 const MASTER_LIST_PATH = "/master";
 

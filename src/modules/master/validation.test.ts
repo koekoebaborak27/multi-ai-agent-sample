@@ -7,6 +7,7 @@ import {
   createMasterSchema,
   deleteMasterCategorySchema,
   deleteMasterSchema,
+  masterExcelExportListQuerySchema,
   masterSearchQuerySchema,
   parseMasterReturnTo,
   updateMasterCategorySchema,
@@ -56,6 +57,22 @@ describe("master/validation masterSearchQuerySchema", () => {
         sort: "category",
         order: "asc",
       });
+    });
+  });
+});
+
+describe("master/validation masterExcelExportListQuerySchema", () => {
+  describe("有効なページ番号の場合", () => {
+    it("ページ番号をnumberへ変換する", () => {
+      expect(masterExcelExportListQuerySchema.parse({ page: "2" })).toEqual({ page: 2 });
+    });
+  });
+
+  describe("ページ番号が未指定または不正な場合", () => {
+    it("1ページ目として扱う", () => {
+      expect(masterExcelExportListQuerySchema.parse({})).toEqual({ page: 1 });
+      expect(masterExcelExportListQuerySchema.parse({ page: "0" })).toEqual({ page: 1 });
+      expect(masterExcelExportListQuerySchema.parse({ page: "invalid" })).toEqual({ page: 1 });
     });
   });
 });

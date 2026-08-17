@@ -28,7 +28,7 @@
 | マスタ機能（設計） | 6 / 6 |
 | **マスタ機能（製造。工程1〜18＋第5段階1〜4）** | **22 / 22** |
 | Cloud Run Jobs本番構成の構築（workerサンプルの土台） | 3 / 7 |
-| マスタ情報Excel取得機能（workerサンプル） | 3 / 9 工程 |
+| マスタ情報Excel取得機能（workerサンプル） | 6 / 9 工程 |
 | 残っているタスク（期限なしの宿題） | 未対応 9 件 |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
@@ -37,9 +37,9 @@
 
 **マスタ機能の製造（工程1〜18＋第5段階1〜4）が完了した。** 直近では2026-08-16に本番DBへ `drop_master_export` マイグレーションを適用し、使われなくなった `MasterExport` テーブルを削除した（詳しい経緯は [履歴](history/README.md) を参照）。
 
-「マスタ情報Excel取得機能（workerサンプル）」の工程3、**Excelを生成するworkerの実装が完了した**（2026-08-17）→ [履歴](history/2026-08-w3.md#2026-08-17-マスタ情報excel取得機能のexcel生成workerを実装)。
+「マスタ情報Excel取得機能（workerサンプル）」の工程6、**保持期限切れファイルの掃除処理の実装が完了した**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の保持期限切れファイル掃除処理を実装)。
 
-次は工程4、**「マスタ情報Excel取得」画面を実装する**（`/master/exports`）。実行ボタン、ページング付き実行履歴一覧を作る（設計書 §40.3）。
+次は工程7、**マスタ管理画面にこの画面へのボタンを追加する**。一覧領域の「CSVダウンロード」ボタンの左に配置する（設計書 §40.3.6）。
 
 手元の状態を確認するコマンド:
 
@@ -75,12 +75,18 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 - [x] **1. 設計書を作成する**（2026-08-17）→ [`40_マスタ情報Excel取得.md`](../specs/02_basic-design/master/40_マスタ情報Excel取得.md)
 - [x] **2. Excel出力の依頼処理とデータモデルを実装する**（2026-08-17）→ [履歴](history/2026-08-w3.md#2026-08-17-マスタ情報excel取得機能の依頼処理とデータモデルを実装)
 - [x] **3. Excelを生成するworkerを実装する**（2026-08-17）→ [履歴](history/2026-08-w3.md#2026-08-17-マスタ情報excel取得機能のexcel生成workerを実装)
-- [ ] **4. 「マスタ情報Excel取得」画面を実装する**（`/master/exports`） — 実行ボタン、ページング付き実行履歴一覧（設計書 §40.3）
-- [ ] **5. 履歴一覧からのダウンロード処理を実装する** — アプリ経由で統一する（署名URLは採らない。設計書 §40.9）
-- [ ] **6. 保持期限切れファイルの掃除をworkerに実装する** — 依頼を処理するタイミングで、期限（作成から7日）を過ぎたファイルをまとめて削除する。定期実行の仕組みは持ち込まない（設計書 §40.9）
+- [x] **4. 「マスタ情報Excel取得」画面を実装する**（`/master/exports`）（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の画面を実装)
+- [x] **5. 履歴一覧からのダウンロード処理を実装する**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能のダウンロード処理を実装)
+- [x] **6. 保持期限切れファイルの掃除をworkerに実装する**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の保持期限切れファイル掃除処理を実装)
 - [ ] **7. マスタ管理画面にこの画面へのボタンを追加する** — 一覧領域の「CSVダウンロード」ボタンの左に配置する（設計書 §40.3.6）
 - [ ] **8. 本番構成を仕上げる** — 上記「Cloud Run Jobs本番構成の構築」の残り（4〜7: app→worker起動処理・専用サービスアカウント・Cloud Build自動化）を完了させ、タイムアウトを900秒に見直し、本番デプロイと動作確認まで行う（設計書 §40.7.3・§40.7.4）
 - [ ] **9. 単体テストを実施する**
+
+## マスタ分類の見直し
+- [ ] **1. マスタ分類にユーザが入力できる分類コードを追加する** — マスタ関連の実装が完了したのち着手する。テーブルの PK であるマスタ分類 ID とは別に、分類コードの列を持たせる
+- [ ] **2. 「契約先分類」と「契約分類」をマスタ分類の初期データとして投入する** — 分類コードはそれぞれ `CONTRACT_COMPANY_TYPE`・`CONTRACT_TYPE`。上記の分類コード追加後に対応する
+- [ ] **3. 契約先情報の分類を「契約先分類」に変更する** — マスタ分類が「契約先分類」（分類コード `CONTRACT_COMPANY_TYPE`）であるマスタのデータを選択・設定できるようにする
+- [ ] **4. 契約情報に「契約分類」を追加する** — マスタ分類が「契約分類」（分類コード `CONTRACT_TYPE`）であるマスタのデータを選択・設定できるようにする
 
 ## 残っているタスク
 
@@ -92,10 +98,7 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 - [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §09.1.2](../specs/99_infra/infra_design_09_構築後の運用.md#0912-データベースの構造を変更する)
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 - [ ] **Prismaのマイグレーション履歴を1本に統合するか検討する** — 今のこの本番運用中プロジェクトでは統合しない（本番DBの`_prisma_migrations`の記録とファイルの中身が食い違い、次回の`prisma migrate deploy`が失敗するため。[`prisma_operations.md`](../prisma_operations.md) §1-6「やってはいけないこと」参照）。次にこのリポジトリを新しい案件のテンプレートとして複製する際（[`foundation_plan.md`](../foundation_plan.md) §9、Supabase/Google Cloudのプロジェクトを新規作成するタイミング）、真っさらなDBに対して `migrations` を1本の初期マイグレーションへ作り直すことを検討する
-- [ ] **マスタ分類にユーザが入力できる分類コードを追加する** — マスタ関連の実装が完了したのち着手する。テーブルの PK であるマスタ分類 ID とは別に、分類コードの列を持たせる
-- [ ] **「契約先分類」と「契約分類」をマスタ分類の初期データとして投入する** — 分類コードはそれぞれ `CONTRACT_COMPANY_TYPE`・`CONTRACT_TYPE`。上記の分類コード追加後に対応する
-- [ ] **契約先情報の分類を「契約先分類」に変更する** — マスタ分類が「契約先分類」（分類コード `CONTRACT_COMPANY_TYPE`）であるマスタのデータを選択・設定できるようにする
-- [ ] **契約情報に「契約分類」を追加する** — マスタ分類が「契約分類」（分類コード `CONTRACT_TYPE`）であるマスタのデータを選択・設定できるようにする
+
 
 ## 現在の状態
 
@@ -103,11 +106,11 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `feat/master-excel-export-model`（マスタ情報Excel取得機能の依頼処理とデータモデルを追加。工程2）で作業中、未PR。`feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更）が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
+| 作業ブランチ | `feat/master-excel-export-model`（マスタ情報Excel取得機能の依頼処理・データモデル・worker・画面・ダウンロード・掃除処理を追加。工程2〜6）で作業中、未PR。`feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更）が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
 | 本番 DB | `20260815153832_drop_master_export` まで**適用済み**（2026-08-16、第5段階の4で反映。使われなくなった `MasterExport` テーブルを削除） |
-| ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている。`MasterExcelExport` テーブルを追加済み（2026-08-17、データは未投入） |
+| ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている。`MasterExcelExport` テーブルを追加済み（2026-08-17）。動作確認で作成した実行履歴・ファイルは確認後に削除済み |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番（2026-08-16）の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし） |
-| 直近の検証 | 2026-08-16、本番URL（`contract-app`）にログインし、マスタ検索一覧・マスタ分類一覧のCSVダウンロードが待ち時間なく動くことを確認。最新リビジョン `contract-app-00027-kqd`（PR #16 マージの4分後に作成、`gcloud run revisions list` で確認）が稼働中 |
+| 直近の検証 | 2026-08-18、ローカルで保持期限切れファイルの掃除処理を実機確認。期限切れに書き換えた既存ファイルの実体が削除されること、対象行の保存先情報（filePath/fileName）が空になり行自体は残ること、一覧表示が「期限切れ」のまま維持されることを確認済み。他セッションのworkerとのジョブ競合のため、pg-bossの列を介さず`runMasterExcelExport`を直接呼び出す方式で検証した。本番URL（`contract-app`）での直近の確認は2026-08-16のCSVダウンロード（待ち時間なく動作、最新リビジョン `contract-app-00027-kqd`） |
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1、`https://contract-app-4i3b5yuroq-uc.a.run.app`）。Cloud Run Jobs `contract-worker`（us-central1）は `SUPABASE_URL` 設定漏れを2026-08-16に修正済み。機密環境変数3項目はSecret Manager経由。`feat/master-csv-sync` はデプロイ済みで、CSVダウンロードは新しい同期方式で稼働中。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 

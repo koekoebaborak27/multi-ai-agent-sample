@@ -14,6 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 // service.ts はDBアクセス用の repository.ts（server-only）や、順番待ちの列（キュー）へ
 // 接続する boss.ts も読み込むため、テスト環境（jsdom）で読み込めるよう差し替える。
 vi.mock("@/modules/master/repository", () => ({ masterRepository: {} }));
+vi.mock("@/modules/user/service", () => ({ userService: {} }));
 vi.mock("@/shared/config/env", () => ({ env: { PAGE_SIZE: 30 } }));
 vi.mock("@/shared/jobs/boss", () => ({ getBoss: vi.fn() }));
 

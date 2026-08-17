@@ -79,4 +79,14 @@ export const userService = {
   async remove(userId: string): Promise<void> {
     await userRepository.softDelete(userId);
   },
+
+  // 複数の利用者IDから「ID→表示名」の対応表を作る。
+  // 表示名が未設定、または利用者が見つからない（削除済み等）場合は、IDそのものを表示名として使う。
+  async resolveDisplayNames(userIds: string[]): Promise<Map<string, string>> {
+    const uniqueIds = [...new Set(userIds)];
+    if (uniqueIds.length === 0) return new Map();
+    const users = await userRepository.findManyByIds(uniqueIds);
+    const displayNameById = new Map(users.map((u) => [u.id, u.displayName]));
+    return new Map(uniqueIds.map((id) => [id, displayNameById.get(id) || id]));
+  },
 };

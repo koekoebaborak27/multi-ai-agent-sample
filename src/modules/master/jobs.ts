@@ -1,19 +1,23 @@
-import {
-  buildMasterInfoExcel,
-  buildMasterInfoExcelFileName,
-} from "@/modules/master/excel-export";
+import { buildMasterInfoExcel, buildMasterInfoExcelFileName } from "@/modules/master/excel-export";
 import { masterRepository } from "@/modules/master/repository";
 import { toCategoryDetail, toMasterDetail } from "@/modules/master/service";
-import { MASTER_EXCEL_EXPORT_RETENTION_DAYS } from "@/modules/master/types";
+import {
+  MASTER_EXCEL_EXPORT_CONTENT_TYPE,
+  MASTER_EXCEL_EXPORT_QUEUE,
+  MASTER_EXCEL_EXPORT_RETENTION_DAYS,
+} from "@/modules/master/types";
+import { AppError } from "@/shared/errors/app-error";
+import { withJob } from "@/shared/observability/with-job";
 import { storage } from "@/shared/storage";
 
 // 裏側で動くプログラム（worker）だけが使う、時間のかかる処理をまとめたファイル。
 // 画面から呼ぶ処理（service.ts）とは分けている。Excelの組み立て道具（exceljs）は容量が大きく、
 // 画面側の配布物へ混ぜたくないため、公開窓口（index.ts）にも載せていない。
 //
-// 期限切れファイルを実際に削除する掃除処理は、この工程ではまだ実装していない
-// （どのタイミングで削除するかは設計書§40.9のとおり決まっているが、削除後の見え方を
-// ダウンロード側の実装と合わせて決めるため、別工程で追加する）。
+// 保持期限切れファイルの掃除（cleanUpExpiredExcelExportFiles）は、依頼が1件処理されるたびに
+// 呼び出す。定期実行の仕組みは持ち込まず、「次にいずれかの依頼が処理されたタイミングでまとめて
+// 削除する」という設計書§40.9の方針どおりにしている。掃除は本来の生成処理に付随するおまけの
+// 処理であり、掃除が失敗しても依頼そのものは失敗させない。
 
 /**
  * わざと待つ時間（ミリ秒）。約2分。
@@ -29,9 +33,6 @@ const ARTIFICIAL_DELAY_MS = 120_000;
 /** ファイル置き場の中で、この機能が作ったファイルを置く場所 */
 const STORAGE_DIRECTORY = "master-excel-exports";
 
-/** Excelファイルであることを相手に伝えるための種別 */
-const XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
 /** 生成に失敗したときに記録する、失敗の種類を表す値（設計書§40.10） */
 const FAILURE_ERROR_CODE = "MASTER_EXCEL_EXPORT_FAILED";
 
@@ -46,6 +47,49 @@ function addDays(base: Date, days: number): Date {
 }
 
 /**
+ * 保持期限切れファイルの掃除で、記録に残すためだけに使うエラーの種類（設計書§40.10とは別枠）。
+ * 呼び出し元でこのエラーは握りつぶすため、画面に表示されることはない。
+ */
+const CLEANUP_FAILURE_ERROR_CODE = "MASTER_EXCEL_EXPORT_CLEANUP_FAILED";
+
+/**
+ * 保持期限（7日）を過ぎたのに、まだストレージ上に残っているファイルをまとめて削除する。
+ * 依頼（runMasterExcelExport）が処理されるたびに呼ばれる、掃除だけの独立した処理。
+ * withJobで包み、依頼本体の処理とは別に実行の記録（ログ）を1回残す。
+ *
+ * 1件の削除に失敗しても他の対象の削除は続ける（Promise.allSettled）。
+ * 失敗があった場合はエラーを投げてwithJobに記録させるが、呼び出し元（runMasterExcelExport）は
+ * この結果を無視する。掃除はあくまで付随的な処理であり、依頼そのものを失敗させないため。
+ */
+const cleanUpExpiredExcelExportFiles = withJob<{ id?: string }>(
+  // 実在するキュー（順番待ちの列）ではなく、記録（ログ）上の処理名として使うだけの文字列。
+  `${MASTER_EXCEL_EXPORT_QUEUE}.cleanup`,
+  async () => {
+    const targets = await masterRepository.listExpiredExcelExportFiles(new Date());
+    if (targets.length === 0) return;
+
+    const results = await Promise.allSettled(
+      targets.map(async (target) => {
+        // 実体を先に消す。DBの更新を先にしてしまうと、保存先の情報（filePath）を失った
+        // 実体だけがストレージに残り続け、二度と削除できなくなるため。
+        await storage.remove(target.filePath);
+        await masterRepository.markExcelExportFileRemoved(target.id);
+      }),
+    );
+
+    const failedIds = targets
+      .filter((_, index) => results[index].status === "rejected")
+      .map((target) => target.id);
+    if (failedIds.length > 0) {
+      throw new AppError(CLEANUP_FAILURE_ERROR_CODE, 500, "期限切れファイルの削除に失敗しました", {
+        failedIds,
+        total: targets.length,
+      });
+    }
+  },
+);
+
+/**
  * マスタ情報Excelを1件ぶん作る。
  * 依頼の受付（service.requestExcelExport）で作られた実行履歴の番号を受け取り、
  * 状態を進めながらファイルを作って保存する（設計書§40.5.3）。
@@ -56,6 +100,14 @@ export async function runMasterExcelExport(exportId: string): Promise<void> {
   // ここで何もせず終わる。ファイルが二重に作られるのを防ぐため。
   const started = await masterRepository.markExcelExportRunning(exportId);
   if (!started) return;
+
+  // 保持期限切れファイルの掃除は、この依頼の生成処理とは別の付随的な処理のため、
+  // 失敗しても無視する（記録はcleanUpExpiredExcelExportFiles自身がすでに残している）。
+  try {
+    await cleanUpExpiredExcelExportFiles({});
+  } catch {
+    // 何もしない
+  }
 
   try {
     const [categories, masters] = await Promise.all([
@@ -78,7 +130,7 @@ export async function runMasterExcelExport(exportId: string): Promise<void> {
     // 上書きしないようにするため。
     const fileName = buildMasterInfoExcelFileName(generatedAt);
     const filePath = `${STORAGE_DIRECTORY}/${exportId}/${fileName}`;
-    await storage.upload(filePath, buffer, XLSX_CONTENT_TYPE);
+    await storage.upload(filePath, buffer, MASTER_EXCEL_EXPORT_CONTENT_TYPE);
 
     const finishedAt = new Date();
     await masterRepository.markExcelExportReady(exportId, {

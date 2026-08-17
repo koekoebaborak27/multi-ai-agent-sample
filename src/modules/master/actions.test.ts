@@ -1047,5 +1047,22 @@ describe("master/actions requestMasterExcelExportAction", () => {
       expect(masterService.requestExcelExport).toHaveBeenCalledWith("admin");
       expect(result).toEqual({ exportId: "export-2" });
     });
+
+    it("対象件数が多すぎる場合、投げずにエラーメッセージを結果として返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.requestExcelExport).mockRejectedValue(
+        new AppError(
+          "MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED",
+          422,
+          "対象の件数が多く、Excelを作成できません。管理者に相談してください",
+        ),
+      );
+
+      const result = await requestMasterExcelExportAction();
+
+      expect(result).toEqual({
+        error: "対象の件数が多く、Excelを作成できません。管理者に相談してください",
+      });
+    });
   });
 });

@@ -6,9 +6,12 @@
 import { masterRepository } from "@/modules/master/repository";
 import { formatMasterCategoryCode, masterService } from "@/modules/master/service";
 import { MASTER_EXCEL_EXPORT_QUEUE } from "@/modules/master/types";
+import { userService } from "@/modules/user/service";
 import { AppError } from "@/shared/errors/app-error";
+import { storage } from "@/shared/storage";
+import type { MasterExcelExport } from "@prisma/client";
 import { Prisma } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // データベースへの読み書きは差し替える。
 // 実際のデータベースを用意しなくても、業務ルールの判定だけを取り出して確認できるようにするため。
@@ -33,6 +36,26 @@ vi.mock("@/modules/master/repository", () => ({
     deleteMasterIfUnchanged: vi.fn(),
     deleteCategoryIfUnchanged: vi.fn(),
     createExcelExport: vi.fn(),
+    listExcelExportsAndCount: vi.fn(),
+    findExcelExportById: vi.fn(),
+  },
+}));
+
+// 実行者名の解決は別モジュール（user）の責務のため、ここでは呼ばれ方だけを確認する。
+vi.mock("@/modules/user/service", () => ({
+  userService: {
+    resolveDisplayNames: vi.fn(),
+  },
+}));
+
+// ファイルの保存先（Supabase Storageまたはローカル）への読み書きは差し替える。
+// ダウンロード処理が「保存先から正しいパスで読み出したか」だけを確認できるようにするため。
+vi.mock("@/shared/storage", () => ({
+  storage: {
+    upload: vi.fn(),
+    download: vi.fn(),
+    remove: vi.fn(),
+    getSignedUrl: vi.fn(),
   },
 }));
 
@@ -55,6 +78,28 @@ vi.mock("@/shared/jobs/boss", () => ({
 // 更新の試験で使う「画面を開いた時点の最終更新日時」。
 // 他の利用者が先に更新していたかの判定に使うため、値を固定しておく。
 const updatedAt = new Date("2026-08-09T00:00:00.000Z");
+
+// マスタ情報Excel取得の実行履歴1件分のテストデータを作る。
+// 一覧取得（listExcelExports）とダウンロード（getExcelExportDownload）の両方のテストから使うため、
+// どちらのdescribeにも属さないモジュール直下に置いている。
+function buildRow(overrides: Partial<MasterExcelExport>): MasterExcelExport {
+  return {
+    id: "export-1",
+    status: "QUEUED",
+    filePath: null,
+    fileName: null,
+    categoryRowCount: null,
+    masterRowCount: null,
+    errorCode: null,
+    requestedBy: "admin",
+    startedAt: null,
+    finishedAt: null,
+    expiresAt: null,
+    createdAt: new Date("2026-08-17T00:00:00.000Z"),
+    updatedAt: new Date("2026-08-17T00:00:00.000Z"),
+    ...overrides,
+  };
+}
 
 describe("master/service listMasters", () => {
   beforeEach(() => {
@@ -1195,6 +1240,320 @@ describe("master/service requestExcelExport", () => {
       } satisfies Partial<AppError>);
       expect(masterRepository.createExcelExport).not.toHaveBeenCalled();
       expect(bossMock.send).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("master/service listExcelExports", () => {
+  // 「今」を固定するための基準時刻。期限切れかどうかの判定（expiresAtとの比較）に使う。
+  const now = new Date("2026-08-18T00:00:00.000Z");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe("一覧取得", () => {
+    it("ページング計算をtoSkipTake/paginatedへ委譲し、全体件数からtotalPagesを求める", async () => {
+      vi.mocked(masterRepository.listExcelExportsAndCount).mockResolvedValue([
+        [buildRow({ id: "export-1", requestedBy: "admin" })],
+        41,
+      ]);
+      vi.mocked(userService.resolveDisplayNames).mockResolvedValue(
+        new Map([["admin", "管理者太郎"]]),
+      );
+
+      const result = await masterService.listExcelExports(2, 30);
+
+      expect(masterRepository.listExcelExportsAndCount).toHaveBeenCalledWith(30, 30);
+      expect(result).toMatchObject({ page: 2, pageSize: 30, total: 41, totalPages: 2 });
+      expect(result.items).toHaveLength(1);
+    });
+  });
+
+  describe("状態値ごとのラベル変換", () => {
+    it.each([
+      ["QUEUED", "受付済み"],
+      ["RUNNING", "作成中"],
+      ["FAILED", "失敗"],
+    ] as const)("%sを「%s」に変換する", async (status, label) => {
+      vi.mocked(masterRepository.listExcelExportsAndCount).mockResolvedValue([
+        [buildRow({ status })],
+        1,
+      ]);
+      vi.mocked(userService.resolveDisplayNames).mockResolvedValue(new Map([["admin", "admin"]]));
+
+      const result = await masterService.listExcelExports(1, 30);
+
+      expect(result.items[0]).toMatchObject({ status, statusLabel: label });
+    });
+  });
+
+  describe("READYかつ保持期限内の場合", () => {
+    it("「完了」ラベルとダウンロードリンクを持つ", async () => {
+      vi.mocked(masterRepository.listExcelExportsAndCount).mockResolvedValue([
+        [
+          buildRow({
+            id: "export-9",
+            status: "READY",
+            expiresAt: new Date("2026-08-19T00:00:00.000Z"),
+            categoryRowCount: 2,
+            masterRowCount: 35,
+          }),
+        ],
+        1,
+      ]);
+      vi.mocked(userService.resolveDisplayNames).mockResolvedValue(new Map([["admin", "admin"]]));
+
+      const result = await masterService.listExcelExports(1, 30);
+
+      expect(result.items[0]).toMatchObject({
+        status: "READY",
+        statusLabel: "完了",
+        expired: false,
+        categoryRowCount: 2,
+        masterRowCount: 35,
+        downloadHref: "/api/master/exports/export-9/download",
+      });
+    });
+  });
+
+  describe("READYだが保持期限（expiresAt）を過ぎている場合", () => {
+    it("「期限切れ」ラベルとなり、ダウンロードリンクは出さない", async () => {
+      vi.mocked(masterRepository.listExcelExportsAndCount).mockResolvedValue([
+        [
+          buildRow({
+            id: "export-9",
+            status: "READY",
+            expiresAt: new Date("2026-08-17T23:59:59.000Z"),
+          }),
+        ],
+        1,
+      ]);
+      vi.mocked(userService.resolveDisplayNames).mockResolvedValue(new Map([["admin", "admin"]]));
+
+      const result = await masterService.listExcelExports(1, 30);
+
+      expect(result.items[0]).toMatchObject({
+        status: "READY",
+        statusLabel: "期限切れ",
+        expired: true,
+        downloadHref: null,
+      });
+    });
+  });
+
+  describe("FAILEDの場合", () => {
+    it("利用者向けのエラーメッセージを持つ（内部のerrorCodeはそのまま出さない）", async () => {
+      vi.mocked(masterRepository.listExcelExportsAndCount).mockResolvedValue([
+        [buildRow({ status: "FAILED", errorCode: "MASTER_EXCEL_EXPORT_FAILED" })],
+        1,
+      ]);
+      vi.mocked(userService.resolveDisplayNames).mockResolvedValue(new Map([["admin", "admin"]]));
+
+      const result = await masterService.listExcelExports(1, 30);
+
+      expect(result.items[0].errorMessage).toBe(
+        "Excelの作成に失敗しました。時間をおいてもう一度お試しください。",
+      );
+    });
+  });
+
+  describe("QUEUED/RUNNING/READY以外は件数・エラーメッセージを持たない", () => {
+    it("QUEUEDのときcategoryRowCount/masterRowCount/errorMessageはnullのまま", async () => {
+      vi.mocked(masterRepository.listExcelExportsAndCount).mockResolvedValue([[buildRow({})], 1]);
+      vi.mocked(userService.resolveDisplayNames).mockResolvedValue(new Map([["admin", "admin"]]));
+
+      const result = await masterService.listExcelExports(1, 30);
+
+      expect(result.items[0]).toMatchObject({
+        categoryRowCount: null,
+        masterRowCount: null,
+        errorMessage: null,
+      });
+    });
+  });
+
+  describe("実行者名の解決", () => {
+    it("取得した行のrequestedByをまとめて渡し、解決した表示名を各行に反映する", async () => {
+      vi.mocked(masterRepository.listExcelExportsAndCount).mockResolvedValue([
+        [
+          buildRow({ id: "export-1", requestedBy: "admin" }),
+          buildRow({ id: "export-2", requestedBy: "admin" }),
+        ],
+        2,
+      ]);
+      vi.mocked(userService.resolveDisplayNames).mockResolvedValue(
+        new Map([["admin", "管理者太郎"]]),
+      );
+
+      const result = await masterService.listExcelExports(1, 30);
+
+      expect(userService.resolveDisplayNames).toHaveBeenCalledWith(["admin", "admin"]);
+      expect(result.items[0].requestedByName).toBe("管理者太郎");
+      expect(result.items[1].requestedByName).toBe("管理者太郎");
+    });
+  });
+});
+
+describe("master/service getExcelExportDownload", () => {
+  // 「今」を固定するための基準時刻。listExcelExportsのテストと同じ値にそろえ、
+  // 一覧表示とダウンロードで判定がずれていないことを確認しやすくする。
+  const now = new Date("2026-08-18T00:00:00.000Z");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe("完了していて保持期限内の履歴を指定した場合", () => {
+    it("保存先のパスでファイルを取得し、記録されたファイル名と中身を返す", async () => {
+      vi.mocked(masterRepository.findExcelExportById).mockResolvedValue(
+        buildRow({
+          id: "export-9",
+          status: "READY",
+          filePath: "master-excel-exports/export-9/master_info_20260817103000.xlsx",
+          fileName: "master_info_20260817103000.xlsx",
+          expiresAt: new Date("2026-08-19T00:00:00.000Z"),
+        }),
+      );
+      vi.mocked(storage.download).mockResolvedValue(Buffer.from("excel-body"));
+
+      const result = await masterService.getExcelExportDownload("export-9");
+
+      expect(masterRepository.findExcelExportById).toHaveBeenCalledWith("export-9");
+      expect(storage.download).toHaveBeenCalledWith(
+        "master-excel-exports/export-9/master_info_20260817103000.xlsx",
+      );
+      expect(result).toEqual({
+        fileName: "master_info_20260817103000.xlsx",
+        data: Buffer.from("excel-body"),
+      });
+    });
+  });
+
+  describe("保持期限がちょうど現在時刻と同じ場合", () => {
+    it("期限内として扱い、ダウンロードできる", async () => {
+      vi.mocked(masterRepository.findExcelExportById).mockResolvedValue(
+        buildRow({
+          status: "READY",
+          filePath: "master-excel-exports/export-1/master_info_20260817103000.xlsx",
+          fileName: "master_info_20260817103000.xlsx",
+          expiresAt: now,
+        }),
+      );
+      vi.mocked(storage.download).mockResolvedValue(Buffer.from("excel-body"));
+
+      await expect(masterService.getExcelExportDownload("export-1")).resolves.toMatchObject({
+        fileName: "master_info_20260817103000.xlsx",
+      });
+    });
+  });
+
+  describe("保持期限が設定されていない場合", () => {
+    it("期限切れとせずダウンロードできる", async () => {
+      vi.mocked(masterRepository.findExcelExportById).mockResolvedValue(
+        buildRow({
+          status: "READY",
+          filePath: "master-excel-exports/export-1/master_info_20260817103000.xlsx",
+          fileName: "master_info_20260817103000.xlsx",
+          expiresAt: null,
+        }),
+      );
+      vi.mocked(storage.download).mockResolvedValue(Buffer.from("excel-body"));
+
+      await expect(masterService.getExcelExportDownload("export-1")).resolves.toMatchObject({
+        fileName: "master_info_20260817103000.xlsx",
+      });
+    });
+  });
+
+  describe("指定された履歴が存在しない場合", () => {
+    it("MASTER_EXCEL_EXPORT_NOT_FOUND(404)を投げ、ファイルの取得を試みない", async () => {
+      vi.mocked(masterRepository.findExcelExportById).mockResolvedValue(null);
+
+      await expect(masterService.getExcelExportDownload("does-not-exist")).rejects.toMatchObject({
+        code: "MASTER_EXCEL_EXPORT_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+      expect(storage.download).not.toHaveBeenCalled();
+    });
+  });
+
+  describe.each([["QUEUED"], ["RUNNING"], ["FAILED"]] as const)("状態が%sの場合", (status) => {
+    it("MASTER_EXCEL_EXPORT_NOT_FOUND(404)を投げ、ファイルの取得を試みない", async () => {
+      vi.mocked(masterRepository.findExcelExportById).mockResolvedValue(buildRow({ status }));
+
+      await expect(masterService.getExcelExportDownload("export-1")).rejects.toMatchObject({
+        code: "MASTER_EXCEL_EXPORT_NOT_FOUND",
+        httpStatus: 404,
+        context: expect.objectContaining({ status }),
+      } satisfies Partial<AppError>);
+      expect(storage.download).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("保持期限を過ぎている場合", () => {
+    it("MASTER_EXCEL_EXPORT_EXPIRED(410)を投げ、ファイルの取得を試みない", async () => {
+      vi.mocked(masterRepository.findExcelExportById).mockResolvedValue(
+        buildRow({ status: "READY", expiresAt: new Date("2026-08-17T23:59:59.999Z") }),
+      );
+
+      await expect(masterService.getExcelExportDownload("export-1")).rejects.toMatchObject({
+        code: "MASTER_EXCEL_EXPORT_EXPIRED",
+        httpStatus: 410,
+      } satisfies Partial<AppError>);
+      expect(storage.download).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("完了しているが保存先が記録されていない場合", () => {
+    it("MASTER_EXCEL_EXPORT_NOT_FOUND(404)を投げ、ファイルの取得を試みない", async () => {
+      vi.mocked(masterRepository.findExcelExportById).mockResolvedValue(
+        buildRow({
+          status: "READY",
+          expiresAt: new Date("2026-08-19T00:00:00.000Z"),
+          filePath: null,
+          fileName: null,
+        }),
+      );
+
+      await expect(masterService.getExcelExportDownload("export-1")).rejects.toMatchObject({
+        code: "MASTER_EXCEL_EXPORT_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+      expect(storage.download).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("保存先からの取得が失敗した場合", () => {
+    it("受け止めずそのまま投げ直す", async () => {
+      vi.mocked(masterRepository.findExcelExportById).mockResolvedValue(
+        buildRow({
+          status: "READY",
+          expiresAt: new Date("2026-08-19T00:00:00.000Z"),
+          filePath: "master-excel-exports/export-1/master_info_20260817103000.xlsx",
+          fileName: "master_info_20260817103000.xlsx",
+        }),
+      );
+      const storageError = new AppError(
+        "STORAGE_DOWNLOAD_FAILED",
+        502,
+        "ファイルの取得に失敗しました",
+      );
+      vi.mocked(storage.download).mockRejectedValue(storageError);
+
+      await expect(masterService.getExcelExportDownload("export-1")).rejects.toBe(storageError);
     });
   });
 });
