@@ -28,7 +28,7 @@
 | マスタ機能（設計） | 6 / 6 |
 | **マスタ機能（製造。工程1〜18＋第5段階1〜4）** | **22 / 22** |
 | Cloud Run Jobs本番構成の構築（workerサンプルの土台） | 3 / 7 |
-| マスタ情報Excel取得機能（workerサンプル） | 6 / 9 工程 |
+| マスタ情報Excel取得機能（workerサンプル） | 7 / 9 工程 |
 | 残っているタスク（期限なしの宿題） | 未対応 9 件 |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
@@ -37,9 +37,9 @@
 
 **マスタ機能の製造（工程1〜18＋第5段階1〜4）が完了した。** 直近では2026-08-16に本番DBへ `drop_master_export` マイグレーションを適用し、使われなくなった `MasterExport` テーブルを削除した（詳しい経緯は [履歴](history/README.md) を参照）。
 
-「マスタ情報Excel取得機能（workerサンプル）」の工程6、**保持期限切れファイルの掃除処理の実装が完了した**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の保持期限切れファイル掃除処理を実装)。
+「マスタ情報Excel取得機能（workerサンプル）」の工程7、**マスタ管理画面への導線ボタンの追加が完了した**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の画面への導線ボタンを追加)。
 
-次は工程7、**マスタ管理画面にこの画面へのボタンを追加する**。一覧領域の「CSVダウンロード」ボタンの左に配置する（設計書 §40.3.6）。
+次は工程8、**本番構成を仕上げる**。Cloud Run Jobs本番構成の構築の残り（4〜7: app→worker起動処理・専用サービスアカウント・Cloud Build自動化）を完了させ、タイムアウトを900秒に見直し、本番デプロイと動作確認まで行う（設計書 §40.7.3・§40.7.4）。
 
 手元の状態を確認するコマンド:
 
@@ -78,7 +78,7 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 - [x] **4. 「マスタ情報Excel取得」画面を実装する**（`/master/exports`）（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の画面を実装)
 - [x] **5. 履歴一覧からのダウンロード処理を実装する**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能のダウンロード処理を実装)
 - [x] **6. 保持期限切れファイルの掃除をworkerに実装する**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の保持期限切れファイル掃除処理を実装)
-- [ ] **7. マスタ管理画面にこの画面へのボタンを追加する** — 一覧領域の「CSVダウンロード」ボタンの左に配置する（設計書 §40.3.6）
+- [x] **7. マスタ管理画面にこの画面へのボタンを追加する**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の画面への導線ボタンを追加)
 - [ ] **8. 本番構成を仕上げる** — 上記「Cloud Run Jobs本番構成の構築」の残り（4〜7: app→worker起動処理・専用サービスアカウント・Cloud Build自動化）を完了させ、タイムアウトを900秒に見直し、本番デプロイと動作確認まで行う（設計書 §40.7.3・§40.7.4）
 - [ ] **9. 単体テストを実施する**
 
@@ -106,11 +106,11 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `feat/master-excel-export-model`（マスタ情報Excel取得機能の依頼処理・データモデル・worker・画面・ダウンロード・掃除処理を追加。工程2〜6）で作業中、未PR。`feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更）が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
+| 作業ブランチ | `feat/master-excel-export-model`（マスタ情報Excel取得機能の依頼処理・データモデル・worker・画面・ダウンロード・掃除処理・導線ボタンを追加。工程2〜7）で作業中、未PR。工程7分（`src/app/(main)/master/page.tsx`）はまだ未コミット。`feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更）が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
 | 本番 DB | `20260815153832_drop_master_export` まで**適用済み**（2026-08-16、第5段階の4で反映。使われなくなった `MasterExport` テーブルを削除） |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている。`MasterExcelExport` テーブルを追加済み（2026-08-17）。動作確認で作成した実行履歴・ファイルは確認後に削除済み |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番（2026-08-16）の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし） |
-| 直近の検証 | 2026-08-18、ローカルで保持期限切れファイルの掃除処理を実機確認。期限切れに書き換えた既存ファイルの実体が削除されること、対象行の保存先情報（filePath/fileName）が空になり行自体は残ること、一覧表示が「期限切れ」のまま維持されることを確認済み。他セッションのworkerとのジョブ競合のため、pg-bossの列を介さず`runMasterExcelExport`を直接呼び出す方式で検証した。本番URL（`contract-app`）での直近の確認は2026-08-16のCSVダウンロード（待ち時間なく動作、最新リビジョン `contract-app-00027-kqd`） |
+| 直近の検証 | 2026-08-18、ローカルで`/master`画面への導線ボタン追加を実機確認。見出し右側に「マスタ管理情報Excel作成」「マスタ分類の管理」が左からこの順・同じ色で並ぶこと、クリックで`/master/exports`へ遷移し戻れること、幅375pxでも横スクロールが出ず縦積みになること、一覧領域のCSVダウンロード等の並びが変わっていないことを確認済み。本番URL（`contract-app`）での直近の確認は2026-08-16のCSVダウンロード（待ち時間なく動作、最新リビジョン `contract-app-00027-kqd`） |
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1、`https://contract-app-4i3b5yuroq-uc.a.run.app`）。Cloud Run Jobs `contract-worker`（us-central1）は `SUPABASE_URL` 設定漏れを2026-08-16に修正済み。機密環境変数3項目はSecret Manager経由。`feat/master-csv-sync` はデプロイ済みで、CSVダウンロードは新しい同期方式で稼働中。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 
