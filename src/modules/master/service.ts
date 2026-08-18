@@ -41,6 +41,7 @@ import type {
 import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError } from "@/shared/errors/app-error";
 import { getBoss } from "@/shared/jobs/boss";
+import { invokeWorker } from "@/shared/jobs/invoke-worker";
 import { storage } from "@/shared/storage";
 import { Prisma, type MasterExcelExport } from "@prisma/client";
 
@@ -642,6 +643,10 @@ export const masterService = {
     await boss.createQueue(MASTER_EXCEL_EXPORT_QUEUE);
     const jobData: MasterExcelExportJobData = { exportId: record.id };
     await boss.send(MASTER_EXCEL_EXPORT_QUEUE, jobData);
+
+    // 本番のときだけ、積んだ依頼を処理させるため worker（Cloud Run Jobs）を起動する（§40.7）。
+    // ローカルは常駐 worker が既に動いているため何もしない（invokeWorker 内で判定）。
+    await invokeWorker();
 
     return { exportId: record.id };
   },

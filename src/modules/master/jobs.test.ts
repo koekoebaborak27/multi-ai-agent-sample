@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // 掃除処理（withJob）は記録係（logger）まで読み込むため、これも差し替える。
 vi.mock("@/shared/config/env", () => ({ env: { PAGE_SIZE: 30 } }));
 vi.mock("@/shared/jobs/boss", () => ({ getBoss: vi.fn() }));
+vi.mock("@/shared/jobs/invoke-worker", () => ({ invokeWorker: vi.fn() }));
 vi.mock("@/modules/user/service", () => ({ userService: {} }));
 
 const { childLoggerMock } = vi.hoisted(() => {

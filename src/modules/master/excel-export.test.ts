@@ -15,6 +15,7 @@ vi.mock("@/modules/master/repository", () => ({ masterRepository: {} }));
 vi.mock("@/modules/user/service", () => ({ userService: {} }));
 vi.mock("@/shared/config/env", () => ({ env: { PAGE_SIZE: 30 } }));
 vi.mock("@/shared/jobs/boss", () => ({ getBoss: vi.fn() }));
+vi.mock("@/shared/jobs/invoke-worker", () => ({ invokeWorker: vi.fn() }));
 
 const createdAt = new Date("2026-08-12T00:30:00.000Z"); // Asia/Tokyo で 09:30:00
 const updatedAt = new Date("2026-08-12T01:00:00.000Z"); // Asia/Tokyo で 10:00:00

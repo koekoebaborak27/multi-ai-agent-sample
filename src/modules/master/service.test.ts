@@ -75,6 +75,13 @@ vi.mock("@/shared/jobs/boss", () => ({
   getBoss: vi.fn(() => bossMock),
 }));
 
+// 本番でだけ動く worker の起動要求も差し替える。ローカル判定や外部への通信を行わせず、
+// 依頼を受け付けたときに呼ばれたかどうかだけを確認できるようにするため。
+// vi.mock は vi.hoisted も含めてファイル先頭へ巻き上げられるため、
+// 参照する変数は vi.hoisted で先に定義しておく必要がある。
+const { invokeWorkerMock } = vi.hoisted(() => ({ invokeWorkerMock: vi.fn() }));
+vi.mock("@/shared/jobs/invoke-worker", () => ({ invokeWorker: invokeWorkerMock }));
+
 // 更新の試験で使う「画面を開いた時点の最終更新日時」。
 // 他の利用者が先に更新していたかの判定に使うため、値を固定しておく。
 const updatedAt = new Date("2026-08-09T00:00:00.000Z");
@@ -1155,7 +1162,7 @@ describe("master/service requestExcelExport", () => {
   });
 
   describe("分類・マスタとも上限（10,000件）以下の場合", () => {
-    it("実行履歴をQUEUEDで作り、順番待ちの列へexportIdだけを積み、exportIdを返す", async () => {
+    it("実行履歴をQUEUEDで作り、順番待ちの列へexportIdだけを積み、workerを起動してexportIdを返す", async () => {
       vi.mocked(masterRepository.countCategories).mockResolvedValue(2);
       vi.mocked(masterRepository.countMasters).mockResolvedValue(35);
       vi.mocked(masterRepository.createExcelExport).mockResolvedValue({
@@ -1182,6 +1189,7 @@ describe("master/service requestExcelExport", () => {
       expect(bossMock.send).toHaveBeenCalledWith(MASTER_EXCEL_EXPORT_QUEUE, {
         exportId: "export-1",
       });
+      expect(invokeWorkerMock).toHaveBeenCalledTimes(1);
       expect(result).toEqual({ exportId: "export-1" });
     });
   });
