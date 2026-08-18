@@ -73,12 +73,9 @@ const masterRecord = {
   category: { name: "部門" },
 };
 
-// わざと入れてある2分の待ちを実際に待たずに済ませる。
-// 実時間で待つとテストが2分かかってしまうため、時間の進み方を操作する。
-// setTimeout / Date だけを差し替える。setImmediate まで差し替えると、Excelファイルの組み立て
-// （exceljs内部が使う圧縮処理）が止まってしまい、テストがいつまでも終わらなくなるため。
+// 生成日時（ファイル名・finishedAt・expiresAt）を決まった値で確かめられるよう、時計だけを固定する。
+// 時間の進み方（setTimeoutなど）は本物のままにする。
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
   vi.setSystemTime(BASE_TIME);
   // 掃除処理は本処理の前に必ず呼ばれるため、既定では「対象なし」にしておく。
   // 個別のテストでは、必要に応じてこの既定値を上書きする。
@@ -97,9 +94,7 @@ describe("runMasterExcelExport", () => {
     vi.mocked(masterRepository.listMastersForExport).mockResolvedValue([masterRecord]);
     vi.mocked(masterRepository.markExcelExportReady).mockResolvedValue({} as never);
 
-    const promise = runMasterExcelExport(EXPORT_ID);
-    await vi.advanceTimersByTimeAsync(120_000);
-    await promise;
+    await runMasterExcelExport(EXPORT_ID);
 
     expect(masterRepository.markExcelExportRunning).toHaveBeenCalledWith(EXPORT_ID);
     expect(masterRepository.listCategoriesForExport).toHaveBeenCalledWith("code", "asc");
@@ -115,7 +110,7 @@ describe("runMasterExcelExport", () => {
     expect(readyData.categoryRowCount).toBe(1);
     expect(readyData.masterRowCount).toBe(1);
     expect(readyData.filePath).toBe(filePath);
-    expect(readyData.finishedAt.getTime()).toBe(BASE_TIME.getTime() + 120_000);
+    expect(readyData.finishedAt.getTime()).toBe(BASE_TIME.getTime());
     expect(readyData.expiresAt.getTime()).toBe(
       readyData.finishedAt.getTime() + 7 * 24 * 60 * 60 * 1000,
     );
@@ -143,10 +138,7 @@ describe("runMasterExcelExport", () => {
     vi.mocked(storage.upload).mockRejectedValue(new Error("保存先に書き込めなかった"));
     vi.mocked(masterRepository.markExcelExportFailed).mockResolvedValue({} as never);
 
-    const promise = runMasterExcelExport(EXPORT_ID);
-    await vi.advanceTimersByTimeAsync(120_000);
-
-    await expect(promise).rejects.toThrow("保存先に書き込めなかった");
+    await expect(runMasterExcelExport(EXPORT_ID)).rejects.toThrow("保存先に書き込めなかった");
     expect(masterRepository.markExcelExportFailed).toHaveBeenCalledWith(
       EXPORT_ID,
       "MASTER_EXCEL_EXPORT_FAILED",
@@ -174,9 +166,7 @@ describe("期限切れファイルの掃除", () => {
     setUpSuccessfulGeneration();
     // beforeEachの既定どおり listExpiredExcelExportFiles は空配列を返す
 
-    const promise = runMasterExcelExport(EXPORT_ID);
-    await vi.advanceTimersByTimeAsync(120_000);
-    await promise;
+    await runMasterExcelExport(EXPORT_ID);
 
     expect(masterRepository.listExpiredExcelExportFiles).toHaveBeenCalledWith(BASE_TIME);
     expect(storage.remove).not.toHaveBeenCalled();
@@ -192,9 +182,7 @@ describe("期限切れファイルの掃除", () => {
     ]);
     vi.mocked(masterRepository.markExcelExportFileRemoved).mockResolvedValue(true);
 
-    const promise = runMasterExcelExport(EXPORT_ID);
-    await vi.advanceTimersByTimeAsync(120_000);
-    await promise;
+    await runMasterExcelExport(EXPORT_ID);
 
     expect(storage.remove).toHaveBeenCalledWith(expiredFileA.filePath);
     expect(storage.remove).toHaveBeenCalledWith(expiredFileB.filePath);
@@ -215,9 +203,7 @@ describe("期限切れファイルの掃除", () => {
     );
     vi.mocked(masterRepository.markExcelExportFileRemoved).mockResolvedValue(true);
 
-    const promise = runMasterExcelExport(EXPORT_ID);
-    await vi.advanceTimersByTimeAsync(120_000);
-    await promise;
+    await runMasterExcelExport(EXPORT_ID);
 
     // 失敗した対象は記録されず、成功した対象だけ記録される
     expect(masterRepository.markExcelExportFileRemoved).not.toHaveBeenCalledWith(expiredFileA.id);
@@ -233,26 +219,24 @@ describe("期限切れファイルの掃除", () => {
       new Error("一覧の取得に失敗した"),
     );
 
-    const promise = runMasterExcelExport(EXPORT_ID);
-    await vi.advanceTimersByTimeAsync(120_000);
-    await promise;
+    await runMasterExcelExport(EXPORT_ID);
 
     expect(masterRepository.markExcelExportReady).toHaveBeenCalled();
     expect(masterRepository.markExcelExportFailed).not.toHaveBeenCalled();
   });
 
-  it("掃除はExcelの生成（2分の待ち）より先に実行される", async () => {
+  it("掃除は本処理（Excelの組み立て）より先に実行される", async () => {
     setUpSuccessfulGeneration();
     vi.mocked(masterRepository.listExpiredExcelExportFiles).mockResolvedValue([expiredFileA]);
     vi.mocked(masterRepository.markExcelExportFileRemoved).mockResolvedValue(true);
 
-    const promise = runMasterExcelExport(EXPORT_ID);
-    // 2分の待ちを進める前の時点で、掃除の削除処理までは終わっていること
-    await vi.advanceTimersByTimeAsync(0);
-    expect(storage.remove).toHaveBeenCalledWith(expiredFileA.filePath);
-    expect(masterRepository.markExcelExportReady).not.toHaveBeenCalled();
+    await runMasterExcelExport(EXPORT_ID);
 
-    await vi.advanceTimersByTimeAsync(120_000);
-    await promise;
+    // invocationCallOrder は「全体で何番目に呼ばれたか」を表す通し番号。
+    // 掃除の削除が、Excelの元データを取り出すより先に行われたことを、この番号の大小で確かめる。
+    const removeOrder = vi.mocked(storage.remove).mock.invocationCallOrder[0];
+    const buildOrder = vi.mocked(masterRepository.listCategoriesForExport).mock
+      .invocationCallOrder[0];
+    expect(removeOrder).toBeLessThan(buildOrder);
   });
 });

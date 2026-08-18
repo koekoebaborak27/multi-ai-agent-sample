@@ -10,36 +10,24 @@ import { AppError } from "@/shared/errors/app-error";
 import { withJob } from "@/shared/observability/with-job";
 import { storage } from "@/shared/storage";
 
-// 裏側で動くプログラム（worker）だけが使う、時間のかかる処理をまとめたファイル。
+// 裏側で動くプログラム（worker）だけが使う処理をまとめたファイル。
 // 画面から呼ぶ処理（service.ts）とは分けている。Excelの組み立て道具（exceljs）は容量が大きく、
 // 画面側の配布物へ混ぜたくないため、公開窓口（index.ts）にも載せていない。
+//
+// この機能のExcel組み立て自体は数秒で終わる軽い処理で、workerを使わなくても作れる。
+// それでもworkerを通しているのは、「依頼 → 裏側で生成 → あとで受け取る」という進め方そのものを、
+// 動く見本として1つ残しておくため（設計書§40.12）。
 //
 // 保持期限切れファイルの掃除（cleanUpExpiredExcelExportFiles）は、依頼が1件処理されるたびに
 // 呼び出す。定期実行の仕組みは持ち込まず、「次にいずれかの依頼が処理されたタイミングでまとめて
 // 削除する」という設計書§40.9の方針どおりにしている。掃除は本来の生成処理に付随するおまけの
 // 処理であり、掃除が失敗しても依頼そのものは失敗させない。
 
-/**
- * わざと待つ時間（ミリ秒）。約2分。
- *
- * データの件数に関わらず、この機能は必ず数分かかるようにしている。
- * この機能は「時間のかかる処理を裏側の仕組み（worker）に任せる」ときのお手本として作られており、
- * すぐ終わってしまうと、その使い方の良さが動きとして伝わらないため。
- * 以前のCSV出力は処理そのものが1〜2秒しかかからず、裏側の仕組みの起動待ちだけが目立つ結果になり、
- * 画面の中で完結する方式へ作り直した経緯がある。本機能はその逆の例として、あえて重い処理にしている。
- */
-const ARTIFICIAL_DELAY_MS = 120_000;
-
 /** ファイル置き場の中で、この機能が作ったファイルを置く場所 */
 const STORAGE_DIRECTORY = "master-excel-exports";
 
 /** 生成に失敗したときに記録する、失敗の種類を表す値（設計書§40.10） */
 const FAILURE_ERROR_CODE = "MASTER_EXCEL_EXPORT_FAILED";
-
-/** 指定した時間だけ待つ */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** 基準の日時から、指定した日数だけ先の日時を作る */
 function addDays(base: Date, days: number): Date {
@@ -110,14 +98,12 @@ export async function runMasterExcelExport(exportId: string): Promise<void> {
   }
 
   try {
+    // 件数が上限を超えていないことは依頼を受け付けた時点（service.requestExcelExport）で
+    // 確認済みのため、ここでは確認し直さない。
     const [categories, masters] = await Promise.all([
       masterRepository.listCategoriesForExport("code", "asc"),
       masterRepository.listMastersForExport({}, "category", "asc"),
     ]);
-
-    // 件数が上限を超えていないことは依頼を受け付けた時点（service.requestExcelExport）で
-    // 確認済みのため、ここでは確認し直さない。
-    await sleep(ARTIFICIAL_DELAY_MS);
 
     const generatedAt = new Date();
     const buffer = await buildMasterInfoExcel({
