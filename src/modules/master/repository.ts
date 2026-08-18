@@ -1,11 +1,13 @@
 import {
+  MASTER_EXCEL_EXPORT_CLEANUP_MAX_FILES,
   MASTER_EXPORT_MAX_ROWS,
   type MasterCategorySortField,
+  type MasterExcelExportStatus,
   type MasterSortField,
 } from "@/modules/master/types";
 import type { SortOrder } from "@/shared/api/pagination";
 import { prisma } from "@/shared/db/prisma";
-import type { Master, MasterCategory, Prisma } from "@prisma/client";
+import type { Master, MasterCategory, MasterExcelExport, Prisma } from "@prisma/client";
 
 // ここから 4 つは、データベースから取得する項目の組み合わせを表す型。
 // 画面ごとに必要な項目だけを取得しており、その「取得した結果の形」に名前を付けている。
@@ -58,6 +60,12 @@ export type MasterDetailRecord = Prisma.MasterGetPayload<{
     category: { select: { name: true } };
   };
 }>;
+
+// 保持期限切れファイルの掃除（jobs.ts）で使う、削除対象の最小限の項目。
+// 取得時のwhere句で「保存先の情報（filePath）が残っている行」だけに絞り込むため実際にはnullは
+// 返らないが、Prisma.MasterExcelExportGetPayloadでは列の値がそのままnullを許す型になってしまう。
+// その保証をコードの形にも表すため、filePathをstringで固定したこの型を別に用意している。
+export type MasterExcelExportFileRecord = Pick<MasterExcelExport, "id"> & { filePath: string };
 
 /** マスタ一覧の絞り込み条件。指定しなかった項目では絞り込まない */
 export interface MasterListFilters {
@@ -355,6 +363,107 @@ export const masterRepository = {
   async deleteCategoryIfUnchanged(id: number, expectedUpdatedAt: Date): Promise<boolean> {
     const result = await prisma.masterCategory.deleteMany({
       where: { id, updatedAt: expectedUpdatedAt },
+    });
+    return result.count === 1;
+  },
+
+  // マスタ情報Excel取得（MST-11）の実行履歴を、依頼日時の降順で1ページ分取得し、あわせて全体の件数も返す。
+  // 検索条件を持たない一覧のため、他の一覧と異なり where は組み立てない。
+  async listExcelExportsAndCount(
+    skip: number,
+    take: number,
+  ): Promise<[MasterExcelExport[], number]> {
+    return Promise.all([
+      prisma.masterExcelExport.findMany({
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      prisma.masterExcelExport.count(),
+    ]);
+  },
+
+  // マスタ情報Excel取得の実行履歴を、IDで1件取得する。
+  // ダウンロードの受け取り（Route Handler）で、状態・保存先・保持期限を確かめるために使う。
+  // 見つからない場合は null を返し、その扱いは呼び出し側（service）に任せる。
+  findExcelExportById(id: string): Promise<MasterExcelExport | null> {
+    return prisma.masterExcelExport.findUnique({ where: { id } });
+  },
+
+  // マスタ情報Excel取得の実行履歴を「受付済み(QUEUED)」で1件作る。
+  // 状態の初期値はスキーマ側の @default("QUEUED") に任せ、ここでは指定しない。
+  createExcelExport(data: { requestedBy: string }): Promise<MasterExcelExport> {
+    return prisma.masterExcelExport.create({ data });
+  },
+
+  // マスタ情報Excel取得の実行履歴を「受付済み(QUEUED)」から「作成中(RUNNING)」へ進める。
+  // 「受付済み」のときだけ進み、進められたかどうかを true / false で返す。
+  // Cloud Run Jobsは同じ依頼を最大3回まで実行し直すことがあるが、2回目以降はここが false になるため、
+  // ファイルが二重に作られることはない（設計書§40.7.3）。
+  async markExcelExportRunning(id: string): Promise<boolean> {
+    const result = await prisma.masterExcelExport.updateMany({
+      where: { id, status: "QUEUED" satisfies MasterExcelExportStatus },
+      data: { status: "RUNNING" satisfies MasterExcelExportStatus, startedAt: new Date() },
+    });
+    return result.count === 1;
+  },
+
+  // 実行履歴を「完了(READY)」にし、出力できた件数・保存先・取得できる期限を記録する。
+  markExcelExportReady(
+    id: string,
+    data: {
+      filePath: string;
+      fileName: string;
+      categoryRowCount: number;
+      masterRowCount: number;
+      finishedAt: Date;
+      expiresAt: Date;
+    },
+  ): Promise<MasterExcelExport> {
+    return prisma.masterExcelExport.update({
+      where: { id },
+      data: { status: "READY" satisfies MasterExcelExportStatus, ...data },
+    });
+  },
+
+  // 実行履歴を「失敗(FAILED)」にし、失敗の種類を記録する。
+  // 終わった日時も一緒に残すことで、どこまで動いてから失敗したのかを後から確認できるようにする。
+  markExcelExportFailed(id: string, errorCode: string): Promise<MasterExcelExport> {
+    return prisma.masterExcelExport.update({
+      where: { id },
+      data: {
+        status: "FAILED" satisfies MasterExcelExportStatus,
+        errorCode,
+        finishedAt: new Date(),
+      },
+    });
+  },
+
+  // 保持期限（expiresAt）を過ぎているのに、まだファイルの保存先（filePath）が残っている行を、
+  // 期限が古いものから最大 MASTER_EXCEL_EXPORT_CLEANUP_MAX_FILES 件だけ取得する。
+  // 掃除処理（jobs.ts）がこの一覧をもとに、ストレージ上の実体を削除する（設計書§40.9）。
+  async listExpiredExcelExportFiles(now: Date): Promise<MasterExcelExportFileRecord[]> {
+    const rows = await prisma.masterExcelExport.findMany({
+      where: {
+        status: "READY" satisfies MasterExcelExportStatus,
+        expiresAt: { lt: now },
+        filePath: { not: null },
+      },
+      select: { id: true, filePath: true },
+      orderBy: { expiresAt: "asc" },
+      take: MASTER_EXCEL_EXPORT_CLEANUP_MAX_FILES,
+    });
+    // where句でfilePathが残っている行だけに絞り込んでいるため、ここで確実にある値として詰め替える
+    return rows.map((row) => ({ id: row.id, filePath: row.filePath as string }));
+  },
+
+  // 掃除処理がストレージ上の実体を削除し終えた行について、保存先の情報（filePath / fileName）を
+  // 空にする。履歴の行自体は削除しない（一覧には「期限切れ」のまま残る。設計書§40.9）。
+  // すでに空になっている行を対象から外すことで、同じ行を何度も処理済みとして数えないようにする。
+  async markExcelExportFileRemoved(id: string): Promise<boolean> {
+    const result = await prisma.masterExcelExport.updateMany({
+      where: { id, filePath: { not: null } },
+      data: { filePath: null, fileName: null },
     });
     return result.count === 1;
   },

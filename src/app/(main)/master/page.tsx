@@ -113,11 +113,16 @@ export default async function MasterPage({
   return (
     <div className="space-y-6">
       <MasterDeletedToast />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">マスタ管理</h1>
-        <Button asChild>
-          <Link href="/master/categories">マスタ分類の管理</Link>
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button asChild>
+            <Link href="/master/exports">マスタ管理情報Excel作成</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/master/categories">マスタ分類の管理</Link>
+          </Button>
+        </div>
       </div>
 
       <MasterSearchForm

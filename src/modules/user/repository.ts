@@ -39,6 +39,16 @@ export const userRepository = {
     return prisma.user.findUnique({ where: { id: userId } });
   },
 
+  // 複数の利用者IDから、表示名の解決に必要な項目だけをまとめて取得する。
+  // 1件ずつ問い合わせる（N+1）のを避けるため、他の一覧（マスタ情報Excel取得の実行者名など）で使う。
+  // 退会済みでも過去の記録として名前を出したいため、deletedでは絞り込まない。
+  findManyByIds(ids: string[]): Promise<Pick<User, "id" | "displayName">[]> {
+    return prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, displayName: true },
+    });
+  },
+
   // 利用者を1件登録する
   create(data: Prisma.UserCreateInput): Promise<User> {
     return prisma.user.create({ data });

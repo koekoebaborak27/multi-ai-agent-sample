@@ -10,17 +10,26 @@ import {
   type MasterDetailRecord,
   type MasterListRecord,
 } from "@/modules/master/repository";
-import { MASTER_EXPORT_MAX_ROWS } from "@/modules/master/types";
+import {
+  MASTER_EXCEL_EXPORT_MAX_ROWS,
+  MASTER_EXCEL_EXPORT_QUEUE,
+  MASTER_EXPORT_MAX_ROWS,
+} from "@/modules/master/types";
 import type {
   MasterCategoryDetail,
   MasterCategoryOption,
   MasterCategorySortField,
   MasterCategorySummary,
   MasterDetail,
+  MasterExcelExportJobData,
+  MasterExcelExportRequest,
+  MasterExcelExportStatus,
+  MasterExcelExportSummary,
   MasterSearchCriteria,
   MasterSortField,
   MasterSummary,
 } from "@/modules/master/types";
+import { userService } from "@/modules/user/service";
 import type {
   CreateMasterCategoryInput,
   CreateMasterInput,
@@ -31,7 +40,10 @@ import type {
 } from "@/modules/master/validation";
 import { paginated, toSkipTake, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError } from "@/shared/errors/app-error";
-import { Prisma } from "@prisma/client";
+import { getBoss } from "@/shared/jobs/boss";
+import { invokeWorker } from "@/shared/jobs/invoke-worker";
+import { storage } from "@/shared/storage";
+import { Prisma, type MasterExcelExport } from "@prisma/client";
 
 // マスタ分類コードの桁数。
 // コードは分類ごとの連番をそのまま使うため、桁数はこの値だけで決まる。
@@ -57,8 +69,11 @@ function toCategorySummary(category: MasterCategoryListRecord): MasterCategorySu
   };
 }
 
-/** 分類詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える */
-function toCategoryDetail(category: MasterCategoryDetailRecord): MasterCategoryDetail {
+/**
+ * 分類詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える。
+ * マスタ情報Excel取得（jobs.ts）でも同じ詰め替えを使うため、export している。
+ */
+export function toCategoryDetail(category: MasterCategoryDetailRecord): MasterCategoryDetail {
   return {
     id: category.id,
     code: formatMasterCategoryCode(category.id),
@@ -82,8 +97,11 @@ function toMasterSummary(master: MasterListRecord): MasterSummary {
   };
 }
 
-/** マスタ詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える */
-function toMasterDetail(master: MasterDetailRecord): MasterDetail {
+/**
+ * マスタ詳細画面のデータを作る。一覧の1行分の内容に、いつ誰が登録・更新したかの記録を加える。
+ * マスタ情報Excel取得（jobs.ts）でも同じ詰め替えを使うため、export している。
+ */
+export function toMasterDetail(master: MasterDetailRecord): MasterDetail {
   return {
     id: master.id,
     categoryId: master.categoryId,
@@ -94,6 +112,55 @@ function toMasterDetail(master: MasterDetailRecord): MasterDetail {
     createdBy: master.createdBy,
     updatedAt: master.updatedAt,
     updatedBy: master.updatedBy,
+  };
+}
+
+// マスタ情報Excel取得の状態値（QUEUED/RUNNING/READY/FAILED）を、画面に出す日本語ラベルへ変換する。
+// READYでも保持期限（expiresAt）を過ぎている行は「期限切れ」という別のラベルにする（設計書§40.9）。
+function toExcelExportStatusLabel(status: MasterExcelExportStatus, expired: boolean): string {
+  if (status === "READY") return expired ? "期限切れ" : "完了";
+  const labels: Record<Exclude<MasterExcelExportStatus, "READY">, string> = {
+    QUEUED: "受付済み",
+    RUNNING: "作成中",
+    FAILED: "失敗",
+  };
+  return labels[status];
+}
+
+// 失敗時に一覧へ出す、利用者向けのエラーメッセージを組み立てる。
+// 内部のエラーコード（errorCode）をそのまま画面に出さないようにするための変換。
+function toExcelExportErrorMessage(errorCode: string | null): string | null {
+  return errorCode ? "Excelの作成に失敗しました。時間をおいてもう一度お試しください。" : null;
+}
+
+// 完了(READY)した実行履歴が、保持期限（expiresAt）を過ぎているかどうかを判定する（設計書§40.9）。
+// 一覧表示（toExcelExportSummary）とダウンロード（getExcelExportDownload）の両方から呼び、
+// 判定式が2か所に分かれてずれる事故を防ぐ。
+function isExcelExportExpired(row: MasterExcelExport, now: Date): boolean {
+  return row.status === "READY" && !!row.expiresAt && row.expiresAt.getTime() < now.getTime();
+}
+
+/** マスタ情報Excel取得の実行履歴1件を、一覧に表示する形へ詰め替える */
+function toExcelExportSummary(
+  row: MasterExcelExport,
+  requestedByName: string,
+  now: Date,
+): MasterExcelExportSummary {
+  const status = row.status as MasterExcelExportStatus;
+  const expired = isExcelExportExpired(row, now);
+  return {
+    id: row.id,
+    status,
+    statusLabel: toExcelExportStatusLabel(status, expired),
+    expired,
+    requestedByName,
+    createdAt: row.createdAt,
+    categoryRowCount: row.categoryRowCount,
+    masterRowCount: row.masterRowCount,
+    errorMessage: toExcelExportErrorMessage(row.errorCode),
+    // ダウンロードを実際に受け取るRoute Handlerは次工程で追加する。
+    // ここではリンク先だけ先に決めておき、次工程でRoute Handlerを追加するだけで動くようにする。
+    downloadHref: status === "READY" && !expired ? `/api/master/exports/${row.id}/download` : null,
   };
 }
 
@@ -166,6 +233,42 @@ function masterExportLimitExceeded(count: number, max: number): AppError {
     `対象が${count}件あります。${max}件以下になるよう検索条件で絞り込んでください`,
     { count, max },
   );
+}
+
+/** マスタ情報Excel取得の対象件数（分類・マスタのいずれか）が上限を超えているときのエラー（設計書§40.8） */
+function masterExcelExportLimitExceeded(
+  categoryCount: number,
+  masterCount: number,
+  max: number,
+): AppError {
+  return new AppError(
+    "MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED",
+    422,
+    "対象の件数が多く、Excelを作成できません。管理者に相談してください",
+    { categoryCount, masterCount, max },
+  );
+}
+
+/**
+ * ダウンロードしようとした実行履歴が見つからない、または受け取れる状態でないときのエラー（設計書§40.10）。
+ * 「履歴自体が存在しない」「まだ作成中／失敗した履歴のURLを直接開いた」「保存先の情報が
+ * 記録されていない（データの不整合）」の3パターンをまとめて扱う。利用者からはどれも
+ * 「受け取れるファイルが無い」という同じ結果であり、対応も変わらないため。
+ * status には確認できた場合の内部状態を渡しておくと、記録（ログ）から原因を絞り込める。
+ */
+function masterExcelExportNotFound(exportId: string, status?: string): AppError {
+  return new AppError("MASTER_EXCEL_EXPORT_NOT_FOUND", 404, "対象の実行履歴が見つかりません", {
+    exportId,
+    status,
+  });
+}
+
+/** 保持期限（作成から7日）を過ぎたファイルをダウンロードしようとしたときのエラー（設計書§40.9） */
+function masterExcelExportExpired(exportId: string, expiresAt: Date): AppError {
+  return new AppError("MASTER_EXCEL_EXPORT_EXPIRED", 410, "ファイルの有効期限が切れています", {
+    exportId,
+    expiresAt,
+  });
 }
 
 /**
@@ -512,5 +615,79 @@ export const masterService = {
     const csv = buildMasterCategoryExportCsv(rows.map(toCategoryDetail));
     const fileName = buildMasterExportFileName("MASTER_CATEGORY", new Date());
     return { fileName, data: Buffer.from(csv, "utf-8") };
+  },
+
+  // マスタ情報Excel取得（MST-11）の依頼を受け付ける。
+  // 件数が上限を超えていなければ実行履歴を「受付済み」で1件作り、順番待ちの列（キュー）へ
+  // 依頼を積んで、生成の完了を待たずにすぐ応答する（生成そのものはworker側が行う）。
+  async requestExcelExport(userId: string): Promise<MasterExcelExportRequest> {
+    const [categoryCount, masterCount] = await Promise.all([
+      masterRepository.countCategories(),
+      masterRepository.countMasters({}),
+    ]);
+    if (
+      categoryCount > MASTER_EXCEL_EXPORT_MAX_ROWS ||
+      masterCount > MASTER_EXCEL_EXPORT_MAX_ROWS
+    ) {
+      throw masterExcelExportLimitExceeded(
+        categoryCount,
+        masterCount,
+        MASTER_EXCEL_EXPORT_MAX_ROWS,
+      );
+    }
+
+    const record = await masterRepository.createExcelExport({ requestedBy: userId });
+
+    const boss = getBoss();
+    await boss.start();
+    await boss.createQueue(MASTER_EXCEL_EXPORT_QUEUE);
+    const jobData: MasterExcelExportJobData = { exportId: record.id };
+    await boss.send(MASTER_EXCEL_EXPORT_QUEUE, jobData);
+
+    // 本番のときだけ、積んだ依頼を処理させるため worker（Cloud Run Jobs）を起動する（§40.7）。
+    // ローカルは常駐 worker が既に動いているため何もしない（invokeWorker 内で判定）。
+    await invokeWorker();
+
+    return { exportId: record.id };
+  },
+
+  // マスタ情報Excel取得（MST-11）の実行履歴一覧を、指定されたページの分だけ取得する。
+  // 依頼した利用者のID（requestedBy）はUserテーブルへのFKを張らない規約のため、
+  // 一括で表示名へ解決してから（N+1を避ける）、画面表示用の形へ詰め替える。
+  async listExcelExports(
+    page: number,
+    pageSize: number,
+  ): Promise<Paginated<MasterExcelExportSummary>> {
+    const { skip, take } = toSkipTake({ page, pageSize });
+    const [rows, total] = await masterRepository.listExcelExportsAndCount(skip, take);
+    const nameById = await userService.resolveDisplayNames(rows.map((row) => row.requestedBy));
+    const now = new Date();
+    const items = rows.map((row) =>
+      toExcelExportSummary(row, nameById.get(row.requestedBy) ?? row.requestedBy, now),
+    );
+    return paginated(items, total, { page, pageSize });
+  },
+
+  /**
+   * マスタ情報Excel取得（MST-11）で作られたファイルの中身を取り出す。
+   * 履歴一覧の「ダウンロード」から呼ばれる（設計書§40.5.4）。署名URLは使わず、
+   * このアプリ自身が保存先からファイルを読み出してそのまま渡す方式に統一している（設計書§40.9）。
+   */
+  async getExcelExportDownload(exportId: string): Promise<{ fileName: string; data: Buffer }> {
+    const row = await masterRepository.findExcelExportById(exportId);
+    if (!row) throw masterExcelExportNotFound(exportId);
+    if (row.status !== "READY") throw masterExcelExportNotFound(exportId, row.status);
+
+    // 期限切れの確認は、保存先からファイルを読み出すより必ず先に行う。期限が切れた
+    // ファイルはworkerがまとめて削除する予定のため、読み出しを先にすると「期限切れです」
+    // ではなく「取得に失敗しました」という分かりにくい応答になってしまう。
+    const now = new Date();
+    if (isExcelExportExpired(row, now)) {
+      throw masterExcelExportExpired(exportId, row.expiresAt as Date);
+    }
+    if (!row.filePath || !row.fileName) throw masterExcelExportNotFound(exportId, row.status);
+
+    const data = await storage.download(row.filePath);
+    return { fileName: row.fileName, data };
   },
 };

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { masterService } from "@/modules/master/service";
+import type { MasterExcelExportRequest } from "@/modules/master/types";
 import {
   createMasterCategorySchema,
   createMasterSchema,
@@ -452,4 +453,30 @@ export const deleteMasterCategoryAction = withOp(
   },
   // 削除は元に戻せないため、「誰がいつ何を削除したか」を後から追えるようにログにも残す
   { includeArgsInSuccessLog: true },
+);
+
+/** Excel作成の依頼結果。対象件数が多すぎる場合は例外を投げず、この形でエラーを返す */
+export type MasterExcelExportRequestResult = MasterExcelExportRequest | { error: string };
+
+// マスタ情報Excel取得（MST-11）の依頼を受け付ける。
+// 他の操作と異なり、書き込み権限（ADMIN/OPERATOR）は確認しない。ログインしていれば
+// VIEWERを含む全ロールが実行できる仕様のため（設計書§40.4）。
+// 生成の完了は待たず、履歴行を作ってキューへ積んだ直後に応答する。
+export const requestMasterExcelExportAction = withOp(
+  "master.excel-export.request",
+  async (): Promise<MasterExcelExportRequestResult> => {
+    // 画面側が事前にログイン確認をしているため、未ログインでここに到達するのは想定外のケース。
+    // 通常の操作では起きないため、他のエラーと違い結果化せずそのまま投げる。
+    const user = await getCurrentUser();
+    if (!user) throw Errors.unauthorized();
+
+    try {
+      return await masterService.requestExcelExport(user.id);
+    } catch (error) {
+      // 対象件数が多すぎる場合（MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED）は、画面にそのまま
+      // メッセージを表示できるよう結果として返す。それ以外の想定外のエラーは投げ直す。
+      if (isAppError(error)) return { error: error.userMessage };
+      throw error;
+    }
+  },
 );

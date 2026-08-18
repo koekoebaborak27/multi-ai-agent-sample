@@ -25,14 +25,16 @@ function dateTimeParts(date: Date): Record<string, string> {
   );
 }
 
-// 日時をCSV出力用の文字列にする。タイムゾーンは日本時間に固定する。
-function formatCsvDateTime(date: Date): string {
+// 日時を「年/月/日 時:分:秒」の文字列にする。タイムゾーンは日本時間に固定する。
+// CSVのセル値だけでなく、Excel版（excel-export.ts）のタイトル行に出す「出力日時」の文字列にも使う。
+export function formatCsvDateTime(date: Date): string {
   const p = dateTimeParts(date);
   return `${p.year}/${p.month}/${p.day} ${p.hour}:${p.minute}:${p.second}`;
 }
 
 // ダウンロードファイル名に使う日時文字列にする（区切り文字なしの14桁）。
-function formatFileNameTimestamp(date: Date): string {
+// CSV版・Excel版（excel-export.ts）の両方でファイル名の日時部分を同じ形にするため、ここから共有する。
+export function formatFileNameTimestamp(date: Date): string {
   const p = dateTimeParts(date);
   return `${p.year}${p.month}${p.day}${p.hour}${p.minute}${p.second}`;
 }

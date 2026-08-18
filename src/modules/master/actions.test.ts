@@ -9,6 +9,7 @@ import {
   createMasterCategoryAction,
   deleteMasterAction,
   deleteMasterCategoryAction,
+  requestMasterExcelExportAction,
   updateMasterAction,
   updateMasterCategoryAction,
   type DeleteMasterCategoryFormState,
@@ -34,6 +35,7 @@ vi.mock("@/modules/master/service", () => ({
     createCategory: vi.fn(),
     updateCategory: vi.fn(),
     deleteCategory: vi.fn(),
+    requestExcelExport: vi.fn(),
   },
 }));
 
@@ -100,6 +102,7 @@ function resetMasterServiceMocks(): void {
   vi.mocked(masterService.createCategory).mockReset();
   vi.mocked(masterService.updateCategory).mockReset();
   vi.mocked(masterService.deleteCategory).mockReset();
+  vi.mocked(masterService.requestExcelExport).mockReset();
 }
 
 const admin = {
@@ -996,6 +999,70 @@ describe("master/actions deleteMasterCategoryAction", () => {
         error: "マスタ分類IDが不正です",
       });
       expect(masterService.deleteCategory).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("master/actions requestMasterExcelExportAction", () => {
+  beforeEach(() => {
+    resetMasterServiceMocks();
+  });
+
+  describe("未ログインの場合", () => {
+    it("AppError(UNAUTHORIZED) を投げ、依頼処理を呼ばない", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue(null);
+
+      await expect(requestMasterExcelExportAction()).rejects.toMatchObject({
+        code: "UNAUTHORIZED",
+        httpStatus: 401,
+      });
+      expect(masterService.requestExcelExport).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("VIEWERでログインしている場合", () => {
+    it("拒否せずrequestExcelExportを呼び出す（全ロールが実行可能な仕様のため）", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: "viewer",
+        role: "VIEWER",
+        mustChangePassword: false,
+        authMethod: "credentials",
+      });
+      vi.mocked(masterService.requestExcelExport).mockResolvedValue({ exportId: "export-1" });
+
+      const result = await requestMasterExcelExportAction();
+
+      expect(masterService.requestExcelExport).toHaveBeenCalledWith("viewer");
+      expect(result).toEqual({ exportId: "export-1" });
+    });
+  });
+
+  describe("ADMINでログインしている場合", () => {
+    it("requestExcelExportの戻り値をそのまま返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.requestExcelExport).mockResolvedValue({ exportId: "export-2" });
+
+      const result = await requestMasterExcelExportAction();
+
+      expect(masterService.requestExcelExport).toHaveBeenCalledWith("admin");
+      expect(result).toEqual({ exportId: "export-2" });
+    });
+
+    it("対象件数が多すぎる場合、投げずにエラーメッセージを結果として返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
+      vi.mocked(masterService.requestExcelExport).mockRejectedValue(
+        new AppError(
+          "MASTER_EXCEL_EXPORT_LIMIT_EXCEEDED",
+          422,
+          "対象の件数が多く、Excelを作成できません。管理者に相談してください",
+        ),
+      );
+
+      const result = await requestMasterExcelExportAction();
+
+      expect(result).toEqual({
+        error: "対象の件数が多く、Excelを作成できません。管理者に相談してください",
+      });
     });
   });
 });
