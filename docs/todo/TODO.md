@@ -1,4 +1,4 @@
-	# TODO
+		# TODO
 
 汎用契約管理システムテンプレート（[`foundation_plan.md`](../foundation_plan.md)）の**残タスクと現在地**。
 
@@ -27,8 +27,8 @@
 | 土台（ローカル環境 / Git / Supabase / 署名 URL / Docker 軽量化 / Cloud Run） | 48 / 48 |
 | マスタ機能（設計） | 6 / 6 |
 | **マスタ機能（製造。工程1〜18＋第5段階1〜4）** | **22 / 22** |
-| Cloud Run Jobs本番構成の構築（workerサンプルの土台） | 3 / 7 |
-| マスタ情報Excel取得機能（workerサンプル） | 7 / 9 工程 |
+| Cloud Run Jobs本番構成の構築（workerサンプルの土台） | 7 / 7 |
+| マスタ情報Excel取得機能（workerサンプル） | 8 / 9 工程 |
 | 残っているタスク（期限なしの宿題） | 未対応 9 件 |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
@@ -37,9 +37,9 @@
 
 **マスタ機能の製造（工程1〜18＋第5段階1〜4）が完了した。** 直近では2026-08-16に本番DBへ `drop_master_export` マイグレーションを適用し、使われなくなった `MasterExport` テーブルを削除した（詳しい経緯は [履歴](history/README.md) を参照）。
 
-「マスタ情報Excel取得機能（workerサンプル）」の工程7、**マスタ管理画面への導線ボタンの追加が完了した**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の画面への導線ボタンを追加)。
+「マスタ情報Excel取得機能（workerサンプル）」の工程8、**本番構成を仕上げる作業が完了した**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の本番構成を仕上げる)。本番確認中に判明した「意図的な待ち時間」への混乱を受け、これを削除する追加対応も完了した（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能から意図的な待ち時間を削除)。
 
-次は工程8、**本番構成を仕上げる**。Cloud Run Jobs本番構成の構築の残り（4〜7: app→worker起動処理・専用サービスアカウント・Cloud Build自動化）を完了させ、タイムアウトを900秒に見直し、本番デプロイと動作確認まで行う（設計書 §40.7.3・§40.7.4）。
+次は工程9、**単体テストを実施する**。
 
 手元の状態を確認するコマンド:
 
@@ -61,16 +61,16 @@ git status --porcelain                                   # 未コミット差分
 - [x] 1. worker専用の実行用イメージ（アプリを動かすための入れ物）を用意する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-worker専用の実行用イメージをdockerfileに用意)
 - [x] 2. 「Cloud Run Jobs」（本番で worker を1回だけ動かす仕組み）を作る。データベースへの接続先やファイルの保存先の設定値も一緒に登録する（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobsを構築しapp側の起動設定と実行権限を追加)
 - [x] 3. パスワードや鍵にあたる環境変数（`DATABASE_URL` / `AUTH_SECRET` / `SUPABASE_SERVICE_ROLE_KEY`）を、直接値ではなく Secret Manager 経由に切り替える（2026-08-15）→ [履歴](history/2026-08-w3.md#2026-08-15-cloud-run-jobs単体実行で監査ログへの機密情報平文記録を発見しsecret-manager化で対応)
-- [ ] 4. アプリから worker を呼び出す処理を作る — CSV用に一度実装した（[履歴](history/2026-08-w3.md#2026-08-15-アプリからworkerを呼び出す処理を実装)）が、CSVの同期化に伴いコード（`src/shared/jobs/invoke-worker.ts`）ごと削除した。実装時はこの履歴を参考に作り直す
-- [ ] 5. 本番のアプリ側に「worker は Cloud Run Jobs で動かす」という設定値を追加する — 同上の理由で削除済み（`WORKER_INVOKE_MODE` 等）。作り直す
-- [ ] 6. worker 専用の実行アカウントを作り、アプリ側からそのJobsを起動できる権限だけを与える。TODO に残っている宿題「実行アカウントを権限なしのものに差し替える」を、「必要最小限の権限だけ持たせる」という形に直して一緒に片づける。**実行権限の付与自体は完了済み（既定のサービスアカウントに付与）。残作業は専用アカウントの新規作成と差し替え**
-- [ ] 7. 本番への自動反映の仕組み（Cloud Build）が、アプリ用の入れ物と同時に worker 用の入れ物も作り直すようにする
+- [x] 4. アプリから worker を呼び出す処理を作る（`src/shared/jobs/invoke-worker.ts`）（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の本番構成を仕上げる)
+- [x] 5. 本番のアプリ側に「worker は Cloud Run Jobs で動かす」という設定値を追加する（`WORKER_INVOKE_MODE` 等）（2026-08-18）→ 同上
+- [x] 6. worker 専用の実行アカウント（`contract-worker-runner`）を作り、必要最小限の権限（2つのSecretへの参照権限）だけを与えて差し替える（2026-08-18）→ 同上
+- [x] 7. 本番への自動反映の仕組み（Cloud Build）が、アプリ用の入れ物と同時に worker 用の入れ物も作り直すようにする（2026-08-18）→ 同上
 
 ## マスタ情報Excel取得機能の製造工程（workerサンプル）
 
 worker（Cloud Run Jobs）の利用サンプルとして「依頼 → worker生成 → 受け取り」の型でExcel出力バッチを作る。設計書は [`40_マスタ情報Excel取得.md`](../specs/02_basic-design/master/40_マスタ情報Excel取得.md)。
 
-Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secret Manager）は上記「Cloud Run Jobs本番構成の構築」の1〜3で完成済み。残るのは同4〜7（app→worker起動処理の作り直し・専用サービスアカウント・Cloud Build自動化）で、下記工程7で仕上げる。
+Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secret Manager・app→worker起動処理・専用サービスアカウント・Cloud Build自動化）は上記「Cloud Run Jobs本番構成の構築」の1〜7で完成済み。
 
 - [x] **1. 設計書を作成する**（2026-08-17）→ [`40_マスタ情報Excel取得.md`](../specs/02_basic-design/master/40_マスタ情報Excel取得.md)
 - [x] **2. Excel出力の依頼処理とデータモデルを実装する**（2026-08-17）→ [履歴](history/2026-08-w3.md#2026-08-17-マスタ情報excel取得機能の依頼処理とデータモデルを実装)
@@ -79,7 +79,7 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 - [x] **5. 履歴一覧からのダウンロード処理を実装する**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能のダウンロード処理を実装)
 - [x] **6. 保持期限切れファイルの掃除をworkerに実装する**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の保持期限切れファイル掃除処理を実装)
 - [x] **7. マスタ管理画面にこの画面へのボタンを追加する**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の画面への導線ボタンを追加)
-- [ ] **8. 本番構成を仕上げる** — 上記「Cloud Run Jobs本番構成の構築」の残り（4〜7: app→worker起動処理・専用サービスアカウント・Cloud Build自動化）を完了させ、タイムアウトを900秒に見直し、本番デプロイと動作確認まで行う（設計書 §40.7.3・§40.7.4）
+- [x] **8. 本番構成を仕上げる**（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能の本番構成を仕上げる)。本番確認中に判明した「意図的な待ち時間」の削除も追加対応（2026-08-18）→ [履歴](history/2026-08-w3.md#2026-08-18-マスタ情報excel取得機能から意図的な待ち時間を削除)
 - [ ] **9. 単体テストを実施する**
 
 ## マスタ分類の見直し
@@ -106,12 +106,12 @@ Cloud Run Jobs自体の土台（イメージ・ジョブ本体・DB接続・Secr
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `feat/master-excel-export-model`（マスタ情報Excel取得機能の依頼処理・データモデル・worker・画面・ダウンロード・掃除処理・導線ボタンを追加。工程2〜7）で作業中、未PR。工程7分（`src/app/(main)/master/page.tsx`）はまだ未コミット。`feat/master-csv-sync`（マスタCSVを同期方式へ作り直す変更）が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image`（worker用イメージの分離）が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs`（appからworkerを呼び出す処理の追加）が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
-| 本番 DB | `20260815153832_drop_master_export` まで**適用済み**（2026-08-16、第5段階の4で反映。使われなくなった `MasterExport` テーブルを削除） |
-| ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている。`MasterExcelExport` テーブルを追加済み（2026-08-17）。動作確認で作成した実行履歴・ファイルは確認後に削除済み |
-| ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番（2026-08-16）の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし） |
-| 直近の検証 | 2026-08-18、ローカルで`/master`画面への導線ボタン追加を実機確認。見出し右側に「マスタ管理情報Excel作成」「マスタ分類の管理」が左からこの順・同じ色で並ぶこと、クリックで`/master/exports`へ遷移し戻れること、幅375pxでも横スクロールが出ず縦積みになること、一覧領域のCSVダウンロード等の並びが変わっていないことを確認済み。本番URL（`contract-app`）での直近の確認は2026-08-16のCSVダウンロード（待ち時間なく動作、最新リビジョン `contract-app-00027-kqd`） |
-| 本番 | **稼働中**（Cloud Run `contract-app` / us-central1、`https://contract-app-4i3b5yuroq-uc.a.run.app`）。Cloud Run Jobs `contract-worker`（us-central1）は `SUPABASE_URL` 設定漏れを2026-08-16に修正済み。機密環境変数3項目はSecret Manager経由。`feat/master-csv-sync` はデプロイ済みで、CSVダウンロードは新しい同期方式で稼働中。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
+| 作業ブランチ | 特になし。**`main`で作業中**。`feat/master-excel-export-model`（マスタ情報Excel取得機能の依頼処理・データモデル・worker・画面・ダウンロード・掃除処理・導線ボタン。工程2〜7）が [PR #18](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/18)、`refactor/master-excel-drop-artificial-delay`（意図的な待ち時間の削除）が [PR #19](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/19)、`feat/master-csv-sync` が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image` が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs` が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
+| 本番 DB | `20260816192822_add_master_excel_export` まで**適用済み**（2026-08-18、`MasterExcelExport` テーブルを追加） |
+| ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類 2 件・マスタ 35 件（ページング確認用）が入っている。動作確認で作成した実行履歴・ファイルは確認後に削除済み |
+| ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし） |
+| 直近の検証 | 2026-08-18、本番URLでマスタ情報Excel取得（依頼→worker起動→生成→ダウンロード）を実機確認。ダウンロードしたファイルの中身も確認済み。意図的な待ち時間の削除後は、1〜3分程度（Cloud Run Jobsの起動待ちのみ）で完了することも確認済み |
+| 本番 | **稼働中**（Cloud Run `contract-app` / us-central1、`https://contract-app-24516671242.us-central1.run.app`）。Cloud Run Jobs `contract-worker`（us-central1）は worker専用サービスアカウント `contract-worker-runner` で稼働（Secret Manager の `database-url` / `supabase-service-role-key` への参照権限のみ付与）。タスクのタイムアウトは900秒。Cloud Buildはapp・worker両方のイメージを自動でビルド・反映する設定済み。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 
 ## 完了済みの作業
