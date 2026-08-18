@@ -45,7 +45,7 @@ export default async function MasterExcelExportsPage({
       </div>
 
       <p className="text-sm text-muted-foreground">
-        マスタ分類とマスタの情報をExcelファイルにまとめて出力します。作成には3〜5分ほどかかります。
+        マスタ分類とマスタの情報をExcelファイルにまとめて出力します。作成には1〜3分ほどかかります。
         できあがったら、下の一覧の「ダウンロード」から取得してください。
       </p>
 
