@@ -2,6 +2,7 @@ import { masterService } from "@/modules/master";
 import { partyRepository } from "@/modules/party/repository";
 import {
   PARTY_COMPANY_TYPE_CATEGORY_CODE,
+  type PartyDetail,
   type PartySearchCriteria,
   type PartySortField,
   type PartySummary,
@@ -63,6 +64,23 @@ export const partyService = {
       total,
       { page, pageSize },
     );
+  },
+
+  // 詳細画面に表示する契約先1件を取得する。
+  // 見つからない場合はエラーにせず「無し」を返し、その後どう扱うか（404画面を出すなど）は呼び出し側に任せる。
+  async findDetail(id: string): Promise<PartyDetail | null> {
+    const party = await partyRepository.findById(id);
+    if (!party) return null;
+    const labelById = await masterService.resolveMasterContents(
+      party.companyTypeMasterId !== null ? [party.companyTypeMasterId] : [],
+    );
+    return {
+      ...toSummary(party, labelById),
+      createdAt: party.createdAt,
+      createdBy: party.createdBy,
+      updatedAt: party.updatedAt,
+      updatedBy: party.updatedBy,
+    };
   },
 
   // 確認画面を出す前に、選択された契約先分類が有効かどうかだけを確認したい場面があるため、
