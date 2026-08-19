@@ -60,6 +60,8 @@ export function ContractDetailView({
           <dl className="grid gap-4 sm:grid-cols-[12rem_1fr]">
             <dt className="text-sm font-medium text-muted-foreground">契約名</dt>
             <dd className="text-sm break-words">{contract.title}</dd>
+            <dt className="text-sm font-medium text-muted-foreground">契約分類</dt>
+            <dd className="text-sm break-words">{contract.categoryLabel}</dd>
             <dt className="text-sm font-medium text-muted-foreground">契約先</dt>
             <dd className="text-sm break-words">
               <Link href={`/parties/${contract.partyId}`} className="underline underline-offset-4">
@@ -75,8 +77,6 @@ export function ContractDetailView({
               {CONTRACT_STATUS_LABELS[contract.status as keyof typeof CONTRACT_STATUS_LABELS] ??
                 contract.status}
             </dd>
-            <dt className="text-sm font-medium text-muted-foreground">契約分類</dt>
-            <dd className="text-sm break-words">{contract.categoryLabel}</dd>
             <dt className="text-sm font-medium text-muted-foreground">登録日時</dt>
             <dd className="text-sm tabular-nums">{dateTimeFormatter.format(contract.createdAt)}</dd>
             <dt className="text-sm font-medium text-muted-foreground">登録者</dt>

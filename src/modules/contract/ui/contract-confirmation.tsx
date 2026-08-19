@@ -74,6 +74,20 @@ export function ContractConfirmation({
 
         {isUpdate ? (
           <>
+            <dt className="text-sm font-medium text-muted-foreground">現在の契約分類</dt>
+            <dd className="text-sm break-words">{state.originalCategoryLabel ?? UNSET_LABEL}</dd>
+          </>
+        ) : null}
+        <dt className="text-sm font-medium text-muted-foreground">
+          {isUpdate ? "更新後の契約分類" : "登録後の契約分類"}
+        </dt>
+        <dd className="text-sm break-words">
+          {categoryLabel}
+          {categoryUnchanged ? UNCHANGED_SUFFIX : ""}
+        </dd>
+
+        {isUpdate ? (
+          <>
             <dt className="text-sm font-medium text-muted-foreground">現在の開始日・終了日</dt>
             <dd className="text-sm break-words">
               {formatPeriod(state.originalStartDate, state.originalEndDate)}
@@ -102,20 +116,6 @@ export function ContractConfirmation({
         <dd className="text-sm break-words">
           {state.status ? CONTRACT_STATUS_LABELS[state.status] : ""}
           {statusUnchanged ? UNCHANGED_SUFFIX : ""}
-        </dd>
-
-        {isUpdate ? (
-          <>
-            <dt className="text-sm font-medium text-muted-foreground">現在の契約分類</dt>
-            <dd className="text-sm break-words">{state.originalCategoryLabel ?? UNSET_LABEL}</dd>
-          </>
-        ) : null}
-        <dt className="text-sm font-medium text-muted-foreground">
-          {isUpdate ? "更新後の契約分類" : "登録後の契約分類"}
-        </dt>
-        <dd className="text-sm break-words">
-          {categoryLabel}
-          {categoryUnchanged ? UNCHANGED_SUFFIX : ""}
         </dd>
       </dl>
 

@@ -97,34 +97,6 @@ export function ContractFormFields({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="startDate">開始日</Label>
-        <Input id="startDate" name="startDate" type="date" defaultValue={defaultStartDate ?? ""} />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="endDate">終了日</Label>
-        <Input id="endDate" name="endDate" type="date" defaultValue={defaultEndDate ?? ""} />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="status">状態</Label>
-        {/* プルダウン部品は選択内容を送信しないため、見えない項目に写して一緒に送る */}
-        <input type="hidden" name="status" value={status} />
-        <Select value={status} onValueChange={(value) => setStatus(value as ContractStatus)}>
-          <SelectTrigger id="status" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {CONTRACT_STATUSES.map((value) => (
-              <SelectItem key={value} value={value}>
-                {CONTRACT_STATUS_LABELS[value]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
         <Label htmlFor="categoryMasterId">契約分類</Label>
         {categoryOptions.length === 0 ? (
           <p className="text-sm text-muted-foreground">未設定（契約分類マスタが未登録です）</p>
@@ -150,6 +122,34 @@ export function ContractFormFields({
             </Select>
           </>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="startDate">開始日</Label>
+        <Input id="startDate" name="startDate" type="date" defaultValue={defaultStartDate ?? ""} />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="endDate">終了日</Label>
+        <Input id="endDate" name="endDate" type="date" defaultValue={defaultEndDate ?? ""} />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="status">状態</Label>
+        {/* プルダウン部品は選択内容を送信しないため、見えない項目に写して一緒に送る */}
+        <input type="hidden" name="status" value={status} />
+        <Select value={status} onValueChange={(value) => setStatus(value as ContractStatus)}>
+          <SelectTrigger id="status" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CONTRACT_STATUSES.map((value) => (
+              <SelectItem key={value} value={value}>
+                {CONTRACT_STATUS_LABELS[value]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </>
   );
