@@ -77,7 +77,7 @@ export function MasterDetailView({
             {canWrite ? (
               <Button asChild>
                 <Link href={`/master/${master.id}/edit?returnTo=${encodeURIComponent(returnTo)}`}>
-                  更新する
+                  編集する
                 </Link>
               </Button>
             ) : null}

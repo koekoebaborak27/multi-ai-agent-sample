@@ -107,7 +107,7 @@ test.describe.serial("マスタ分類詳細（MST-07）", () => {
     await page.screenshot({ path: evidence("002_存在しない分類ID_404.png"), fullPage: true });
   });
 
-  test("TC-003 「更新する」「削除」ボタンの表示制御", async ({ browser }) => {
+  test("TC-003 「編集する」「削除」ボタンの表示制御", async ({ browser }) => {
     const cases = [
       [ADMIN, true],
       [VIEWER, false],
@@ -119,7 +119,7 @@ test.describe.serial("マスタ分類詳細（MST-07）", () => {
       await login(page, user);
       await page.goto(`/master/categories/${displayCategoryId}`);
 
-      const updateButton = page.getByRole("link", { name: "更新する" });
+      const updateButton = page.getByRole("link", { name: "編集する" });
       const deleteButton = page.getByRole("button", { name: "削除" });
       if (expectVisible) {
         await expect(updateButton).toBeVisible();
@@ -166,13 +166,13 @@ test.describe.serial("マスタ分類詳細（MST-07）", () => {
     await page.screenshot({ path: evidence("007_一覧へ戻る遷移.png"), fullPage: true });
   });
 
-  test("TC-008 「更新する」ボタンでの画面遷移", async ({ page }) => {
+  test("TC-008 「編集する」ボタンでの画面遷移", async ({ page }) => {
     await login(page, ADMIN);
     await page.goto(`/master/categories/${displayCategoryId}`);
-    await page.getByRole("link", { name: "更新する" }).click();
+    await page.getByRole("link", { name: "編集する" }).click();
     await expect(page).toHaveURL(
       `http://localhost:3000/master/categories/${displayCategoryId}/edit`,
     );
-    await page.screenshot({ path: evidence("008_更新するボタン遷移.png"), fullPage: true });
+    await page.screenshot({ path: evidence("008_編集するボタン遷移.png"), fullPage: true });
   });
 });
