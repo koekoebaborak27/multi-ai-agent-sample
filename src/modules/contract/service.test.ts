@@ -37,14 +37,18 @@ function makeContract(overrides: Partial<ContractWithParty> = {}): ContractWithP
     status: "DRAFT",
     categoryMasterId: null,
     createdAt: baseDate,
+    createdBy: null,
     updatedAt: baseDate,
+    updatedBy: null,
     party: {
       id: "party-1",
       name: "サンプル契約先",
       companyTypeMasterId: null,
       contactInfo: null,
       createdAt: baseDate,
+      createdBy: null,
       updatedAt: baseDate,
+      updatedBy: null,
     },
     ...overrides,
   };

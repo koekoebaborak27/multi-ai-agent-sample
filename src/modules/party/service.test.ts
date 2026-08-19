@@ -33,7 +33,9 @@ function makeParty(overrides: Partial<Party> = {}): Party {
     companyTypeMasterId: null,
     contactInfo: null,
     createdAt: new Date("2026-08-19T00:00:00.000Z"),
+    createdBy: null,
     updatedAt: new Date("2026-08-19T00:00:00.000Z"),
+    updatedBy: null,
     ...overrides,
   };
 }
