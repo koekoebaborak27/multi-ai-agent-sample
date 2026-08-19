@@ -12,6 +12,7 @@ vi.mock("@/modules/contract/repository", () => ({
   contractRepository: {
     listAndCount: vi.fn(),
     findById: vi.fn(),
+    findPartyName: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     remove: vi.fn(),
@@ -123,7 +124,8 @@ describe("contract/service create", () => {
   });
 
   describe("契約分類が選択されている場合", () => {
-    it("契約分類配下のマスタであることを確認してから登録する", async () => {
+    it("契約先の存在と契約分類配下のマスタであることを確認してから登録する", async () => {
+      vi.mocked(contractRepository.findPartyName).mockResolvedValue("サンプル契約先");
       vi.mocked(masterService.assertMasterInCategoryCode).mockResolvedValue(undefined);
       vi.mocked(contractRepository.create).mockResolvedValue(
         makeContract({ categoryMasterId: 51 }),
@@ -133,11 +135,12 @@ describe("contract/service create", () => {
       );
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map([[51, "業務委託"]]));
 
-      const result = await contractService.create(input);
+      const result = await contractService.create(input, "user-1");
 
+      expect(contractRepository.findPartyName).toHaveBeenCalledWith("party-1");
       expect(masterService.assertMasterInCategoryCode).toHaveBeenCalledWith(51, "CONTRACT_TYPE");
       expect(contractRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ categoryMasterId: 51 }),
+        expect.objectContaining({ categoryMasterId: 51, createdBy: "user-1", updatedBy: "user-1" }),
       );
       expect(result).toMatchObject({ categoryMasterId: 51, categoryLabel: "業務委託" });
     });
@@ -145,11 +148,12 @@ describe("contract/service create", () => {
 
   describe("契約分類が未選択の場合", () => {
     it("契約分類の検証を行わずに登録する", async () => {
+      vi.mocked(contractRepository.findPartyName).mockResolvedValue("サンプル契約先");
       vi.mocked(contractRepository.create).mockResolvedValue(makeContract());
       vi.mocked(contractRepository.findById).mockResolvedValue(makeContract());
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map());
 
-      await contractService.create({ ...input, categoryMasterId: undefined });
+      await contractService.create({ ...input, categoryMasterId: undefined }, "user-1");
 
       expect(masterService.assertMasterInCategoryCode).not.toHaveBeenCalled();
       expect(contractRepository.create).toHaveBeenCalledWith(
@@ -160,16 +164,30 @@ describe("contract/service create", () => {
 
   describe("選択したマスタが契約分類配下に存在しない場合", () => {
     it("AppError(MASTER_REFERENCE_INVALID) を投げ、登録は行わない", async () => {
+      vi.mocked(contractRepository.findPartyName).mockResolvedValue("サンプル契約先");
       vi.mocked(masterService.assertMasterInCategoryCode).mockRejectedValue(
         new AppError("MASTER_REFERENCE_INVALID", 422, "選択した内容が見つかりません"),
       );
 
       await expect(
-        contractService.create({ ...input, categoryMasterId: 999 }),
+        contractService.create({ ...input, categoryMasterId: 999 }, "user-1"),
       ).rejects.toMatchObject({
         code: "MASTER_REFERENCE_INVALID",
         httpStatus: 422,
       } satisfies Partial<AppError>);
+      expect(contractRepository.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("選択した契約先が存在しない場合", () => {
+    it("AppError(PARTY_NOT_FOUND) を投げ、分類の検証も登録も行わない", async () => {
+      vi.mocked(contractRepository.findPartyName).mockResolvedValue(null);
+
+      await expect(contractService.create(input, "user-1")).rejects.toMatchObject({
+        code: "PARTY_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+      expect(masterService.assertMasterInCategoryCode).not.toHaveBeenCalled();
       expect(contractRepository.create).not.toHaveBeenCalled();
     });
   });

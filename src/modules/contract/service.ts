@@ -8,7 +8,7 @@ import {
 } from "@/modules/contract/types";
 import type { CreateContractInput, UpdateContractInput } from "@/modules/contract/validation";
 import { toSkipTake, paginated, type Paginated, type SortOrder } from "@/shared/api/pagination";
-import { Errors } from "@/shared/errors/app-error";
+import { AppError, Errors } from "@/shared/errors/app-error";
 
 // マスタから解決できなかった（未選択・削除済みなどで内容を取得できなかった）場合の表示文言。
 // docs/specs/02_basic-design/master/01_データベース.md §01.1.4 の規約に合わせる。
@@ -38,6 +38,19 @@ async function assertCategoryValid(categoryMasterId: number | undefined): Promis
     categoryMasterId,
     CONTRACT_CATEGORY_MASTER_CATEGORY_CODE,
   );
+}
+
+// 選択された契約先が見つからないときのエラー。マスタ機能のMASTER_NOT_FOUND等と異なり
+// Errorsファクトリを使わず直接組み立てる（§00.6）。
+function partyNotFound(partyId: string): AppError {
+  return new AppError("PARTY_NOT_FOUND", 404, "対象の契約先が見つかりません", { partyId });
+}
+
+// 選択された契約先が現在も存在することを確認し、名称を返す（§21.1.2・§21.2.3）。
+async function assertPartyExists(partyId: string): Promise<string> {
+  const name = await contractRepository.findPartyName(partyId);
+  if (name === null) throw partyNotFound(partyId);
+  return name;
 }
 
 export const contractService = {
@@ -70,9 +83,16 @@ export const contractService = {
     );
   },
 
+  // 確認画面を出す前に、選択された契約先・契約分類が有効かどうかだけを確認したい場面があるため、
+  // 上で定義した確認用の関数を、そのまま外からも呼べるように公開している（マスタ機能と同じ考え方）。
+  assertPartyExists,
+  assertCategoryValid,
+
   // 契約を新規登録し、画面に表示する形にして返す。
   // 登録直後の結果には契約先の名前が含まれないため、改めて取得し直している。
-  async create(input: CreateContractInput): Promise<ContractSummary> {
+  // createdBy・updatedByには登録を実行した利用者のユーザーIDを設定する。
+  async create(input: CreateContractInput, userId: string): Promise<ContractSummary> {
+    await assertPartyExists(input.partyId);
     await assertCategoryValid(input.categoryMasterId);
     const contract = await contractRepository.create({
       party: { connect: { id: input.partyId } },
@@ -81,6 +101,8 @@ export const contractService = {
       endDate: input.endDate ?? null,
       status: input.status,
       categoryMasterId: input.categoryMasterId ?? null,
+      createdBy: userId,
+      updatedBy: userId,
     });
     const withParty = await contractRepository.findById(contract.id);
     if (!withParty) throw Errors.notFound("契約が見つかりません");

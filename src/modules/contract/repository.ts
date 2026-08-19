@@ -55,6 +55,16 @@ export const contractRepository = {
     return prisma.contract.findUnique({ where: { id }, include: { party: true } });
   },
 
+  // 指定した契約先が現在も存在するかを確認し、存在すれば名称を返す。存在しなければnull。
+  // 契約の登録・更新の確認時に、選択された契約先が現在も有効かを確かめるために使う（§21.1.2）。
+  // 契約モジュールからpartyモジュールのリポジトリ・サービスへは依存せず、契約先の存在確認は
+  // partyモジュールが契約の件数を数えるとき（countContracts）と対称的に、この場所でPartyテーブルを
+  // 直接参照して行う。
+  async findPartyName(partyId: string): Promise<string | null> {
+    const party = await prisma.party.findUnique({ where: { id: partyId }, select: { name: true } });
+    return party?.name ?? null;
+  },
+
   // 契約を1件登録する
   create(data: Prisma.ContractCreateInput): Promise<Contract> {
     return prisma.contract.create({ data });
