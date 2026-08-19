@@ -32,6 +32,7 @@ vi.mock("@/modules/master/service", () => ({
     updateMaster: vi.fn(),
     deleteMaster: vi.fn(),
     assertCategoryNameAvailable: vi.fn(),
+    assertCategoryCodeAvailable: vi.fn(),
     createCategory: vi.fn(),
     updateCategory: vi.fn(),
     deleteCategory: vi.fn(),
@@ -70,25 +71,36 @@ const updateInitialState: MasterCategoryFormState = {
   mode: "update",
   phase: "input",
   categoryId: 12,
-  code: "0012",
+  code: "CONTRACT_TYPE",
+  originalCode: "CONTRACT_TYPE",
   originalName: "契約種別",
   name: "契約種別",
   masterCount: 3,
   updatedAt,
 };
 
-function createFormData(name: string, intent: "confirm" | "execute"): FormData {
+function createFormData(
+  name: string,
+  intent: "confirm" | "execute",
+  code = "CONTRACT_TYPE",
+): FormData {
   const formData = new FormData();
+  formData.set("code", code);
   formData.set("name", name);
   formData.set("intent", intent);
   return formData;
 }
 
-function createUpdateFormData(name: string, intent: "confirm" | "execute"): FormData {
-  const formData = createFormData(name, intent);
+function createUpdateFormData(
+  name: string,
+  intent: "confirm" | "execute",
+  code = "CONTRACT_TYPE",
+): FormData {
+  const formData = createFormData(name, intent, code);
   formData.set("categoryId", "12");
   formData.set("updatedAt", updatedAt);
   formData.set("originalName", "契約種別");
+  formData.set("originalCode", "CONTRACT_TYPE");
   return formData;
 }
 
@@ -99,6 +111,7 @@ function resetMasterServiceMocks(): void {
   vi.mocked(masterService.updateMaster).mockReset();
   vi.mocked(masterService.deleteMaster).mockReset();
   vi.mocked(masterService.assertCategoryNameAvailable).mockReset();
+  vi.mocked(masterService.assertCategoryCodeAvailable).mockReset();
   vi.mocked(masterService.createCategory).mockReset();
   vi.mocked(masterService.updateCategory).mockReset();
   vi.mocked(masterService.deleteCategory).mockReset();
@@ -362,8 +375,14 @@ describe("master/actions createMasterCategoryAction", () => {
 
       await expect(
         createMasterCategoryAction(initialState, createFormData("  契約種別  ", "confirm")),
-      ).resolves.toEqual({ mode: "create", phase: "confirm", name: "契約種別" });
+      ).resolves.toEqual({
+        mode: "create",
+        phase: "confirm",
+        code: "CONTRACT_TYPE",
+        name: "契約種別",
+      });
       expect(masterService.assertCategoryNameAvailable).toHaveBeenCalledWith("契約種別");
+      expect(masterService.assertCategoryCodeAvailable).toHaveBeenCalledWith("CONTRACT_TYPE");
       expect(masterService.createCategory).not.toHaveBeenCalled();
     });
   });
@@ -378,18 +397,21 @@ describe("master/actions createMasterCategoryAction", () => {
       });
       vi.mocked(masterService.createCategory).mockResolvedValue({
         id: 12,
-        code: "0012",
+        code: "CONTRACT_TYPE",
         name: "契約種別",
         masterCount: 0,
       });
 
       await expect(
         createMasterCategoryAction(
-          { mode: "create", phase: "confirm", name: "契約種別" },
+          { mode: "create", phase: "confirm", code: "CONTRACT_TYPE", name: "契約種別" },
           createFormData("契約種別", "execute"),
         ),
       ).rejects.toThrow("NEXT_REDIRECT");
-      expect(masterService.createCategory).toHaveBeenCalledWith({ name: "契約種別" }, "operator");
+      expect(masterService.createCategory).toHaveBeenCalledWith(
+        { code: "CONTRACT_TYPE", name: "契約種別" },
+        "operator",
+      );
       expect(revalidatePath).toHaveBeenCalledWith("/master/categories");
       expect(redirect).toHaveBeenCalledWith("/master/categories/12?created=1");
     });
@@ -429,8 +451,37 @@ describe("master/actions createMasterCategoryAction", () => {
       ).resolves.toEqual({
         mode: "create",
         phase: "input",
+        code: "CONTRACT_TYPE",
         name: "契約種別",
         error: "同じ名前のマスタ分類が登録されています",
+      });
+    });
+  });
+
+  describe("確認時に同じコードが登録済みの場合", () => {
+    it("重複メッセージと入力値を入力状態へ返す", async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: "admin",
+        role: "ADMIN",
+        mustChangePassword: false,
+        authMethod: "credentials",
+      });
+      vi.mocked(masterService.assertCategoryCodeAvailable).mockRejectedValue(
+        new AppError(
+          "MASTER_CATEGORY_CODE_CONFLICT",
+          409,
+          "同じ分類コードのマスタ分類が登録されています",
+        ),
+      );
+
+      await expect(
+        createMasterCategoryAction(initialState, createFormData("契約種別", "confirm")),
+      ).resolves.toEqual({
+        mode: "create",
+        phase: "input",
+        code: "CONTRACT_TYPE",
+        name: "契約種別",
+        error: "同じ分類コードのマスタ分類が登録されています",
       });
     });
   });
@@ -449,12 +500,13 @@ describe("master/actions createMasterCategoryAction", () => {
 
       await expect(
         createMasterCategoryAction(
-          { mode: "create", phase: "confirm", name: "契約種別" },
+          { mode: "create", phase: "confirm", code: "CONTRACT_TYPE", name: "契約種別" },
           createFormData("契約種別", "execute"),
         ),
       ).resolves.toEqual({
         mode: "create",
         phase: "confirm",
+        code: "CONTRACT_TYPE",
         name: "契約種別",
         error: "同じ名前のマスタ分類が登録されています",
       });
@@ -488,6 +540,7 @@ describe("master/actions updateMasterCategoryAction", () => {
         name: "新しい契約種別",
       });
       expect(masterService.assertCategoryNameAvailable).toHaveBeenCalledWith("新しい契約種別", 12);
+      expect(masterService.assertCategoryCodeAvailable).toHaveBeenCalledWith("CONTRACT_TYPE", 12);
       expect(masterService.updateCategory).not.toHaveBeenCalled();
     });
   });
@@ -510,7 +563,12 @@ describe("master/actions updateMasterCategoryAction", () => {
         updateMasterCategoryAction(confirmState, createUpdateFormData("新しい契約種別", "execute")),
       ).rejects.toThrow("NEXT_REDIRECT");
       expect(masterService.updateCategory).toHaveBeenCalledWith(
-        { categoryId: 12, name: "新しい契約種別", updatedAt: new Date(updatedAt) },
+        {
+          categoryId: 12,
+          code: "CONTRACT_TYPE",
+          name: "新しい契約種別",
+          updatedAt: new Date(updatedAt),
+        },
         "operator",
       );
       expect(revalidatePath).toHaveBeenNthCalledWith(1, "/master/categories");
@@ -868,7 +926,7 @@ describe("master/actions deleteMasterAction", () => {
 
 const masterCategoryDeleteInitialState: DeleteMasterCategoryFormState = {
   categoryId: 12,
-  code: "0012",
+  code: "CONTRACT_TYPE",
   name: "契約種別",
   updatedAt,
 };
@@ -892,7 +950,7 @@ describe("master/actions deleteMasterCategoryAction", () => {
     it("更新時点を渡して削除し、分類一覧のキャッシュを無効化して、削除完了の印付きで一覧へ遷移する", async () => {
       vi.mocked(getCurrentUser).mockResolvedValue({ ...admin });
       vi.mocked(masterService.deleteCategory).mockResolvedValue({
-        code: "0012",
+        code: "CONTRACT_TYPE",
         name: "契約種別",
       });
 

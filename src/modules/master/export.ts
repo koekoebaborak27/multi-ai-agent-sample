@@ -1,5 +1,4 @@
 import Papa from "papaparse";
-import { formatMasterCategoryCode } from "@/modules/master/service";
 import type {
   MasterCategoryDetail,
   MasterDetail,
@@ -68,7 +67,7 @@ const MASTER_EXPORT_FIELDS = [
 // 行の並びは呼び出し元（検索条件・並び順に従って取得した結果）をそのまま使う。
 export function buildMasterExportCsv(rows: MasterDetail[]): string {
   const data = rows.map((row) => [
-    formatMasterCategoryCode(row.categoryId),
+    row.categoryCode,
     row.categoryName,
     row.id,
     row.code,
@@ -94,7 +93,7 @@ const MASTER_CATEGORY_EXPORT_FIELDS = [
 // マスタ分類の一覧をCSV文字列に変換する（MST-06からのダウンロード用）。
 export function buildMasterCategoryExportCsv(rows: MasterCategoryDetail[]): string {
   const data = rows.map((row) => [
-    formatMasterCategoryCode(row.id),
+    row.code,
     row.name,
     row.masterCount,
     formatCsvDateTime(row.createdAt),

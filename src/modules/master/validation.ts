@@ -86,8 +86,22 @@ const masterCategoryNameSchema = z
     message: "マスタ分類名は30文字以内です",
   });
 
+// マスタ分類コードの入力チェック。新規作成と更新の両方で使う。
+// マスタコード（masterCodeSchema）と同じ文字種のルールを使うが、分類コードは
+// "CONTRACT_COMPANY_TYPE" のような長い固定名を投入する想定のため桁数だけ長く取る。
+const masterCategoryCodeSchema = z
+  .string()
+  .trim()
+  .min(1, "マスタ分類コードは必須です")
+  .max(50, "マスタ分類コードは50文字以内です")
+  .regex(
+    /^[A-Z0-9_-]+$/,
+    "マスタ分類コードは英大文字、数字、ハイフン、アンダースコアだけで入力してください",
+  );
+
 /** マスタ分類の新規登録フォームの入力チェック */
 export const createMasterCategorySchema = z.object({
+  code: masterCategoryCodeSchema,
   name: masterCategoryNameSchema,
 });
 
@@ -98,6 +112,7 @@ export const createMasterCategorySchema = z.object({
  */
 export const updateMasterCategorySchema = z.object({
   categoryId: z.coerce.number().int().positive("マスタ分類IDが不正です"),
+  code: masterCategoryCodeSchema,
   name: masterCategoryNameSchema,
   updatedAt: z.coerce.date(),
 });

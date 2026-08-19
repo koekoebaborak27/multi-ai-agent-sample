@@ -2,7 +2,14 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/shared/auth/session";
 import { parseListQuery } from "@/shared/api/pagination";
 import { env } from "@/shared/config/env";
-import { PARTY_SORT_FIELDS, partyService, PartyTable, PartyForm } from "@/modules/party";
+import {
+  PARTY_COMPANY_TYPE_CATEGORY_CODE,
+  PARTY_SORT_FIELDS,
+  partyService,
+  PartyTable,
+  PartyForm,
+} from "@/modules/party";
+import { masterService } from "@/modules/master";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
 // ページを毎回サーバー側で作り直す設定。
@@ -22,7 +29,10 @@ export default async function PartiesPage({
   // リクエストで渡されたページ番号・並び順を使いやすく変換する。
   // 指定が無い場合や、おかしな値が入っていた場合は名称順にする。
   const query = parseListQuery(await searchParams, PARTY_SORT_FIELDS, "name");
-  const result = await partyService.list(query.page, env.PAGE_SIZE, query.sort, query.order);
+  const [result, companyTypeOptions] = await Promise.all([
+    partyService.list(query.page, env.PAGE_SIZE, query.sort, query.order),
+    masterService.listMasterOptionsByCategoryCode(PARTY_COMPANY_TYPE_CATEGORY_CODE),
+  ]);
   // 見出しをクリックして並び替えるときの、リンク先の元になるURL
   const baseUrl = `/parties?sort=${query.sort}&order=${query.order}${query.page > 1 ? `&page=${query.page}` : ""}`;
 
@@ -35,7 +45,7 @@ export default async function PartiesPage({
           <CardTitle>契約先の新規登録</CardTitle>
         </CardHeader>
         <CardContent>
-          <PartyForm />
+          <PartyForm companyTypeOptions={companyTypeOptions} />
         </CardContent>
       </Card>
 

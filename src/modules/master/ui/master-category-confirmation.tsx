@@ -17,8 +17,10 @@ export function MasterCategoryConfirmation({
   formAction,
   onEdit,
 }: MasterCategoryConfirmationProps) {
+  const code = state.code ?? "";
   const name = state.name ?? "";
   const isUpdate = state.mode === "update";
+  const codeChanged = isUpdate && code !== state.originalCode;
   // キャンセルの戻り先。更新なら元の詳細画面、新規登録なら分類一覧に戻す
   const cancelHref = isUpdate ? `/master/categories/${state.categoryId}` : "/master/categories";
 
@@ -36,12 +38,19 @@ export function MasterCategoryConfirmation({
         <dd className="text-sm">{isUpdate ? "更新" : "新規登録"}</dd>
         {isUpdate ? (
           <>
-            <dt className="text-sm font-medium text-muted-foreground">マスタ分類コード</dt>
-            <dd className="font-mono text-sm">{state.code}</dd>
+            <dt className="text-sm font-medium text-muted-foreground">現在のマスタ分類コード</dt>
+            <dd className="font-mono text-sm">{state.originalCode}</dd>
             <dt className="text-sm font-medium text-muted-foreground">現在のマスタ分類名</dt>
             <dd className="text-sm break-words">{state.originalName}</dd>
           </>
         ) : null}
+        <dt className="text-sm font-medium text-muted-foreground">
+          {isUpdate ? "更新後のマスタ分類コード" : "登録後のマスタ分類コード"}
+        </dt>
+        <dd className="font-mono text-sm">
+          {code}
+          {isUpdate && !codeChanged ? "（変更なし）" : ""}
+        </dd>
         <dt className="text-sm font-medium text-muted-foreground">
           {isUpdate ? "更新後のマスタ分類名" : "登録後のマスタ分類名"}
         </dt>

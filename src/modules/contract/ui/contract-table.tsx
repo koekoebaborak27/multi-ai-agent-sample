@@ -71,6 +71,8 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
           >
             状態
           </SortableTableHead>
+          {/* 契約分類はマスタの内容を解決した表示専用の値のため、データベース上でのソート対象にしない */}
+          <TableHead>契約分類</TableHead>
           {/* 「操作」列には見出しの文字を表示しない。目の不自由な方向けの読み上げ用にラベルだけ付けている */}
           <TableHead className="text-right" aria-label="操作" />
         </TableRow>
@@ -78,7 +80,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
       <TableBody>
         {contracts.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6} className="text-center text-muted-foreground">
+            <TableCell colSpan={7} className="text-center text-muted-foreground">
               契約がありません
             </TableCell>
           </TableRow>
@@ -90,6 +92,8 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
               <TableCell>{formatDate(c.startDate)}</TableCell>
               <TableCell>{formatDate(c.endDate)}</TableCell>
               <TableCell>{c.status}</TableCell>
+              {/* 契約分類は未選択・選択先マスタが削除された場合に「未設定」（c.categoryLabel）になる */}
+              <TableCell>{c.categoryLabel}</TableCell>
               <TableCell className="text-right">
                 {/* 削除する契約を伝えるため、行ごとに識別子を持たせた小さなフォームにしている */}
                 <form action={deleteContractAction} className="inline">

@@ -33,6 +33,21 @@ async function main() {
     },
   });
 
+  // 契約先・契約が分類を選ぶマスタ分類の初期データ。
+  // ここで使う分類コードの値は src/modules/party/types.ts の PARTY_COMPANY_TYPE_CATEGORY_CODE、
+  // src/modules/contract/types.ts の CONTRACT_CATEGORY_MASTER_CATEGORY_CODE と必ず一致させること
+  // （アプリ側はこの文字列を手がかりに対象のマスタ分類を検索する）。
+  await prisma.masterCategory.upsert({
+    where: { code: "CONTRACT_COMPANY_TYPE" },
+    update: {},
+    create: { code: "CONTRACT_COMPANY_TYPE", name: "契約先分類" },
+  });
+  await prisma.masterCategory.upsert({
+    where: { code: "CONTRACT_TYPE" },
+    update: {},
+    create: { code: "CONTRACT_TYPE", name: "契約分類" },
+  });
+
   console.log(`Seed 完了: 初期ADMIN(${adminId}) / 初期PW=${initialPassword}（要変更）`);
 }
 

@@ -34,12 +34,23 @@ export interface MasterSearchCriteria {
   keyword?: string;
 }
 
-/** マスタ詳細・更新画面に表示する情報 */
+/** マスタ詳細・更新画面に表示する情報。CSV/Excel出力では分類コードも列として使うため持たせる */
 export interface MasterDetail extends MasterSummary {
+  categoryCode: string;
   createdAt: Date;
   createdBy: string | null;
   updatedAt: Date;
   updatedBy: string | null;
+}
+
+/**
+ * マスタ分類配下のマスタをプルダウンで選ぶための選択肢。
+ * 契約先・契約など、マスタ分類コードを手がかりにマスタを参照する画面で使う。
+ */
+export interface MasterOption {
+  id: number;
+  code: string;
+  content: string;
 }
 
 /** マスタ分類詳細・更新画面に表示する情報 */

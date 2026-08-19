@@ -53,6 +53,7 @@ const BASE_TIME = new Date("2026-08-17T01:00:00.000Z"); // Asia/Tokyo で 10:00:
 
 const categoryRecord = {
   id: 3,
+  code: "0003",
   name: "部門",
   createdAt: BASE_TIME,
   createdBy: "user1",
@@ -70,7 +71,7 @@ const masterRecord = {
   createdBy: "user1",
   updatedAt: BASE_TIME,
   updatedBy: "user1",
-  category: { name: "部門" },
+  category: { code: "0003", name: "部門" },
 };
 
 // 生成日時（ファイル名・finishedAt・expiresAt）を決まった値で確かめられるよう、時計だけを固定する。

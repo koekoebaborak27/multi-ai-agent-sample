@@ -8,9 +8,6 @@ import { buildMasterInfoExcel, buildMasterInfoExcelFileName } from "@/modules/ma
 import type { MasterCategoryDetail, MasterDetail } from "@/modules/master/types";
 import { describe, expect, it, vi } from "vitest";
 
-// excel-export.ts は列コード変換のために service.ts の formatMasterCategoryCode を使う。
-// service.ts はDBアクセス用の repository.ts（server-only）や、順番待ちの列（キュー）へ
-// 接続する boss.ts も読み込むため、テスト環境（jsdom）で読み込めるよう差し替える。
 vi.mock("@/modules/master/repository", () => ({ masterRepository: {} }));
 vi.mock("@/modules/user/service", () => ({ userService: {} }));
 vi.mock("@/shared/config/env", () => ({ env: { PAGE_SIZE: 30 } }));
@@ -38,6 +35,7 @@ const masters: MasterDetail[] = [
   {
     id: 1,
     categoryId: 3,
+    categoryCode: "0003",
     categoryName: "部門",
     code: "A001",
     content: "総務部",
@@ -49,6 +47,7 @@ const masters: MasterDetail[] = [
   {
     id: 2,
     categoryId: 3,
+    categoryCode: "0003",
     categoryName: "部門",
     code: "A002",
     content: "経理部",
@@ -96,7 +95,7 @@ describe("buildMasterInfoExcel", () => {
     ]);
   });
 
-  it("マスタ分類の行を、分類コードを4桁ゼロ埋めして書き込む", async () => {
+  it("マスタ分類の行を、分類コードをそのまま書き込む", async () => {
     const buffer = await buildMasterInfoExcel({ categories, masters, generatedAt });
     const workbook = await readWorkbook(buffer);
     const sheet = workbook.getWorksheet("マスタ分類")!;

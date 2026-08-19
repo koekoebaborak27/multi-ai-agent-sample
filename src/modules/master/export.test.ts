@@ -10,9 +10,6 @@ import {
 import type { MasterCategoryDetail, MasterDetail } from "@/modules/master/types";
 import { describe, expect, it, vi } from "vitest";
 
-// export.ts は列コード変換のために service.ts の formatMasterCategoryCode を使う。
-// service.ts はDBアクセス用の repository.ts（server-only）や、順番待ちの列（キュー）へ
-// 接続する boss.ts も読み込むため、テスト環境（jsdom）で読み込めるよう差し替える。
 vi.mock("@/modules/master/repository", () => ({ masterRepository: {} }));
 vi.mock("@/modules/user/service", () => ({ userService: {} }));
 vi.mock("@/shared/config/env", () => ({ env: { PAGE_SIZE: 30 } }));
@@ -28,6 +25,7 @@ describe("buildMasterExportCsv", () => {
       {
         id: 1,
         categoryId: 3,
+        categoryCode: "0003",
         categoryName: "部門",
         code: "A001",
         content: "総務部",
@@ -53,6 +51,7 @@ describe("buildMasterExportCsv", () => {
       {
         id: 1,
         categoryId: 1,
+        categoryCode: "0001",
         categoryName: "部門",
         code: "A001",
         content: "総務部, 経理部",

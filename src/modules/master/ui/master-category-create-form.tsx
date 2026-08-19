@@ -33,6 +33,23 @@ export function MasterCategoryCreateForm() {
   return (
     <form action={formAction} className="space-y-6">
       <div className="space-y-2">
+        <Label htmlFor="code">マスタ分類コード</Label>
+        <Input
+          id="code"
+          name="code"
+          defaultValue={state.code ?? ""}
+          required
+          maxLength={50}
+          className="font-mono"
+          aria-describedby="code-help"
+          aria-invalid={state.error ? true : undefined}
+        />
+        <p id="code-help" className="text-sm text-muted-foreground">
+          英大文字・数字・ハイフン・アンダースコアのみ、50文字以内で入力してください。登録後も変更できます。
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="name">マスタ分類名</Label>
         <Input
           id="name"

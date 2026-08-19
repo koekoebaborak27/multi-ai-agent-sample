@@ -65,6 +65,7 @@ export {
   type MasterExcelExportStatus,
   type MasterExcelExportSummary,
   type MasterExportTarget,
+  type MasterOption,
   type MasterSearchCriteria,
   type MasterSortField,
   type MasterSummary,

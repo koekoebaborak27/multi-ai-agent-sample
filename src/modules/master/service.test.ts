@@ -4,7 +4,7 @@
  *       および他の利用者が先に更新していたときに上書きしないことを担保する
  */
 import { masterRepository } from "@/modules/master/repository";
-import { formatMasterCategoryCode, masterService } from "@/modules/master/service";
+import { masterService } from "@/modules/master/service";
 import { MASTER_EXCEL_EXPORT_QUEUE } from "@/modules/master/types";
 import { userService } from "@/modules/user/service";
 import { AppError } from "@/shared/errors/app-error";
@@ -26,9 +26,12 @@ vi.mock("@/modules/master/repository", () => ({
     listCategoriesForExport: vi.fn(),
     findMasterById: vi.fn(),
     findMasterByCategoryAndCode: vi.fn(),
+    listMastersByCategoryId: vi.fn(),
+    findManyMastersByIds: vi.fn(),
     createMaster: vi.fn(),
     findCategoryById: vi.fn(),
     findCategoryByName: vi.fn(),
+    findCategoryByCode: vi.fn(),
     findCategoryByIdWithCount: vi.fn(),
     createCategory: vi.fn(),
     updateCategoryIfUnchanged: vi.fn(),
@@ -122,7 +125,7 @@ describe("master/service listMasters", () => {
             categoryId: 3,
             code: "CON00001",
             content: "月額契約",
-            category: { name: "契約種別" },
+            category: { code: "CONTRACT_TYPE", name: "契約種別" },
           },
         ],
         31,
@@ -188,7 +191,7 @@ describe("master/service createMaster", () => {
         categoryId: 12,
         code: "CON-01",
         content: "月額契約",
-        category: { name: "契約種別" },
+        category: { code: "CONTRACT_TYPE", name: "契約種別" },
       });
 
       await expect(masterService.createMaster(input, "admin")).resolves.toEqual({
@@ -306,15 +309,15 @@ describe("master/service assertMasterCodeAvailable", () => {
 
 describe("master/service listCategoryOptions", () => {
   describe("マスタ分類が登録されている場合", () => {
-    it("分類コードを付けた検索選択肢を返す", async () => {
+    it("分類コードを含めた検索選択肢を返す", async () => {
       vi.mocked(masterRepository.listCategoryOptions).mockResolvedValue([
-        { id: 3, name: "契約種別" },
-        { id: 12, name: "支払方法" },
+        { id: 3, code: "CONTRACT_TYPE", name: "契約種別" },
+        { id: 12, code: "PAYMENT_METHOD", name: "支払方法" },
       ]);
 
       await expect(masterService.listCategoryOptions()).resolves.toEqual([
-        { id: 3, code: "0003", name: "契約種別" },
-        { id: 12, code: "0012", name: "支払方法" },
+        { id: 3, code: "CONTRACT_TYPE", name: "契約種別" },
+        { id: 12, code: "PAYMENT_METHOD", name: "支払方法" },
       ]);
     });
   });
@@ -323,6 +326,7 @@ describe("master/service listCategoryOptions", () => {
 function makeCategoryDetail(
   overrides: Partial<{
     id: number;
+    code: string;
     name: string;
     createdAt: Date;
     createdBy: string | null;
@@ -333,6 +337,7 @@ function makeCategoryDetail(
 ) {
   return {
     id: 12,
+    code: "CONTRACT_TYPE",
     name: "契約種別",
     createdAt: new Date("2026-08-08T00:00:00.000Z"),
     createdBy: "creator",
@@ -353,7 +358,7 @@ function makeMasterDetail(
     createdBy: string | null;
     updatedAt: Date;
     updatedBy: string | null;
-    category: { name: string };
+    category: { code: string; name: string };
   }> = {},
 ) {
   return {
@@ -365,24 +370,10 @@ function makeMasterDetail(
     createdBy: "creator",
     updatedAt,
     updatedBy: "updater",
-    category: { name: "契約種別" },
+    category: { code: "CONTRACT_TYPE", name: "契約種別" },
     ...overrides,
   };
 }
-
-describe("master/service formatMasterCategoryCode", () => {
-  describe("4桁未満のIDの場合", () => {
-    it("左側を0で埋めた4桁のマスタ分類コードを返す", () => {
-      expect(formatMasterCategoryCode(12)).toBe("0012");
-    });
-  });
-
-  describe("4桁以上のIDの場合", () => {
-    it("IDを切り詰めずそのまま返す", () => {
-      expect(formatMasterCategoryCode(12345)).toBe("12345");
-    });
-  });
-});
 
 describe("master/service listCategories", () => {
   beforeEach(() => {
@@ -393,8 +384,8 @@ describe("master/service listCategories", () => {
     it("Repositoryへskipとtakeを渡し、一覧表示用の値とページ情報を返す", async () => {
       vi.mocked(masterRepository.listCategoriesAndCount).mockResolvedValue([
         [
-          { id: 31, name: "契約種別", _count: { masters: 3 } },
-          { id: 32, name: "請求区分", _count: { masters: 0 } },
+          { id: 31, code: "CONTRACT_TYPE", name: "契約種別", _count: { masters: 3 } },
+          { id: 32, code: "BILLING_TYPE", name: "請求区分", _count: { masters: 0 } },
         ],
         32,
       ]);
@@ -404,8 +395,8 @@ describe("master/service listCategories", () => {
       expect(masterRepository.listCategoriesAndCount).toHaveBeenCalledWith(30, 30, "name", "desc");
       expect(result).toEqual({
         items: [
-          { id: 31, code: "0031", name: "契約種別", masterCount: 3 },
-          { id: 32, code: "0032", name: "請求区分", masterCount: 0 },
+          { id: 31, code: "CONTRACT_TYPE", name: "契約種別", masterCount: 3 },
+          { id: 32, code: "BILLING_TYPE", name: "請求区分", masterCount: 0 },
         ],
         page: 2,
         pageSize: 30,
@@ -431,15 +422,19 @@ describe("master/service listCategories", () => {
 });
 
 describe("master/service createCategory", () => {
+  const input = { code: "CONTRACT_TYPE", name: "契約種別" };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe("同じ名称のマスタ分類が存在しない場合", () => {
+  describe("同じ名称・同じコードのマスタ分類が存在しない場合", () => {
     it("実行者を監査項目へ設定して登録し、一覧表示用の値を返す", async () => {
       vi.mocked(masterRepository.findCategoryByName).mockResolvedValue(null);
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
       vi.mocked(masterRepository.createCategory).mockResolvedValue({
         id: 12,
+        code: "CONTRACT_TYPE",
         name: "契約種別",
         createdAt: new Date("2026-08-09T00:00:00.000Z"),
         createdBy: "admin",
@@ -447,13 +442,14 @@ describe("master/service createCategory", () => {
         updatedBy: "admin",
       });
 
-      await expect(masterService.createCategory({ name: "契約種別" }, "admin")).resolves.toEqual({
+      await expect(masterService.createCategory(input, "admin")).resolves.toEqual({
         id: 12,
-        code: "0012",
+        code: "CONTRACT_TYPE",
         name: "契約種別",
         masterCount: 0,
       });
       expect(masterRepository.createCategory).toHaveBeenCalledWith({
+        code: "CONTRACT_TYPE",
         name: "契約種別",
         createdBy: "admin",
         updatedBy: "admin",
@@ -465,7 +461,7 @@ describe("master/service createCategory", () => {
     it("AppError(MASTER_CATEGORY_CONFLICT) を投げ、登録は行わない", async () => {
       vi.mocked(masterRepository.findCategoryByName).mockResolvedValue({ id: 1 });
 
-      const result = masterService.createCategory({ name: "契約種別" }, "admin");
+      const result = masterService.createCategory(input, "admin");
       await expect(result).rejects.toMatchObject({
         code: "MASTER_CATEGORY_CONFLICT",
         httpStatus: 409,
@@ -475,9 +471,24 @@ describe("master/service createCategory", () => {
     });
   });
 
-  describe("事前確認後に一意制約違反が発生した場合", () => {
+  describe("同じコードのマスタ分類が既に存在する場合", () => {
+    it("AppError(MASTER_CATEGORY_CODE_CONFLICT) を投げ、登録は行わない", async () => {
+      vi.mocked(masterRepository.findCategoryByName).mockResolvedValue(null);
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue({ id: 1 });
+
+      await expect(masterService.createCategory(input, "admin")).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_CODE_CONFLICT",
+        httpStatus: 409,
+        userMessage: "同じ分類コードのマスタ分類が登録されています",
+      } satisfies Partial<AppError>);
+      expect(masterRepository.createCategory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("事前確認後に名前の一意制約違反が発生した場合", () => {
     it("AppError(MASTER_CATEGORY_CONFLICT) へ変換する", async () => {
       vi.mocked(masterRepository.findCategoryByName).mockResolvedValue(null);
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
       vi.mocked(masterRepository.createCategory).mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
           code: "P2002",
@@ -486,10 +497,27 @@ describe("master/service createCategory", () => {
         }),
       );
 
-      await expect(
-        masterService.createCategory({ name: "契約種別" }, "admin"),
-      ).rejects.toMatchObject({
+      await expect(masterService.createCategory(input, "admin")).rejects.toMatchObject({
         code: "MASTER_CATEGORY_CONFLICT",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("事前確認後にコードの一意制約違反が発生した場合", () => {
+    it("AppError(MASTER_CATEGORY_CODE_CONFLICT) へ変換する", async () => {
+      vi.mocked(masterRepository.findCategoryByName).mockResolvedValue(null);
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
+      vi.mocked(masterRepository.createCategory).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "6.19.3",
+          meta: { target: ["code"] },
+        }),
+      );
+
+      await expect(masterService.createCategory(input, "admin")).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_CODE_CONFLICT",
         httpStatus: 409,
       } satisfies Partial<AppError>);
     });
@@ -512,12 +540,13 @@ describe("master/service findMasterDetail", () => {
         createdBy: "creator",
         updatedAt,
         updatedBy: "updater",
-        category: { name: "契約種別" },
+        category: { code: "CONTRACT_TYPE", name: "契約種別" },
       });
 
       await expect(masterService.findMasterDetail(41)).resolves.toEqual({
         id: 41,
         categoryId: 3,
+        categoryCode: "CONTRACT_TYPE",
         categoryName: "契約種別",
         code: "CON00001",
         content: "月額契約",
@@ -540,7 +569,7 @@ describe("master/service findMasterDetail", () => {
         createdBy: null,
         updatedAt,
         updatedBy: null,
-        category: { name: "契約種別" },
+        category: { code: "CONTRACT_TYPE", name: "契約種別" },
       });
 
       await expect(masterService.findMasterDetail(41)).resolves.toMatchObject({
@@ -569,7 +598,7 @@ describe("master/service findCategoryDetail", () => {
 
       await expect(masterService.findCategoryDetail(12)).resolves.toEqual({
         id: 12,
-        code: "0012",
+        code: "CONTRACT_TYPE",
         name: "契約種別",
         masterCount: 3,
         createdAt: new Date("2026-08-08T00:00:00.000Z"),
@@ -589,23 +618,24 @@ describe("master/service findCategoryDetail", () => {
 });
 
 describe("master/service updateCategory", () => {
+  const input = { categoryId: 12, code: "CONTRACT_TYPE", name: "契約種別", updatedAt };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe("対象が存在し、更新時点と名称が競合しない場合", () => {
+  describe("対象が存在し、更新時点と名称・コードが競合しない場合", () => {
     it("対象自身を重複判定から除外し、実行者を監査項目へ設定して更新する", async () => {
       vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(makeCategoryDetail());
       vi.mocked(masterRepository.findCategoryByName).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue({ id: 12 });
       vi.mocked(masterRepository.updateCategoryIfUnchanged).mockResolvedValue(true);
 
-      await expect(
-        masterService.updateCategory({ categoryId: 12, name: "契約種別", updatedAt }, "operator"),
-      ).resolves.toBeUndefined();
+      await expect(masterService.updateCategory(input, "operator")).resolves.toBeUndefined();
       expect(masterRepository.updateCategoryIfUnchanged).toHaveBeenCalledWith(
         12,
         updatedAt,
-        "契約種別",
+        { code: "CONTRACT_TYPE", name: "契約種別" },
         "operator",
       );
     });
@@ -616,7 +646,7 @@ describe("master/service updateCategory", () => {
       vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(null);
 
       await expect(
-        masterService.updateCategory({ categoryId: 999, name: "契約種別", updatedAt }, "admin"),
+        masterService.updateCategory({ ...input, categoryId: 999 }, "admin"),
       ).rejects.toMatchObject({
         code: "MASTER_CATEGORY_NOT_FOUND",
         httpStatus: 404,
@@ -633,12 +663,7 @@ describe("master/service updateCategory", () => {
         makeCategoryDetail({ updatedAt: new Date("2026-08-09T01:00:00.000Z") }),
       );
 
-      await expect(
-        masterService.updateCategory(
-          { categoryId: 12, name: "新しい契約種別", updatedAt },
-          "admin",
-        ),
-      ).rejects.toMatchObject({
+      await expect(masterService.updateCategory(input, "admin")).rejects.toMatchObject({
         code: "MASTER_CONCURRENT_UPDATE",
         httpStatus: 409,
       } satisfies Partial<AppError>);
@@ -652,10 +677,22 @@ describe("master/service updateCategory", () => {
       vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(makeCategoryDetail());
       vi.mocked(masterRepository.findCategoryByName).mockResolvedValue({ id: 13 });
 
-      await expect(
-        masterService.updateCategory({ categoryId: 12, name: "請求区分", updatedAt }, "admin"),
-      ).rejects.toMatchObject({
+      await expect(masterService.updateCategory(input, "admin")).rejects.toMatchObject({
         code: "MASTER_CATEGORY_CONFLICT",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.updateCategoryIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("別のマスタ分類が更新後のコードを使用している場合", () => {
+    it("AppError(MASTER_CATEGORY_CODE_CONFLICT) を投げ、更新は行わない", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(makeCategoryDetail());
+      vi.mocked(masterRepository.findCategoryByName).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue({ id: 13 });
+
+      await expect(masterService.updateCategory(input, "admin")).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_CODE_CONFLICT",
         httpStatus: 409,
       } satisfies Partial<AppError>);
       expect(masterRepository.updateCategoryIfUnchanged).not.toHaveBeenCalled();
@@ -670,14 +707,10 @@ describe("master/service updateCategory", () => {
           makeCategoryDetail({ updatedAt: new Date("2026-08-09T01:00:00.000Z") }),
         );
       vi.mocked(masterRepository.findCategoryByName).mockResolvedValue(null);
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
       vi.mocked(masterRepository.updateCategoryIfUnchanged).mockResolvedValue(false);
 
-      await expect(
-        masterService.updateCategory(
-          { categoryId: 12, name: "新しい契約種別", updatedAt },
-          "admin",
-        ),
-      ).rejects.toMatchObject({
+      await expect(masterService.updateCategory(input, "admin")).rejects.toMatchObject({
         code: "MASTER_CONCURRENT_UPDATE",
         httpStatus: 409,
       } satisfies Partial<AppError>);
@@ -690,24 +723,21 @@ describe("master/service updateCategory", () => {
         .mockResolvedValueOnce(makeCategoryDetail())
         .mockResolvedValueOnce(null);
       vi.mocked(masterRepository.findCategoryByName).mockResolvedValue(null);
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
       vi.mocked(masterRepository.updateCategoryIfUnchanged).mockResolvedValue(false);
 
-      await expect(
-        masterService.updateCategory(
-          { categoryId: 12, name: "新しい契約種別", updatedAt },
-          "admin",
-        ),
-      ).rejects.toMatchObject({
+      await expect(masterService.updateCategory(input, "admin")).rejects.toMatchObject({
         code: "MASTER_CATEGORY_NOT_FOUND",
         httpStatus: 404,
       } satisfies Partial<AppError>);
     });
   });
 
-  describe("事前確認後に一意制約違反が発生した場合", () => {
+  describe("事前確認後に名前の一意制約違反が発生した場合", () => {
     it("AppError(MASTER_CATEGORY_CONFLICT) へ変換する", async () => {
       vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(makeCategoryDetail());
       vi.mocked(masterRepository.findCategoryByName).mockResolvedValue(null);
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
       vi.mocked(masterRepository.updateCategoryIfUnchanged).mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
           code: "P2002",
@@ -716,10 +746,28 @@ describe("master/service updateCategory", () => {
         }),
       );
 
-      await expect(
-        masterService.updateCategory({ categoryId: 12, name: "請求区分", updatedAt }, "admin"),
-      ).rejects.toMatchObject({
+      await expect(masterService.updateCategory(input, "admin")).rejects.toMatchObject({
         code: "MASTER_CATEGORY_CONFLICT",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("事前確認後にコードの一意制約違反が発生した場合", () => {
+    it("AppError(MASTER_CATEGORY_CODE_CONFLICT) へ変換する", async () => {
+      vi.mocked(masterRepository.findCategoryByIdWithCount).mockResolvedValue(makeCategoryDetail());
+      vi.mocked(masterRepository.findCategoryByName).mockResolvedValue(null);
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
+      vi.mocked(masterRepository.updateCategoryIfUnchanged).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "6.19.3",
+          meta: { target: ["code"] },
+        }),
+      );
+
+      await expect(masterService.updateCategory(input, "admin")).rejects.toMatchObject({
+        code: "MASTER_CATEGORY_CODE_CONFLICT",
         httpStatus: 409,
       } satisfies Partial<AppError>);
     });
@@ -981,7 +1029,7 @@ describe("master/service deleteCategory", () => {
       vi.mocked(masterRepository.deleteCategoryIfUnchanged).mockResolvedValue(true);
 
       await expect(masterService.deleteCategory(deleteInput)).resolves.toEqual({
-        code: "0012",
+        code: "CONTRACT_TYPE",
         name: "契約種別",
       });
       expect(masterRepository.deleteCategoryIfUnchanged).toHaveBeenCalledWith(12, updatedAt);
@@ -1562,6 +1610,136 @@ describe("master/service getExcelExportDownload", () => {
       vi.mocked(storage.download).mockRejectedValue(storageError);
 
       await expect(masterService.getExcelExportDownload("export-1")).rejects.toBe(storageError);
+    });
+  });
+});
+
+describe("master/service listMasterOptionsByCategoryCode", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("該当する分類コードのマスタ分類が存在する場合", () => {
+    it("配下のマスタをコード昇順の選択肢として返す", async () => {
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.listMastersByCategoryId).mockResolvedValue([
+        { id: 41, code: "CORP", content: "法人" },
+        { id: 42, code: "INDIV", content: "個人" },
+      ]);
+
+      await expect(
+        masterService.listMasterOptionsByCategoryCode("CONTRACT_COMPANY_TYPE"),
+      ).resolves.toEqual([
+        { id: 41, code: "CORP", content: "法人" },
+        { id: 42, code: "INDIV", content: "個人" },
+      ]);
+      expect(masterRepository.listMastersByCategoryId).toHaveBeenCalledWith(12);
+    });
+  });
+
+  describe("該当する分類コードのマスタ分類が存在しない場合", () => {
+    it("空配列を返し、配下マスタの取得は行わない", async () => {
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
+
+      await expect(
+        masterService.listMasterOptionsByCategoryCode("CONTRACT_COMPANY_TYPE"),
+      ).resolves.toEqual([]);
+      expect(masterRepository.listMastersByCategoryId).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("master/service assertMasterInCategoryCode", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("選択されたマスタが実際に指定した分類コード配下にある場合", () => {
+    it("エラーを投げない", async () => {
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(
+        makeMasterDetail({ id: 41, categoryId: 12 }),
+      );
+
+      await expect(
+        masterService.assertMasterInCategoryCode(41, "CONTRACT_COMPANY_TYPE"),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("選択されたマスタが別の分類に属している場合", () => {
+    it("AppError(MASTER_REFERENCE_INVALID) を投げる", async () => {
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(
+        makeMasterDetail({ id: 41, categoryId: 99 }),
+      );
+
+      await expect(
+        masterService.assertMasterInCategoryCode(41, "CONTRACT_COMPANY_TYPE"),
+      ).rejects.toMatchObject({
+        code: "MASTER_REFERENCE_INVALID",
+        httpStatus: 422,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("分類コードに該当するマスタ分類が存在しない場合", () => {
+    it("AppError(MASTER_REFERENCE_INVALID) を投げ、マスタの取得は行わない", async () => {
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue(null);
+
+      await expect(
+        masterService.assertMasterInCategoryCode(41, "CONTRACT_COMPANY_TYPE"),
+      ).rejects.toMatchObject({
+        code: "MASTER_REFERENCE_INVALID",
+        httpStatus: 422,
+      } satisfies Partial<AppError>);
+      expect(masterRepository.findMasterById).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("指定したマスタIDが存在しない場合", () => {
+    it("AppError(MASTER_REFERENCE_INVALID) を投げる", async () => {
+      vi.mocked(masterRepository.findCategoryByCode).mockResolvedValue({ id: 12 });
+      vi.mocked(masterRepository.findMasterById).mockResolvedValue(null);
+
+      await expect(
+        masterService.assertMasterInCategoryCode(999, "CONTRACT_COMPANY_TYPE"),
+      ).rejects.toMatchObject({
+        code: "MASTER_REFERENCE_INVALID",
+        httpStatus: 422,
+      } satisfies Partial<AppError>);
+    });
+  });
+});
+
+describe("master/service resolveMasterContents", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("IDを指定した場合", () => {
+    it("重複を除いてまとめて取得し、IDをキーにした内容のMapを返す", async () => {
+      vi.mocked(masterRepository.findManyMastersByIds).mockResolvedValue([
+        { id: 41, content: "法人" },
+        { id: 42, content: "個人" },
+      ]);
+
+      const result = await masterService.resolveMasterContents([41, 42, 41]);
+
+      expect(masterRepository.findManyMastersByIds).toHaveBeenCalledWith([41, 42]);
+      expect(result).toEqual(
+        new Map([
+          [41, "法人"],
+          [42, "個人"],
+        ]),
+      );
+    });
+  });
+
+  describe("IDを1件も指定しなかった場合", () => {
+    it("空のMapを返し、取得処理を呼ばない", async () => {
+      await expect(masterService.resolveMasterContents([])).resolves.toEqual(new Map());
+      expect(masterRepository.findManyMastersByIds).not.toHaveBeenCalled();
     });
   });
 });

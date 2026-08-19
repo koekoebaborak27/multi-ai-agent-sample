@@ -41,9 +41,10 @@ model Announcement {
   updatedAt DateTime @updatedAt
 }
 
-/// マスタ分類。id は画面上のマスタ分類コードの採番元として使用する。
+/// マスタ分類。code は利用者が入力・変更できる業務コード（例: CONTRACT_TYPE）。
 model MasterCategory {
   id        Int      @id @default(autoincrement())
+  code      String   @unique @db.VarChar(50)
   name      String   @unique @db.VarChar(30)
   createdAt DateTime @default(now())
   createdBy String? // 登録した利用者の User.id（FK は張らない）
@@ -71,27 +72,28 @@ model Master {
 
 /// 契約先（汎用契約管理ドメインの最小雛形）。
 model Party {
-  id          String   @id @default(cuid())
-  name        String
-  kind        String? // 分類（法人/個人 等。案件に応じて enum 化を検討）
-  contactInfo String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  name                String
+  companyTypeMasterId Int? // 契約先分類（マスタ分類コード CONTRACT_COMPANY_TYPE）配下の Master.id。FK は張らない
+  contactInfo         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   contracts Contract[]
 }
 
 /// 契約。
 model Contract {
-  id        String    @id @default(cuid())
-  partyId   String
-  party     Party     @relation(fields: [partyId], references: [id])
-  title     String
-  startDate DateTime?
-  endDate   DateTime?
-  status    String    @default("DRAFT") // DRAFT / ACTIVE / TERMINATED 等（案件に応じて拡張）
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  partyId          String
+  party            Party     @relation(fields: [partyId], references: [id])
+  title            String
+  startDate        DateTime?
+  endDate          DateTime?
+  status           String    @default("DRAFT") // DRAFT / ACTIVE / TERMINATED 等（案件に応じて拡張）
+  categoryMasterId Int? // 契約分類（マスタ分類コード CONTRACT_TYPE）配下の Master.id。FK は張らない
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   items ContractItem[]
 

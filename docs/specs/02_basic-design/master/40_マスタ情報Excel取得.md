@@ -60,7 +60,7 @@ CSVダウンロード（§30.1.4.4）と同じ7列とします。同じマスタ
 
 | 順 | 列名 | 値 |
 |---|---|---|
-| 1 | マスタ分類コード | `MasterCategory.id` を4桁ゼロ埋めした値 |
+| 1 | マスタ分類コード | `MasterCategory.code` |
 | 2 | マスタ分類名 | `MasterCategory.name` |
 | 3 | 登録マスタ件数 | その分類に属するマスタの件数 |
 | 4 | 登録日時 | `MasterCategory.createdAt` |
@@ -74,7 +74,7 @@ CSVダウンロード（§30.1.4.3）と同じ9列とします。
 
 | 順 | 列名 | 値 |
 |---|---|---|
-| 1 | マスタ分類コード | `MasterCategory.id` を4桁ゼロ埋めした値 |
+| 1 | マスタ分類コード | `MasterCategory.code` |
 | 2 | マスタ分類名 | `MasterCategory.name` |
 | 3 | マスタID | `Master.id` |
 | 4 | マスタコード | `Master.code` |

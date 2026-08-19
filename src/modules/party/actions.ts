@@ -29,7 +29,7 @@ export const createPartyAction = withOp(
     await requireWriter();
     const parsed = createPartySchema.safeParse({
       name: formData.get("name"),
-      kind: formData.get("kind") || undefined,
+      companyTypeMasterId: formData.get("companyTypeMasterId") || undefined,
       contactInfo: formData.get("contactInfo") || undefined,
     });
     if (!parsed.success) {
@@ -56,7 +56,7 @@ export const updatePartyAction = withOp(
     const parsed = updatePartySchema.safeParse({
       id: formData.get("id"),
       name: formData.get("name"),
-      kind: formData.get("kind") || undefined,
+      companyTypeMasterId: formData.get("companyTypeMasterId") || undefined,
       contactInfo: formData.get("contactInfo") || undefined,
     });
     if (!parsed.success) {
