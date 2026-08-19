@@ -58,16 +58,21 @@ export function ContractDetailView({
         </CardHeader>
         <CardContent className="space-y-6">
           <dl className="grid gap-4 sm:grid-cols-[12rem_1fr]">
+            <dt className="text-sm font-medium text-muted-foreground">契約先</dt>
+            <dd className="text-sm break-words">
+              <Link
+                href={`/parties/${contract.partyId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4"
+              >
+                {contract.partyName}
+              </Link>
+            </dd>
             <dt className="text-sm font-medium text-muted-foreground">契約名</dt>
             <dd className="text-sm break-words">{contract.title}</dd>
             <dt className="text-sm font-medium text-muted-foreground">契約分類</dt>
             <dd className="text-sm break-words">{contract.categoryLabel}</dd>
-            <dt className="text-sm font-medium text-muted-foreground">契約先</dt>
-            <dd className="text-sm break-words">
-              <Link href={`/parties/${contract.partyId}`} className="underline underline-offset-4">
-                {contract.partyName}
-              </Link>
-            </dd>
             <dt className="text-sm font-medium text-muted-foreground">開始日</dt>
             <dd className="text-sm tabular-nums">{formatDate(contract.startDate)}</dd>
             <dt className="text-sm font-medium text-muted-foreground">終了日</dt>
