@@ -109,7 +109,10 @@ describe("party/service create", () => {
       );
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map([[41, "法人"]]));
 
-      const result = await partyService.create({ name: "サンプル契約先", companyTypeMasterId: 41 });
+      const result = await partyService.create(
+        { name: "サンプル契約先", companyTypeMasterId: 41 },
+        "user-1",
+      );
 
       expect(masterService.assertMasterInCategoryCode).toHaveBeenCalledWith(
         41,
@@ -119,6 +122,8 @@ describe("party/service create", () => {
         name: "サンプル契約先",
         companyTypeMasterId: 41,
         contactInfo: null,
+        createdBy: "user-1",
+        updatedBy: "user-1",
       });
       expect(result).toMatchObject({ companyTypeMasterId: 41, companyTypeLabel: "法人" });
     });
@@ -129,13 +134,18 @@ describe("party/service create", () => {
       vi.mocked(partyRepository.create).mockResolvedValue(makeParty());
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map());
 
-      await partyService.create({ name: "サンプル契約先", companyTypeMasterId: undefined });
+      await partyService.create(
+        { name: "サンプル契約先", companyTypeMasterId: undefined },
+        "user-1",
+      );
 
       expect(masterService.assertMasterInCategoryCode).not.toHaveBeenCalled();
       expect(partyRepository.create).toHaveBeenCalledWith({
         name: "サンプル契約先",
         companyTypeMasterId: null,
         contactInfo: null,
+        createdBy: "user-1",
+        updatedBy: "user-1",
       });
     });
   });
@@ -147,7 +157,7 @@ describe("party/service create", () => {
       );
 
       await expect(
-        partyService.create({ name: "サンプル契約先", companyTypeMasterId: 999 }),
+        partyService.create({ name: "サンプル契約先", companyTypeMasterId: 999 }, "user-1"),
       ).rejects.toMatchObject({
         code: "MASTER_REFERENCE_INVALID",
         httpStatus: 422,

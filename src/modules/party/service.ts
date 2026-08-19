@@ -65,13 +65,20 @@ export const partyService = {
     );
   },
 
+  // 確認画面を出す前に、選択された契約先分類が有効かどうかだけを確認したい場面があるため、
+  // 上で定義した確認用の関数を、そのまま外からも呼べるように公開している（マスタ機能と同じ考え方）。
+  assertCompanyTypeValid,
+
   // 契約先を新規登録する。分類・連絡先は任意入力なので、未入力なら空として登録する。
-  async create(input: CreatePartyInput): Promise<PartySummary> {
+  // createdBy・updatedByには登録を実行した利用者のユーザーIDを設定する。
+  async create(input: CreatePartyInput, userId: string): Promise<PartySummary> {
     await assertCompanyTypeValid(input.companyTypeMasterId);
     const party = await partyRepository.create({
       name: input.name,
       companyTypeMasterId: input.companyTypeMasterId ?? null,
       contactInfo: input.contactInfo ?? null,
+      createdBy: userId,
+      updatedBy: userId,
     });
     const labelById = await masterService.resolveMasterContents(
       party.companyTypeMasterId !== null ? [party.companyTypeMasterId] : [],
