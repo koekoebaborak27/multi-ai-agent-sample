@@ -25,6 +25,7 @@ import type {
   MasterExcelExportRequest,
   MasterExcelExportStatus,
   MasterExcelExportSummary,
+  MasterOption,
   MasterSearchCriteria,
   MasterSortField,
   MasterSummary,
@@ -45,25 +46,15 @@ import { invokeWorker } from "@/shared/jobs/invoke-worker";
 import { storage } from "@/shared/storage";
 import { Prisma, type MasterExcelExport } from "@prisma/client";
 
-// マスタ分類コードの桁数。
-// コードは分類ごとの連番をそのまま使うため、桁数はこの値だけで決まる。
-// 分類が 9999 件を超える見込みが出たら、この値と画面の表示幅を合わせて見直す。
-const MASTER_CATEGORY_CODE_LENGTH = 4;
-
-/** 分類の連番を「0042」のような表示用のコード文字列に変換する */
-export function formatMasterCategoryCode(id: number): string {
-  return String(id).padStart(MASTER_CATEGORY_CODE_LENGTH, "0");
-}
-
 // ここから 4 つの関数は、データベースから取得したデータを画面用の形に詰め替える。
 // データベースの中身をそのまま画面へ渡さないことで、テーブルの項目が変わっても
 // 画面側の修正がこのファイルの中で済むようにしている。
 
-/** 分類一覧の1行分のデータを作る。表示用コードと、その分類に属するマスタの件数も一緒に持たせる */
+/** 分類一覧の1行分のデータを作る。分類コードと、その分類に属するマスタの件数も一緒に持たせる */
 function toCategorySummary(category: MasterCategoryListRecord): MasterCategorySummary {
   return {
     id: category.id,
-    code: formatMasterCategoryCode(category.id),
+    code: category.code,
     name: category.name,
     masterCount: category._count.masters,
   };
@@ -76,7 +67,7 @@ function toCategorySummary(category: MasterCategoryListRecord): MasterCategorySu
 export function toCategoryDetail(category: MasterCategoryDetailRecord): MasterCategoryDetail {
   return {
     id: category.id,
-    code: formatMasterCategoryCode(category.id),
+    code: category.code,
     name: category.name,
     masterCount: category._count.masters,
     createdAt: category.createdAt,
@@ -105,6 +96,7 @@ export function toMasterDetail(master: MasterDetailRecord): MasterDetail {
   return {
     id: master.id,
     categoryId: master.categoryId,
+    categoryCode: master.category.code,
     categoryName: master.category.name,
     code: master.code,
     content: master.content,
@@ -173,6 +165,16 @@ function masterCategoryConflict(name: string): AppError {
   return new AppError("MASTER_CATEGORY_CONFLICT", 409, "同じ名前のマスタ分類が登録されています", {
     name,
   });
+}
+
+/** 同じ分類コードがすでに登録されているときのエラー（新規作成・コード変更の両方で使う） */
+function masterCategoryCodeConflict(code: string): AppError {
+  return new AppError(
+    "MASTER_CATEGORY_CODE_CONFLICT",
+    409,
+    "同じ分類コードのマスタ分類が登録されています",
+    { code },
+  );
 }
 
 /** 指定された分類が見つからないときのエラー（すでに削除された、URLの指定が誤っている、など） */
@@ -272,6 +274,20 @@ function masterExcelExportExpired(exportId: string, expiresAt: Date): AppError {
 }
 
 /**
+ * 契約先・契約などがプルダウンで選んだマスタIDが、実際には対象の分類コード配下のマスタでない
+ * ときのエラー。選択肢を改ざんされた場合や、確認画面を表示した後に選択したマスタが削除・
+ * 他の分類へ付け替えられた場合に発生する。
+ */
+function masterReferenceInvalid(masterId: number, categoryCode: string): AppError {
+  return new AppError(
+    "MASTER_REFERENCE_INVALID",
+    422,
+    "選択した内容が見つかりません。画面を更新してから選び直してください",
+    { masterId, categoryCode },
+  );
+}
+
+/**
  * 分類名が他の分類と重複していないか確認し、重複していればエラーにする。
  * 更新のときは自分自身の分類を excludeId で指定する。
  * そうしないと、名前を変えずに保存しただけで「重複している」と判定されてしまうため。
@@ -279,6 +295,15 @@ function masterExcelExportExpired(exportId: string, expiresAt: Date): AppError {
 async function assertCategoryNameAvailable(name: string, excludeId?: number): Promise<void> {
   const existing = await masterRepository.findCategoryByName(name);
   if (existing && existing.id !== excludeId) throw masterCategoryConflict(name);
+}
+
+/**
+ * 分類コードが他の分類と重複していないか確認し、重複していればエラーにする。
+ * 更新のときは自分自身の分類を excludeId で指定する（assertCategoryNameAvailable と同様）。
+ */
+async function assertCategoryCodeAvailable(code: string, excludeId?: number): Promise<void> {
+  const existing = await masterRepository.findCategoryByCode(code);
+  if (existing && existing.id !== excludeId) throw masterCategoryCodeConflict(code);
 }
 
 /** 指定された分類が実際に存在するか確認し、無ければエラーにする（マスタの作成・更新の前に使う） */
@@ -337,9 +362,48 @@ export const masterService = {
     const categories = await masterRepository.listCategoryOptions();
     return categories.map((category) => ({
       id: category.id,
-      code: formatMasterCategoryCode(category.id),
+      code: category.code,
       name: category.name,
     }));
+  },
+
+  /**
+   * 分類コードを手がかりに、その分類配下のマスタをコード昇順で返す。
+   * 契約先・契約など、マスタ分類そのものではなく分類コード（固定の文字列定数）を手がかりに
+   * マスタを参照する画面のプルダウンで使う。該当する分類が存在しなければ空配列を返し、
+   * 呼び出し側はそれを「選択肢なし（未設定固定）」として扱う。
+   */
+  async listMasterOptionsByCategoryCode(code: string): Promise<MasterOption[]> {
+    const category = await masterRepository.findCategoryByCode(code);
+    if (!category) return [];
+    const masters = await masterRepository.listMastersByCategoryId(category.id);
+    return masters.map((master) => ({ id: master.id, code: master.code, content: master.content }));
+  },
+
+  /**
+   * 選択されたマスタIDが、実際に指定した分類コード配下のマスタであることを確認する。
+   * 契約先・契約の登録・更新時に、プルダウンの選択肢が改ざんされていないか、または確認画面の
+   * 表示後に対象マスタが削除・分類変更されていないかをサーバー側で再検証するために使う。
+   */
+  async assertMasterInCategoryCode(masterId: number, categoryCode: string): Promise<void> {
+    const category = await masterRepository.findCategoryByCode(categoryCode);
+    const master = category ? await masterRepository.findMasterById(masterId) : null;
+    if (!category || !master || master.categoryId !== category.id) {
+      throw masterReferenceInvalid(masterId, categoryCode);
+    }
+  },
+
+  /**
+   * 複数のマスタIDから、内容（content）をまとめて解決する。
+   * 契約先・契約の一覧表示で、参照しているマスタの内容を1件ずつ取得するとN+1になるため、
+   * まとめて取得してからMapで引けるようにする（userService.resolveDisplayNames と同じ狙い）。
+   * 存在しないID・削除済みのIDはMapに含まれず、呼び出し側で「未設定」等にフォールバックする。
+   */
+  async resolveMasterContents(masterIds: number[]): Promise<Map<number, string>> {
+    const uniqueIds = [...new Set(masterIds)];
+    if (uniqueIds.length === 0) return new Map();
+    const masters = await masterRepository.findManyMastersByIds(uniqueIds);
+    return new Map(masters.map((master) => [master.id, master.content]));
   },
 
   // マスタ分類の一覧を、指定されたページの分だけ取得する（マスタ一覧の分類版）。
@@ -478,30 +542,38 @@ export const masterService = {
 
   assertCategoryNameAvailable,
 
+  assertCategoryCodeAvailable,
+
   // マスタ分類を新規登録する。
-  // マスタの新規登録と同じく、先に名前の重複を確認し、それでも失敗した場合はデータベースのエラーを見て判断する。
+  // マスタの新規登録と同じく、先に名前・コードの重複を確認し、それでも失敗した場合はデータベースの
+  // エラーを見て判断する。
   async createCategory(
     input: CreateMasterCategoryInput,
     userId: string,
   ): Promise<MasterCategorySummary> {
     await assertCategoryNameAvailable(input.name);
+    await assertCategoryCodeAvailable(input.code);
 
     try {
       const category = await masterRepository.createCategory({
+        code: input.code,
         name: input.name,
         createdBy: userId,
         updatedBy: userId,
       });
       return {
         id: category.id,
-        code: formatMasterCategoryCode(category.id),
+        code: category.code,
         name: category.name,
         // 登録した直後の分類にはマスタが1件も属していないので、数え直さず 0 とする
         masterCount: 0,
       };
     } catch (error) {
-      // P2002 は重複エラー。確認した直後に、他の利用者が同じ名前で登録したことを意味する
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        // P2002 は重複エラー。確認した直後に、他の利用者が同じ名前・コードで登録したことを意味する。
+        // どちらの一意制約に違反したかは meta.target で判別する。
+        const target = (error.meta?.target as string[] | undefined) ?? [];
+        if (target.includes("code")) throw masterCategoryCodeConflict(input.code);
         throw masterCategoryConflict(input.name);
       }
       throw error;
@@ -519,12 +591,13 @@ export const masterService = {
     }
 
     await assertCategoryNameAvailable(input.name, input.categoryId);
+    await assertCategoryCodeAvailable(input.code, input.categoryId);
 
     try {
       const updated = await masterRepository.updateCategoryIfUnchanged(
         input.categoryId,
         input.updatedAt,
-        input.name,
+        { code: input.code, name: input.name },
         userId,
       );
       if (!updated) {
@@ -535,8 +608,10 @@ export const masterService = {
         throw masterCategoryConcurrentUpdate(input.categoryId);
       }
     } catch (error) {
-      // P2002 は重複エラー。確認した直後に、他の利用者が同じ名前へ変更したことを意味する
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        // P2002 は重複エラー。確認した直後に、他の利用者が同じ名前・コードへ変更したことを意味する
+        const target = (error.meta?.target as string[] | undefined) ?? [];
+        if (target.includes("code")) throw masterCategoryCodeConflict(input.code);
         throw masterCategoryConflict(input.name);
       }
       throw error;
@@ -580,7 +655,7 @@ export const masterService = {
       throw error;
     }
 
-    return { code: formatMasterCategoryCode(existing.id), name: existing.name };
+    return { code: existing.code, name: existing.name };
   },
 
   // マスタ一覧（MST-01）のCSVをその場で作って返す。件数が上限を超えていれば作らずエラーにする。

@@ -9,4 +9,9 @@ export {
   deletePartyAction,
   type PartyFormState,
 } from "@/modules/party/actions";
-export { PARTY_SORT_FIELDS, type PartySortField, type PartySummary } from "@/modules/party/types";
+export {
+  PARTY_COMPANY_TYPE_CATEGORY_CODE,
+  PARTY_SORT_FIELDS,
+  type PartySortField,
+  type PartySummary,
+} from "@/modules/party/types";

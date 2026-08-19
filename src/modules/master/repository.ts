@@ -17,6 +17,7 @@ import type { Master, MasterCategory, MasterExcelExport, Prisma } from "@prisma/
 export type MasterCategoryListRecord = Prisma.MasterCategoryGetPayload<{
   select: {
     id: true;
+    code: true;
     name: true;
     _count: { select: { masters: true } };
   };
@@ -26,6 +27,7 @@ export type MasterCategoryListRecord = Prisma.MasterCategoryGetPayload<{
 export type MasterCategoryDetailRecord = Prisma.MasterCategoryGetPayload<{
   select: {
     id: true;
+    code: true;
     name: true;
     createdAt: true;
     createdBy: true;
@@ -42,7 +44,7 @@ export type MasterListRecord = Prisma.MasterGetPayload<{
     categoryId: true;
     code: true;
     content: true;
-    category: { select: { name: true } };
+    category: { select: { code: true; name: true } };
   };
 }>;
 
@@ -57,7 +59,7 @@ export type MasterDetailRecord = Prisma.MasterGetPayload<{
     createdBy: true;
     updatedAt: true;
     updatedBy: true;
-    category: { select: { name: true } };
+    category: { select: { code: true; name: true } };
   };
 }>;
 
@@ -114,15 +116,14 @@ function buildCategoryOrderBy(
   sort: MasterCategorySortField,
   order: SortOrder,
 ): Prisma.MasterCategoryOrderByWithRelationInput[] {
-  // 分類コードは連番をそのまま使っているため、コード順の並び替えは連番の並び替えで代用できる
   const primaryOrder: Prisma.MasterCategoryOrderByWithRelationInput =
     sort === "code"
-      ? { id: order }
+      ? { code: order }
       : sort === "name"
         ? { name: order }
         : { masters: { _count: order } };
-  // コード順以外は同じ値の行が出るため、順番が毎回変わらないよう連番も並び順に加える
-  return sort === "code" ? [primaryOrder] : [primaryOrder, { id: "asc" }];
+  // 同じ値の行が並ぶ場合でも順番が毎回変わらないよう、連番を並び順に加える
+  return [primaryOrder, { id: "asc" }];
 }
 
 export const masterRepository = {
@@ -147,7 +148,7 @@ export const masterRepository = {
           categoryId: true,
           code: true,
           content: true,
-          category: { select: { name: true } },
+          category: { select: { code: true, name: true } },
         },
         orderBy,
         skip,
@@ -181,7 +182,7 @@ export const masterRepository = {
         createdBy: true,
         updatedAt: true,
         updatedBy: true,
-        category: { select: { name: true } },
+        category: { select: { code: true, name: true } },
       },
       orderBy: buildMasterOrderBy(sort, order),
       take: MASTER_EXPORT_MAX_ROWS,
@@ -190,9 +191,9 @@ export const masterRepository = {
 
   // 分類プルダウン用に、すべての分類を id 順（=登録順）で取得する。
   // 件数がページ分けを必要とするほど多くならない想定のため、ページ分けはしない。
-  listCategoryOptions(): Promise<Pick<MasterCategory, "id" | "name">[]> {
+  listCategoryOptions(): Promise<Pick<MasterCategory, "id" | "code" | "name">[]> {
     return prisma.masterCategory.findMany({
-      select: { id: true, name: true },
+      select: { id: true, code: true, name: true },
       orderBy: { id: "asc" },
     });
   },
@@ -209,6 +210,7 @@ export const masterRepository = {
       prisma.masterCategory.findMany({
         select: {
           id: true,
+          code: true,
           name: true,
           _count: { select: { masters: true } },
         },
@@ -233,6 +235,7 @@ export const masterRepository = {
     return prisma.masterCategory.findMany({
       select: {
         id: true,
+        code: true,
         name: true,
         createdAt: true,
         createdBy: true,
@@ -258,7 +261,7 @@ export const masterRepository = {
         createdBy: true,
         updatedAt: true,
         updatedBy: true,
-        category: { select: { name: true } },
+        category: { select: { code: true, name: true } },
       },
     });
   },
@@ -275,6 +278,26 @@ export const masterRepository = {
     });
   },
 
+  // 分類配下のマスタを、マスタコード昇順ですべて取得する。
+  // 契約先・契約などマスタを参照する画面のプルダウンで使う（件数が多くならない想定でページ分けしない）。
+  listMastersByCategoryId(categoryId: number): Promise<Pick<Master, "id" | "code" | "content">[]> {
+    return prisma.master.findMany({
+      where: { categoryId },
+      select: { id: true, code: true, content: true },
+      orderBy: { code: "asc" },
+    });
+  },
+
+  // 複数のマスタIDから、内容（content）をまとめて取得する。
+  // 一覧画面でマスタを参照する列を表示する際、行ごとに1件ずつ取得するとN+1になるため、
+  // まとめて取得してから呼び出し側でIDをキーに解決する。
+  findManyMastersByIds(ids: number[]): Promise<Pick<Master, "id" | "content">[]> {
+    return prisma.master.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, content: true },
+    });
+  },
+
   // マスタを1件登録し、登録後の内容を返す。
   // 登録直後に詳細画面へ移動するため、移動先のURLに必要な連番を受け取れるようにしている。
   createMaster(data: Prisma.MasterUncheckedCreateInput): Promise<MasterListRecord> {
@@ -285,7 +308,7 @@ export const masterRepository = {
         categoryId: true,
         code: true,
         content: true,
-        category: { select: { name: true } },
+        category: { select: { code: true, name: true } },
       },
     });
   },
@@ -300,12 +323,18 @@ export const masterRepository = {
     return prisma.masterCategory.findUnique({ where: { name }, select: { id: true } });
   },
 
+  // 同じ分類コードがすでにあるかを確認する。契約先・契約が分類コードから分類を探すときにも使う。
+  findCategoryByCode(code: string): Promise<Pick<MasterCategory, "id"> | null> {
+    return prisma.masterCategory.findUnique({ where: { code }, select: { id: true } });
+  },
+
   // 分類1件を、属するマスタの件数も一緒に取得する。詳細画面の表示と、更新前の内容確認で使う。
   findCategoryByIdWithCount(id: number): Promise<MasterCategoryDetailRecord | null> {
     return prisma.masterCategory.findUnique({
       where: { id },
       select: {
         id: true,
+        code: true,
         name: true,
         createdAt: true,
         createdBy: true,
@@ -327,12 +356,12 @@ export const masterRepository = {
   async updateCategoryIfUnchanged(
     id: number,
     expectedUpdatedAt: Date,
-    name: string,
+    data: { code: string; name: string },
     updatedBy: string,
   ): Promise<boolean> {
     const result = await prisma.masterCategory.updateMany({
       where: { id, updatedAt: expectedUpdatedAt },
-      data: { name, updatedBy },
+      data: { ...data, updatedBy },
     });
     return result.count === 1;
   },

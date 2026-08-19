@@ -31,6 +31,7 @@ export interface MasterCategoryFormState {
   phase: "input" | "confirm";
   categoryId?: number;
   code?: string;
+  originalCode?: string;
   originalName?: string;
   name?: string;
   masterCount?: number;
@@ -146,23 +147,26 @@ export const createMasterCategoryAction = withOp(
   async (_prev: MasterCategoryFormState, formData: FormData): Promise<MasterCategoryFormState> => {
     const user = await requireWriter();
     const intent = formData.get("intent") === "execute" ? "execute" : "confirm";
+    const rawCode = String(formData.get("code") ?? "");
     const rawName = String(formData.get("name") ?? "");
-    const parsed = createMasterCategorySchema.safeParse({ name: rawName });
+    const parsed = createMasterCategorySchema.safeParse({ code: rawCode, name: rawName });
 
     if (!parsed.success) {
       return {
         mode: "create",
         phase: intent === "execute" ? "confirm" : "input",
+        code: rawCode,
         name: rawName,
         error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
       };
     }
 
     try {
-      // 確認画面を出す前に、同じ名前の分類が無いことを先に確認しておく
+      // 確認画面を出す前に、同じ名前・同じコードの分類が無いことを先に確認しておく
       if (intent === "confirm") {
         await masterService.assertCategoryNameAvailable(parsed.data.name);
-        return { mode: "create", phase: "confirm", name: parsed.data.name };
+        await masterService.assertCategoryCodeAvailable(parsed.data.code);
+        return { mode: "create", phase: "confirm", code: parsed.data.code, name: parsed.data.name };
       }
 
       // 登録したあと、一覧の表示内容を最新にしてから、登録した分類の詳細画面へ移動する
@@ -174,6 +178,7 @@ export const createMasterCategoryAction = withOp(
         return {
           mode: "create",
           phase: intent === "execute" ? "confirm" : "input",
+          code: parsed.data.code,
           name: parsed.data.name,
           error: error.userMessage,
         };
@@ -191,9 +196,13 @@ export const updateMasterCategoryAction = withOp(
   async (prev: MasterCategoryFormState, formData: FormData): Promise<MasterCategoryFormState> => {
     const user = await requireWriter();
     const intent = formData.get("intent") === "execute" ? "execute" : "confirm";
+    const rawCode = String(formData.get("code") ?? "");
     const rawName = String(formData.get("name") ?? "");
+    // 変更前のコード。確認画面では入力欄が無く送信されないため、その場合は前回の状態から引き継ぐ
+    const originalCode = String(formData.get("originalCode") ?? prev.originalCode ?? "");
     const parsed = updateMasterCategorySchema.safeParse({
       categoryId: formData.get("categoryId"),
+      code: rawCode,
       name: rawName,
       updatedAt: formData.get("updatedAt"),
     });
@@ -203,27 +212,32 @@ export const updateMasterCategoryAction = withOp(
         ...prev,
         mode: "update",
         phase: intent === "execute" ? "confirm" : "input",
+        code: rawCode,
         name: rawName,
+        originalCode,
         error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
       };
     }
 
     // 確認画面の表示にもエラー時の再表示にも使うため、入力後の状態をここで組み立てておく。
-    // prev を引き継ぐのは、コード・変更前の名前など画面の表示に必要で
+    // prev を引き継ぐのは、変更前の名前・コードなど画面の表示に必要で
     // フォームからは送られてこない項目を保つため。
     const nextState: MasterCategoryFormState = {
       ...prev,
       mode: "update",
       phase: intent === "execute" ? "confirm" : "input",
       categoryId: parsed.data.categoryId,
+      code: parsed.data.code,
       name: parsed.data.name,
+      originalCode,
       updatedAt: parsed.data.updatedAt.toISOString(),
     };
 
     try {
-      // 確認画面を出す前に、変更後の名前が他の分類と重複しないことを先に確認しておく
+      // 確認画面を出す前に、変更後の名前・コードが他の分類と重複しないことを先に確認しておく
       if (intent === "confirm") {
         await masterService.assertCategoryNameAvailable(parsed.data.name, parsed.data.categoryId);
+        await masterService.assertCategoryCodeAvailable(parsed.data.code, parsed.data.categoryId);
         return { ...nextState, phase: "confirm" };
       }
 

@@ -19,13 +19,14 @@ interface MasterCategoryUpdateFormProps {
 }
 
 // マスタ分類の更新フォーム。
-// 変更できるのは分類名だけで、分類コードと登録マスタ件数は参考情報として表示するだけ。
+// 分類名・分類コードの両方を変更できる。登録マスタ件数は参考情報として表示するだけ。
 export function MasterCategoryUpdateForm({ category }: MasterCategoryUpdateFormProps) {
   const initialState: MasterCategoryFormState = {
     mode: "update",
     phase: "input",
     categoryId: category.id,
     code: category.code,
+    originalCode: category.code,
     originalName: category.name,
     name: category.name,
     masterCount: category.masterCount,
@@ -58,13 +59,29 @@ export function MasterCategoryUpdateForm({ category }: MasterCategoryUpdateFormP
       <input type="hidden" name="categoryId" value={category.id} />
       <input type="hidden" name="updatedAt" value={state.updatedAt} />
       <input type="hidden" name="originalName" value={state.originalName} />
+      <input type="hidden" name="originalCode" value={state.originalCode ?? category.code} />
 
       <dl className="grid gap-4 sm:grid-cols-[12rem_1fr]">
-        <dt className="text-sm font-medium text-muted-foreground">マスタ分類コード</dt>
-        <dd className="font-mono text-sm">{category.code}</dd>
         <dt className="text-sm font-medium text-muted-foreground">登録マスタ件数</dt>
         <dd className="text-sm tabular-nums">{category.masterCount}件</dd>
       </dl>
+
+      <div className="space-y-2">
+        <Label htmlFor="code">マスタ分類コード</Label>
+        <Input
+          id="code"
+          name="code"
+          defaultValue={state.code ?? category.code}
+          required
+          maxLength={50}
+          className="font-mono"
+          aria-describedby="code-help"
+          aria-invalid={state.error ? true : undefined}
+        />
+        <p id="code-help" className="text-sm text-muted-foreground">
+          英大文字・数字・ハイフン・アンダースコアのみ、50文字以内で入力してください。
+        </p>
+      </div>
 
       <div className="space-y-2">
         <Label htmlFor="name">マスタ分類名</Label>

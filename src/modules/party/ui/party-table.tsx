@@ -34,14 +34,8 @@ export function PartyTable({ parties, sort, order, baseUrl }: PartyTableProps) {
           >
             名称
           </SortableTableHead>
-          <SortableTableHead
-            sortKey="kind"
-            currentSort={sort}
-            currentOrder={order}
-            baseUrl={baseUrl}
-          >
-            分類
-          </SortableTableHead>
+          {/* 分類はマスタの内容を解決した表示専用の値のため、データベース上でのソート対象にしない */}
+          <TableHead>分類</TableHead>
           <SortableTableHead
             sortKey="contactInfo"
             currentSort={sort}
@@ -65,8 +59,9 @@ export function PartyTable({ parties, sort, order, baseUrl }: PartyTableProps) {
           parties.map((p) => (
             <TableRow key={p.id}>
               <TableCell>{p.name}</TableCell>
-              {/* 分類・連絡先は任意入力なので、未入力の場合は「-」を表示する */}
-              <TableCell>{p.kind ?? "-"}</TableCell>
+              {/* 分類は未選択・選択先マスタが削除された場合に「未設定」（p.companyTypeLabel）になる */}
+              <TableCell>{p.companyTypeLabel}</TableCell>
+              {/* 連絡先は任意入力なので、未入力の場合は「-」を表示する */}
               <TableCell>{p.contactInfo ?? "-"}</TableCell>
               <TableCell className="text-right">
                 {/* 削除する契約先を伝えるため、行ごとに識別子を持たせた小さなフォームにしている */}

@@ -1,6 +1,5 @@
 import ExcelJS from "exceljs";
 import { formatCsvDateTime, formatFileNameTimestamp } from "@/modules/master/export";
-import { formatMasterCategoryCode } from "@/modules/master/service";
 import type { MasterCategoryDetail, MasterDetail } from "@/modules/master/types";
 
 // マスタ情報Excel取得（設計書§40.2）の中身を組み立てる処理。
@@ -110,7 +109,7 @@ function buildCategorySheetPlan(categories: MasterCategoryDetail[]): SheetPlan {
       { header: "最終更新者", width: 14 },
     ],
     rows: categories.map((category) => [
-      formatMasterCategoryCode(category.id),
+      category.code,
       category.name,
       category.masterCount,
       toExcelDateTime(category.createdAt),
@@ -137,7 +136,7 @@ function buildMasterSheetPlan(masters: MasterDetail[]): SheetPlan {
       { header: "最終更新者", width: 14 },
     ],
     rows: masters.map((master) => [
-      formatMasterCategoryCode(master.categoryId),
+      master.categoryCode,
       master.categoryName,
       master.id,
       master.code,

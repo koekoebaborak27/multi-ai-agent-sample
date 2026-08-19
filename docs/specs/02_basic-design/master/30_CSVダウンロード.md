@@ -70,7 +70,7 @@ BOMを付けるのは、付けない場合にMicrosoft ExcelがUTF-8と判定で
 
 | 順 | 列名       | 値                              |
 | - | -------- | ------------------------------ |
-| 1 | マスタ分類コード | `MasterCategory.id` を4桁ゼロ埋めした値 |
+| 1 | マスタ分類コード | `MasterCategory.code` |
 | 2 | マスタ分類名   | `MasterCategory.name`          |
 | 3 | マスタID    | `Master.id`                    |
 | 4 | マスタコード   | `Master.code`                  |
@@ -88,7 +88,7 @@ BOMを付けるのは、付けない場合にMicrosoft ExcelがUTF-8と判定で
 
 | 順 | 列名       | 値                                    |
 | - | -------- | ------------------------------------ |
-| 1 | マスタ分類コード | `MasterCategory.id` を4桁ゼロ埋めした値       |
+| 1 | マスタ分類コード | `MasterCategory.code`                |
 | 2 | マスタ分類名   | `MasterCategory.name`                |
 | 3 | 登録マスタ件数  | その分類に属するマスタの件数                       |
 | 4 | 登録日時     | `MasterCategory.createdAt`           |
@@ -96,7 +96,7 @@ BOMを付けるのは、付けない場合にMicrosoft ExcelがUTF-8と判定で
 | 6 | 最終更新日時   | `MasterCategory.updatedAt`           |
 | 7 | 最終更新者    | `MasterCategory.updatedBy`。値が無い場合は空欄 |
 
-マスタ分類詳細画面（MST-07）の表示項目と同じ7列とする。マスタ分類コードが `MasterCategory.id` そのものであるため、内部IDの列は設けない。
+マスタ分類詳細画面（MST-07）の表示項目と同じ7列とする。内部識別子である `MasterCategory.id` は利用者向けの表示に使わないため、列を設けない。
 
 #### 30.1.4.5 値の書式
 
@@ -185,7 +185,7 @@ CSV文字列の組み立て（`export.ts`）は純粋関数であり、テスト
 - ヘッダー行が §30.1.4.3 および §30.1.4.4 の列順どおりに出力される。
 - 改行コードがCRLFである。
 - 値にカンマ・引用符・改行が含まれる場合に引用符で囲まれ、値中の引用符が2つ重ねられる。
-- マスタ分類コードが4桁ゼロ埋めで出力される。
+- マスタ分類コードが `MasterCategory.code` の値そのままで出力される。
 - 日時が `YYYY/MM/DD HH:mm:ss` 形式・Asia/Tokyo で出力される。
 - `createdBy` / `updatedBy` が `null` の場合は空欄になる（「—」を出さない）。
 - 0件の場合もヘッダー行だけのCSVが生成される。

@@ -34,6 +34,7 @@ export const createContractAction = withOp(
       startDate: formData.get("startDate") || undefined,
       endDate: formData.get("endDate") || undefined,
       status: formData.get("status") || undefined,
+      categoryMasterId: formData.get("categoryMasterId") || undefined,
     });
     if (!parsed.success) {
       return { error: parsed.error.issues[0]?.message ?? "入力内容に誤りがあります" };
@@ -62,6 +63,7 @@ export const updateContractAction = withOp(
       startDate: formData.get("startDate") || undefined,
       endDate: formData.get("endDate") || undefined,
       status: formData.get("status"),
+      categoryMasterId: formData.get("categoryMasterId") || undefined,
     });
     if (!parsed.success) {
       return { error: parsed.error.issues[0]?.message ?? "入力内容に誤りがあります" };

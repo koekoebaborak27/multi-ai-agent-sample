@@ -175,22 +175,29 @@ describe("master/validation createMasterSchema", () => {
 });
 
 describe("master/validation createMasterCategorySchema", () => {
+  const valid = { code: "CONTRACT_TYPE", name: "契約種別" };
+
   describe("正常系", () => {
-    it("前後の空白を除去したマスタ分類名を返す", () => {
-      expect(createMasterCategorySchema.parse({ name: "  契約種別  " })).toEqual({
-        name: "契約種別",
-      });
+    it("前後の空白を除去したマスタ分類コードとマスタ分類名を返す", () => {
+      expect(
+        createMasterCategorySchema.parse({ code: "  CONTRACT_TYPE  ", name: "  契約種別  " }),
+      ).toEqual({ code: "CONTRACT_TYPE", name: "契約種別" });
     });
 
     it("Unicodeコードポイントで30文字のマスタ分類名を受け付ける", () => {
       const name = "😀".repeat(30);
-      expect(createMasterCategorySchema.parse({ name })).toEqual({ name });
+      expect(createMasterCategorySchema.parse({ ...valid, name })).toEqual({ ...valid, name });
+    });
+
+    it("50文字のマスタ分類コードを受け付ける", () => {
+      const code = "A".repeat(50);
+      expect(createMasterCategorySchema.parse({ ...valid, code })).toEqual({ ...valid, code });
     });
   });
 
   describe("空白だけのマスタ分類名の場合", () => {
     it("必須エラーとして拒否する", () => {
-      const result = createMasterCategorySchema.safeParse({ name: "   " });
+      const result = createMasterCategorySchema.safeParse({ ...valid, name: "   " });
       expect(result.success).toBe(false);
       if (!result.success) expect(result.error.issues[0]?.message).toBe("マスタ分類名は必須です");
     });
@@ -198,10 +205,41 @@ describe("master/validation createMasterCategorySchema", () => {
 
   describe("Unicodeコードポイントで31文字のマスタ分類名の場合", () => {
     it("文字数上限エラーとして拒否する", () => {
-      const result = createMasterCategorySchema.safeParse({ name: "😀".repeat(31) });
+      const result = createMasterCategorySchema.safeParse({ ...valid, name: "😀".repeat(31) });
       expect(result.success).toBe(false);
       if (!result.success)
         expect(result.error.issues[0]?.message).toBe("マスタ分類名は30文字以内です");
+    });
+  });
+
+  describe("空白だけのマスタ分類コードの場合", () => {
+    it("必須エラーとして拒否する", () => {
+      const result = createMasterCategorySchema.safeParse({ ...valid, code: "   " });
+      expect(result.success).toBe(false);
+      if (!result.success)
+        expect(result.error.issues[0]?.message).toBe("マスタ分類コードは必須です");
+    });
+  });
+
+  describe("マスタ分類コードが51文字の場合", () => {
+    it("文字数上限エラーとして拒否する", () => {
+      const result = createMasterCategorySchema.safeParse({ ...valid, code: "A".repeat(51) });
+      expect(result.success).toBe(false);
+      if (!result.success)
+        expect(result.error.issues[0]?.message).toBe("マスタ分類コードは50文字以内です");
+    });
+  });
+
+  describe("マスタ分類コードに許可されていない文字が含まれる場合", () => {
+    it("英小文字、日本語、空白および記号を文字種エラーとして拒否する", () => {
+      for (const code of ["contract_type", "契約分類", "CONTRACT TYPE", "CONTRACT@TYPE"]) {
+        const result = createMasterCategorySchema.safeParse({ ...valid, code });
+        expect(result.success).toBe(false);
+        if (!result.success)
+          expect(result.error.issues[0]?.message).toBe(
+            "マスタ分類コードは英大文字、数字、ハイフン、アンダースコアだけで入力してください",
+          );
+      }
     });
   });
 });
@@ -212,11 +250,13 @@ describe("master/validation updateMasterCategorySchema", () => {
       expect(
         updateMasterCategorySchema.parse({
           categoryId: "12",
+          code: "  CONTRACT_TYPE  ",
           name: "  契約種別  ",
           updatedAt: "2026-08-09T00:00:00.000Z",
         }),
       ).toEqual({
         categoryId: 12,
+        code: "CONTRACT_TYPE",
         name: "契約種別",
         updatedAt: new Date("2026-08-09T00:00:00.000Z"),
       });
@@ -228,8 +268,22 @@ describe("master/validation updateMasterCategorySchema", () => {
       expect(
         updateMasterCategorySchema.safeParse({
           categoryId: "0",
+          code: "CONTRACT_TYPE",
           name: "契約種別",
           updatedAt: "not-a-date",
+        }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe("マスタ分類コードが不正な場合", () => {
+    it("入力エラーとして拒否する", () => {
+      expect(
+        updateMasterCategorySchema.safeParse({
+          categoryId: "12",
+          code: "contract_type",
+          name: "契約種別",
+          updatedAt: "2026-08-09T00:00:00.000Z",
         }).success,
       ).toBe(false);
     });

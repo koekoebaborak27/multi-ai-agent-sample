@@ -3,11 +3,13 @@ import { getCurrentUser } from "@/shared/auth/session";
 import { parseListQuery } from "@/shared/api/pagination";
 import { env } from "@/shared/config/env";
 import {
+  CONTRACT_CATEGORY_MASTER_CATEGORY_CODE,
   CONTRACT_SORT_FIELDS,
   contractService,
   ContractTable,
   ContractForm,
 } from "@/modules/contract";
+import { masterService } from "@/modules/master";
 import { partyService } from "@/modules/party";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -28,10 +30,11 @@ export default async function ContractsPage({
   // リクエストで渡されたページ番号・並び順を使いやすく変換する。
   // 指定が無い場合や、おかしな値が入っていた場合は契約名順にする。
   const query = parseListQuery(await searchParams, CONTRACT_SORT_FIELDS, "title");
-  // 契約一覧と、登録フォームの契約先プルダウン用の一覧を同時に取得する（待ち時間を短くするため）
-  const [result, partyList] = await Promise.all([
+  // 契約一覧と、登録フォームの契約先・契約分類プルダウン用の一覧を同時に取得する（待ち時間を短くするため）
+  const [result, partyList, categoryOptions] = await Promise.all([
     contractService.list(query.page, env.PAGE_SIZE, query.sort, query.order),
     partyService.list(1, env.PAGE_SIZE),
+    masterService.listMasterOptionsByCategoryCode(CONTRACT_CATEGORY_MASTER_CATEGORY_CODE),
   ]);
   // 見出しをクリックして並び替えるときの、リンク先の元になるURL
   const baseUrl = `/contracts?sort=${query.sort}&order=${query.order}${query.page > 1 ? `&page=${query.page}` : ""}`;
@@ -45,7 +48,7 @@ export default async function ContractsPage({
           <CardTitle>契約の新規登録</CardTitle>
         </CardHeader>
         <CardContent>
-          <ContractForm parties={partyList.items} />
+          <ContractForm parties={partyList.items} categoryOptions={categoryOptions} />
         </CardContent>
       </Card>
 

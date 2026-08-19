@@ -10,6 +10,7 @@ export {
   type ContractFormState,
 } from "@/modules/contract/actions";
 export {
+  CONTRACT_CATEGORY_MASTER_CATEGORY_CODE,
   CONTRACT_SORT_FIELDS,
   type ContractSortField,
   type ContractSummary,

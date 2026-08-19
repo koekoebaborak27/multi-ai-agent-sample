@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { createPartyAction, type PartyFormState } from "@/modules/party/actions";
+import type { MasterOption } from "@/modules/master";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -10,7 +11,9 @@ const initialState: PartyFormState = {};
 
 // 契約先の新規登録フォーム。
 // 一覧画面の中に置かれ、登録すると同じ画面のまま一覧へ反映される。
-export function PartyForm() {
+// 分類は「契約先分類」マスタ分類配下のマスタから選ぶ。該当するマスタ分類が
+// 登録されていない場合は選択肢が無いため、プルダウンの代わりに案内文を表示する。
+export function PartyForm({ companyTypeOptions }: { companyTypeOptions: MasterOption[] }) {
   const [state, formAction, pending] = useActionState(createPartyAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -26,8 +29,24 @@ export function PartyForm() {
         <Input id="name" name="name" required />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="kind">分類</Label>
-        <Input id="kind" name="kind" />
+        <Label htmlFor="companyTypeMasterId">分類</Label>
+        {companyTypeOptions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">未設定（契約先分類マスタが未登録です）</p>
+        ) : (
+          <select
+            id="companyTypeMasterId"
+            name="companyTypeMasterId"
+            defaultValue=""
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <option value="">未設定</option>
+            {companyTypeOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.content}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="contactInfo">連絡先</Label>
