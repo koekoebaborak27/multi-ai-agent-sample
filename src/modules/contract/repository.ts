@@ -70,9 +70,26 @@ export const contractRepository = {
     return prisma.contract.create({ data });
   },
 
-  // 契約を1件更新する
-  update(id: string, data: Prisma.ContractUpdateInput): Promise<Contract> {
-    return prisma.contract.update({ where: { id }, data });
+  // 契約を更新する。ただし「最終更新日時がexpectedUpdatedAtのままである」ときだけ更新する。
+  // 更新画面を開いてから保存するまでの間に他の利用者が更新していた場合、この条件に合わなくなるので
+  // 上書きされない。更新できたかどうかをtrue/falseで返す（契約先・マスタ機能と同じ方式）。
+  async updateIfUnchanged(
+    id: string,
+    expectedUpdatedAt: Date,
+    data: {
+      title: string;
+      startDate: Date | null;
+      endDate: Date | null;
+      status: ContractStatus;
+      categoryMasterId: number | null;
+      updatedBy: string;
+    },
+  ): Promise<boolean> {
+    const result = await prisma.contract.updateMany({
+      where: { id, updatedAt: expectedUpdatedAt },
+      data,
+    });
+    return result.count === 1;
   },
 
   // 契約を1件削除する

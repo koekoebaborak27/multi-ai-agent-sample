@@ -57,7 +57,8 @@ describe("contract/validation createContractSchema", () => {
 });
 
 describe("contract/validation updateContractSchema", () => {
-  const valid = { id: "contract-1", title: "サンプル契約", status: "ACTIVE" };
+  const updatedAt = new Date("2026-08-19T00:00:00.000Z");
+  const valid = { id: "contract-1", title: "サンプル契約", status: "ACTIVE", updatedAt };
 
   describe("正常系", () => {
     it("識別子・契約名・状態・契約分類を受け付ける", () => {
@@ -66,6 +67,7 @@ describe("contract/validation updateContractSchema", () => {
         title: "サンプル契約",
         status: "ACTIVE",
         categoryMasterId: 52,
+        updatedAt,
       });
     });
   });

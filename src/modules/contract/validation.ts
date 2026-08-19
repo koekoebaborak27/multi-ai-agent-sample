@@ -28,7 +28,11 @@ export const createContractSchema = z.object({
 });
 export type CreateContractInput = z.infer<typeof createContractSchema>;
 
-/** 契約の更新フォームの入力チェック。契約先は登録時に決めたものから変更できない */
+/**
+ * 契約の更新フォームの入力チェック。契約先は登録時に決めたものから変更できない。
+ * updatedAtは更新画面を開いた時点の最終更新日時で、保存時に他の利用者が先に更新していないかを
+ * 確かめるために画面から一緒に送られてくる（§23.2）。
+ */
 export const updateContractSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1, "契約名は必須です").max(200),
@@ -36,6 +40,7 @@ export const updateContractSchema = z.object({
   endDate: z.coerce.date().optional(),
   status: statusEnum,
   categoryMasterId: categoryMasterIdSchema,
+  updatedAt: z.coerce.date(),
 });
 export type UpdateContractInput = z.infer<typeof updateContractSchema>;
 

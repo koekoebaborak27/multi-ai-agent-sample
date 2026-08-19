@@ -54,6 +54,21 @@ async function assertPartyExists(partyId: string): Promise<string> {
   return name;
 }
 
+// 対象の契約が見つからないときのエラー（すでに削除された、URLの指定が誤っている、など）
+function contractNotFound(id: string): AppError {
+  return new AppError("CONTRACT_NOT_FOUND", 404, "対象の契約が見つかりません", { id });
+}
+
+// 契約の更新・削除画面を開いてから保存するまでの間に、他の利用者が先に更新・削除していたときのエラー
+function contractConcurrentUpdate(id: string): AppError {
+  return new AppError(
+    "CONTRACT_CONCURRENT_UPDATE",
+    409,
+    "ほかの利用者によって更新されています。最新の内容を確認してください",
+    { id },
+  );
+}
+
 export const contractService = {
   // 契約の一覧を、検索条件に従って指定されたページの分だけ取得する。
   async list(
@@ -130,25 +145,35 @@ export const contractService = {
     return toSummary(withParty, labelById);
   },
 
-  // 契約を更新し、更新後の内容を画面に表示する形にして返す。
+  // 契約を更新する。
   // 契約先の変更はここでは扱わない（登録時に決めた契約先を変えられないようにするため）。
-  async update(input: UpdateContractInput): Promise<ContractSummary> {
+  // 更新画面を開いてから保存するまでの間に、他の利用者が先に更新・削除していないかを、
+  // 保存前の確認と、条件付きの更新（updateIfUnchanged）の2段階で確かめる（契約先と同じ方式。§23.2）。
+  async update(input: UpdateContractInput, userId: string): Promise<void> {
     const existing = await contractRepository.findById(input.id);
-    if (!existing) throw Errors.notFound("契約が見つかりません");
+    if (!existing) throw contractNotFound(input.id);
+
+    if (existing.updatedAt.getTime() !== input.updatedAt.getTime()) {
+      throw contractConcurrentUpdate(input.id);
+    }
+
     await assertCategoryValid(input.categoryMasterId);
-    await contractRepository.update(input.id, {
+
+    const updated = await contractRepository.updateIfUnchanged(input.id, input.updatedAt, {
       title: input.title,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
       status: input.status,
       categoryMasterId: input.categoryMasterId ?? null,
+      updatedBy: userId,
     });
-    const withParty = await contractRepository.findById(input.id);
-    if (!withParty) throw Errors.notFound("契約が見つかりません");
-    const labelById = await masterService.resolveMasterContents(
-      withParty.categoryMasterId !== null ? [withParty.categoryMasterId] : [],
-    );
-    return toSummary(withParty, labelById);
+    if (!updated) {
+      // 1件も更新されなかった場合、対象が削除されたのか、他の利用者に先に更新されたのかが分からない。
+      // どちらなのかを判断して適切なメッセージを出すため、もう一度取得して確かめる。
+      const current = await contractRepository.findById(input.id);
+      if (!current) throw contractNotFound(input.id);
+      throw contractConcurrentUpdate(input.id);
+    }
   },
 
   // 契約を削除する。

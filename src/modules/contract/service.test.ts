@@ -14,7 +14,7 @@ vi.mock("@/modules/contract/repository", () => ({
     findById: vi.fn(),
     findPartyName: vi.fn(),
     create: vi.fn(),
-    update: vi.fn(),
+    updateIfUnchanged: vi.fn(),
     remove: vi.fn(),
   },
 }));
@@ -194,43 +194,62 @@ describe("contract/service create", () => {
 });
 
 describe("contract/service update", () => {
+  const baseUpdatedAt = new Date("2026-08-19T00:00:00.000Z");
   const input = {
     id: "contract-1",
     title: "サンプル契約",
     status: "ACTIVE" as const,
     categoryMasterId: 52,
+    updatedAt: baseUpdatedAt,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe("対象の契約が存在する場合", () => {
+  describe("対象の契約が存在し、他の利用者による更新も無い場合", () => {
     it("契約分類配下のマスタであることを確認してから更新する", async () => {
       vi.mocked(contractRepository.findById).mockResolvedValue(
-        makeContract({ categoryMasterId: 52 }),
+        makeContract({ categoryMasterId: 52, updatedAt: baseUpdatedAt }),
       );
       vi.mocked(masterService.assertMasterInCategoryCode).mockResolvedValue(undefined);
-      vi.mocked(contractRepository.update).mockResolvedValue(makeContract());
-      vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map([[52, "保守契約"]]));
+      vi.mocked(contractRepository.updateIfUnchanged).mockResolvedValue(true);
 
-      const result = await contractService.update(input);
+      await contractService.update(input, "user-1");
 
       expect(masterService.assertMasterInCategoryCode).toHaveBeenCalledWith(52, "CONTRACT_TYPE");
-      expect(result).toMatchObject({ categoryMasterId: 52, categoryLabel: "保守契約" });
+      expect(contractRepository.updateIfUnchanged).toHaveBeenCalledWith(
+        "contract-1",
+        baseUpdatedAt,
+        expect.objectContaining({ categoryMasterId: 52, updatedBy: "user-1" }),
+      );
     });
   });
 
   describe("対象の契約が存在しない場合", () => {
-    it("AppError(NOT_FOUND) を投げ、契約分類の検証も更新も行わない", async () => {
+    it("AppError(CONTRACT_NOT_FOUND) を投げ、契約分類の検証も更新も行わない", async () => {
       vi.mocked(contractRepository.findById).mockResolvedValue(null);
 
-      await expect(contractService.update(input)).rejects.toMatchObject({
-        code: "NOT_FOUND",
+      await expect(contractService.update(input, "user-1")).rejects.toMatchObject({
+        code: "CONTRACT_NOT_FOUND",
         httpStatus: 404,
       } satisfies Partial<AppError>);
       expect(masterService.assertMasterInCategoryCode).not.toHaveBeenCalled();
-      expect(contractRepository.update).not.toHaveBeenCalled();
+      expect(contractRepository.updateIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("画面を開いた時点から他の利用者が先に更新していた場合", () => {
+    it("AppError(CONTRACT_CONCURRENT_UPDATE) を投げ、更新を行わない", async () => {
+      vi.mocked(contractRepository.findById).mockResolvedValue(
+        makeContract({ id: "contract-1", updatedAt: new Date("2026-08-19T01:00:00.000Z") }),
+      );
+
+      await expect(contractService.update(input, "user-1")).rejects.toMatchObject({
+        code: "CONTRACT_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(contractRepository.updateIfUnchanged).not.toHaveBeenCalled();
     });
   });
 });

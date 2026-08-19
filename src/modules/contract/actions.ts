@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { contractService } from "@/modules/contract/service";
 import type { ContractStatus } from "@/modules/contract/types";
-import { createContractSchema, parseContractReturnTo } from "@/modules/contract/validation";
+import {
+  createContractSchema,
+  parseContractReturnTo,
+  updateContractSchema,
+} from "@/modules/contract/validation";
 import { getCurrentUser } from "@/shared/auth/session";
 import { withOp } from "@/shared/observability/with-op";
 import { AppError, Errors, isAppError } from "@/shared/errors/app-error";
@@ -20,8 +24,8 @@ import { canWrite } from "@/shared/constants/roles";
  * 契約の登録・更新フォームの状態。画面と処理の間で往復する。
  * originalで始まる項目は更新前の値で、確認画面で変更前後を並べて表示するために保持する。
  * 開始日・終了日はinput type="date"の入力欄に合わせ、YYYY-MM-DD形式の文字列のまま保持する。
- * 契約先（partyId・partyName）は新規登録時に決めたら以後変更できないため、更新の実装（工程11）でも
- * originalの対比を行わない（§21.2.1）。
+ * 契約先（partyId・partyName）は新規登録時に決めたら以後変更できないため、更新でもoriginalの対比を
+ * 行わず、現在の契約先をそのまま表示専用の値として持ち回るだけにする（§21.2.1）。
  */
 export interface ContractFormState {
   mode: "create" | "update";
@@ -146,6 +150,120 @@ export const createContractAction = withOp(
       throw error;
     }
   },
+);
+
+// 契約を更新する。
+// 分類の登録と同じく確認・実行の2段階で進むほか、更新画面を開いた時点の最終更新日時（updatedAt）と
+// 変更前の値（originalで始まる項目）を画面から受け取り、他の利用者との競合確認・確認画面の
+// 変更前後表示に使う（§23.2）。契約先（partyId・partyName）は変更できないため、フォームからの
+// 入力は受け取らず、更新画面を開いた時点の値をそのまま持ち回るだけにする。
+export const updateContractAction = withOp(
+  "contract.update",
+  async (prev: ContractFormState, formData: FormData): Promise<ContractFormState> => {
+    const user = await requireWriter();
+    const intent = formData.get("intent") === "execute" ? "execute" : "confirm";
+    const partyId = String(formData.get("partyId") ?? prev.partyId ?? "");
+    const partyName = String(formData.get("partyName") ?? prev.partyName ?? "");
+    const rawTitle = String(formData.get("title") ?? "");
+    const rawStartDate = String(formData.get("startDate") ?? "");
+    const rawEndDate = String(formData.get("endDate") ?? "");
+    const rawStatus = String(formData.get("status") ?? "DRAFT");
+    const rawCategoryMasterId = String(formData.get("categoryMasterId") ?? "");
+    const returnTo = parseContractReturnTo(String(formData.get("returnTo") ?? prev.returnTo));
+    // 変更前の値。確認画面では入力欄が無く送信されないため、その場合は前回の状態から引き継ぐ
+    const originalTitle = String(formData.get("originalTitle") ?? prev.originalTitle ?? "");
+    const originalStartDate = String(
+      formData.get("originalStartDate") ?? prev.originalStartDate ?? "",
+    );
+    const originalEndDate = String(formData.get("originalEndDate") ?? prev.originalEndDate ?? "");
+    const originalStatus = String(
+      formData.get("originalStatus") ?? prev.originalStatus ?? "DRAFT",
+    ) as ContractStatus;
+    const originalCategoryMasterIdRaw = String(
+      formData.get("originalCategoryMasterId") ?? prev.originalCategoryMasterId ?? "",
+    );
+    const originalCategoryLabel = String(
+      formData.get("originalCategoryLabel") ?? prev.originalCategoryLabel ?? "",
+    );
+    const phase = intent === "execute" ? "confirm" : "input";
+
+    const parsed = updateContractSchema.safeParse({
+      id: formData.get("id"),
+      title: rawTitle,
+      startDate: rawStartDate || undefined,
+      endDate: rawEndDate || undefined,
+      status: rawStatus || undefined,
+      categoryMasterId: rawCategoryMasterId || undefined,
+      updatedAt: formData.get("updatedAt"),
+    });
+
+    if (!parsed.success) {
+      return {
+        ...prev,
+        mode: "update",
+        phase,
+        returnTo,
+        partyId,
+        partyName,
+        title: rawTitle,
+        startDate: rawStartDate || undefined,
+        endDate: rawEndDate || undefined,
+        status: (rawStatus as ContractStatus) || "DRAFT",
+        categoryMasterId: toSelectedCategoryId(rawCategoryMasterId),
+        originalTitle,
+        originalStartDate: originalStartDate || undefined,
+        originalEndDate: originalEndDate || undefined,
+        originalStatus,
+        originalCategoryMasterId: toSelectedCategoryId(originalCategoryMasterIdRaw),
+        originalCategoryLabel,
+        error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
+      };
+    }
+
+    // 確認画面の表示にもエラー時の再表示にも使うため、入力後の状態をここで組み立てておく
+    const nextState: ContractFormState = {
+      ...prev,
+      mode: "update",
+      phase,
+      returnTo,
+      id: parsed.data.id,
+      partyId,
+      partyName,
+      title: parsed.data.title,
+      startDate: rawStartDate || undefined,
+      endDate: rawEndDate || undefined,
+      status: parsed.data.status,
+      categoryMasterId: parsed.data.categoryMasterId,
+      updatedAt: parsed.data.updatedAt.toISOString(),
+      originalTitle,
+      originalStartDate: originalStartDate || undefined,
+      originalEndDate: originalEndDate || undefined,
+      originalStatus,
+      originalCategoryMasterId: toSelectedCategoryId(originalCategoryMasterIdRaw),
+      originalCategoryLabel,
+    };
+
+    try {
+      // 確認画面を出す前に、契約分類が現在も有効か先に確認しておく
+      if (intent === "confirm") {
+        await contractService.assertCategoryValid(parsed.data.categoryMasterId);
+        return { ...nextState, phase: "confirm" };
+      }
+
+      // 更新したあと、一覧と詳細の両方の表示内容を最新にしてから、詳細画面へ移動する
+      await contractService.update(parsed.data, user.id);
+      revalidatePath("/contracts");
+      revalidatePath(`/contracts/${parsed.data.id}`);
+      redirect(`/contracts/${parsed.data.id}?updated=1&returnTo=${encodeURIComponent(returnTo)}`);
+    } catch (error) {
+      if (isAppError(error)) {
+        return { ...nextState, error: error.userMessage };
+      }
+      throw error;
+    }
+  },
+  // 更新は「誰がいつ何を変えたか」を後から追えるようにしたいので、成功時の記録にも入力内容を残す
+  { includeArgsInSuccessLog: true },
 );
 
 /**

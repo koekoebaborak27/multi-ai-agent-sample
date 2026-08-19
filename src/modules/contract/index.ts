@@ -5,10 +5,12 @@ export { ContractTable } from "@/modules/contract/ui/contract-table";
 export { ContractSearchForm } from "@/modules/contract/ui/contract-search-form";
 export { ContractCreateForm } from "@/modules/contract/ui/contract-create-form";
 export { ContractDetailView } from "@/modules/contract/ui/contract-detail-view";
+export { ContractUpdateForm } from "@/modules/contract/ui/contract-update-form";
 export { PartyCombobox, type PartyComboboxOption } from "@/modules/contract/ui/party-combobox";
 export {
   createContractAction,
   deleteContractAction,
+  updateContractAction,
   type ContractFormState,
   type DeleteContractFormState,
 } from "@/modules/contract/actions";
