@@ -2,7 +2,7 @@
 // 他の機能や画面はここに書かれているものだけを使い、モジュール内部のファイルを直接使わない。
 export { contractService } from "@/modules/contract/service";
 export { ContractTable } from "@/modules/contract/ui/contract-table";
-export { ContractForm } from "@/modules/contract/ui/contract-form";
+export { ContractSearchForm } from "@/modules/contract/ui/contract-search-form";
 export { PartyCombobox, type PartyComboboxOption } from "@/modules/contract/ui/party-combobox";
 export {
   createContractAction,
@@ -13,6 +13,17 @@ export {
 export {
   CONTRACT_CATEGORY_MASTER_CATEGORY_CODE,
   CONTRACT_SORT_FIELDS,
+  CONTRACT_STATUS_LABELS,
+  CONTRACT_STATUSES,
+  type ContractDetail,
+  type ContractSearchCriteria,
   type ContractSortField,
+  type ContractStatus,
   type ContractSummary,
 } from "@/modules/contract/types";
+export {
+  appendContractDeletedFlag,
+  contractSearchQuerySchema,
+  parseContractReturnTo,
+  type ContractSearchQuery,
+} from "@/modules/contract/validation";

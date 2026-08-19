@@ -67,7 +67,7 @@ describe("contract/service list", () => {
       ]);
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map([[51, "業務委託"]]));
 
-      const result = await contractService.list(1, 30);
+      const result = await contractService.list({}, 1, 30);
 
       expect(masterService.resolveMasterContents).toHaveBeenCalledWith([51]);
       expect(result.items[0]).toMatchObject({
@@ -85,7 +85,7 @@ describe("contract/service list", () => {
       ]);
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map());
 
-      const result = await contractService.list(1, 30);
+      const result = await contractService.list({}, 1, 30);
 
       expect(masterService.resolveMasterContents).toHaveBeenCalledWith([]);
       expect(result.items[0]).toMatchObject({
@@ -103,7 +103,7 @@ describe("contract/service list", () => {
       ]);
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map());
 
-      const result = await contractService.list(1, 30);
+      const result = await contractService.list({}, 1, 30);
 
       expect(result.items[0].categoryLabel).toBe("未設定");
     });

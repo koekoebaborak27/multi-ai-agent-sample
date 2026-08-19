@@ -1,5 +1,9 @@
-import { deleteContractAction } from "@/modules/contract/actions";
-import type { ContractSortField, ContractSummary } from "@/modules/contract/types";
+import Link from "next/link";
+import {
+  CONTRACT_STATUS_LABELS,
+  type ContractSortField,
+  type ContractSummary,
+} from "@/modules/contract/types";
 import type { SortOrder } from "@/shared/api/pagination";
 import { Button } from "@/shared/ui/button";
 import {
@@ -12,21 +16,23 @@ import {
   TableRow,
 } from "@/shared/ui/table";
 
-/** 日付を「2026-08-12」の形にする。開始日・終了日が未定の場合は「-」を表示する */
+/** 日付を「2026-08-12」の形にする。開始日・終了日が未定の場合は「未定」を表示する */
 function formatDate(d: Date | null): string {
-  return d ? d.toISOString().slice(0, 10) : "-";
+  return d ? d.toISOString().slice(0, 10) : "未定";
 }
 
 interface ContractTableProps {
   contracts: ContractSummary[];
+  returnTo: string;
   sort: ContractSortField;
   order: SortOrder;
-  baseUrl: string;
 }
 
-// 契約の一覧テーブル。
-// 見出しをクリックしたときの並び替えは、並び順を変えたURLへのリンクとして実現している。
-export function ContractTable({ contracts, sort, order, baseUrl }: ContractTableProps) {
+// 契約の検索結果を表示する一覧テーブル。
+// 見出しをクリックしたときの並び替えは、並び順を変えたURLへのリンクにしている
+// （リンク先に移動すると、その並び順であらためて検索し直した結果が表示される）。
+// 行の操作は詳細画面への遷移のみで、削除ボタンは置かない（詳細画面だけに配置する方針）。
+export function ContractTable({ contracts, returnTo, sort, order }: ContractTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -35,7 +41,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
             sortKey="title"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
             契約名
           </SortableTableHead>
@@ -43,7 +49,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
             sortKey="partyName"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
             契約先
           </SortableTableHead>
@@ -51,7 +57,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
             sortKey="startDate"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
             開始日
           </SortableTableHead>
@@ -59,7 +65,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
             sortKey="endDate"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
             終了日
           </SortableTableHead>
@@ -67,7 +73,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
             sortKey="status"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
             状態
           </SortableTableHead>
@@ -81,7 +87,7 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
         {contracts.length === 0 ? (
           <TableRow>
             <TableCell colSpan={7} className="text-center text-muted-foreground">
-              契約がありません
+              該当する契約がありません
             </TableCell>
           </TableRow>
         ) : (
@@ -91,17 +97,19 @@ export function ContractTable({ contracts, sort, order, baseUrl }: ContractTable
               <TableCell>{c.partyName}</TableCell>
               <TableCell>{formatDate(c.startDate)}</TableCell>
               <TableCell>{formatDate(c.endDate)}</TableCell>
-              <TableCell>{c.status}</TableCell>
+              <TableCell>
+                {CONTRACT_STATUS_LABELS[c.status as keyof typeof CONTRACT_STATUS_LABELS] ??
+                  c.status}
+              </TableCell>
               {/* 契約分類は未選択・選択先マスタが削除された場合に「未設定」（c.categoryLabel）になる */}
               <TableCell>{c.categoryLabel}</TableCell>
               <TableCell className="text-right">
-                {/* 削除する契約を伝えるため、行ごとに識別子を持たせた小さなフォームにしている */}
-                <form action={deleteContractAction} className="inline">
-                  <input type="hidden" name="id" value={c.id} />
-                  <Button type="submit" variant="ghost" size="sm">
-                    削除
-                  </Button>
-                </form>
+                {/* 詳細画面から一覧へ戻ってきたときに同じ検索条件・ページを表示できるよう、戻り先のURLを渡す */}
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/contracts/${c.id}?returnTo=${encodeURIComponent(returnTo)}`}>
+                    詳細
+                  </Link>
+                </Button>
               </TableCell>
             </TableRow>
           ))

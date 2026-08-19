@@ -2,6 +2,7 @@ import { masterService } from "@/modules/master";
 import { contractRepository, type ContractWithParty } from "@/modules/contract/repository";
 import {
   CONTRACT_CATEGORY_MASTER_CATEGORY_CODE,
+  type ContractSearchCriteria,
   type ContractSortField,
   type ContractSummary,
 } from "@/modules/contract/types";
@@ -40,15 +41,26 @@ async function assertCategoryValid(categoryMasterId: number | undefined): Promis
 }
 
 export const contractService = {
-  // 契約の一覧を、指定されたページの分だけ取得する。
+  // 契約の一覧を、検索条件に従って指定されたページの分だけ取得する。
   async list(
+    criteria: ContractSearchCriteria,
     page: number,
     pageSize: number,
     sort: ContractSortField = "title",
     order: SortOrder = "asc",
   ): Promise<Paginated<ContractSummary>> {
     const { skip, take } = toSkipTake({ page, pageSize });
-    const [contracts, total] = await contractRepository.listAndCount(skip, take, sort, order);
+    const [contracts, total] = await contractRepository.listAndCount(
+      {
+        partyId: criteria.partyId,
+        status: criteria.status,
+        categoryMasterId: criteria.categoryMasterId,
+      },
+      skip,
+      take,
+      sort,
+      order,
+    );
     const ids = contracts.map((c) => c.categoryMasterId).filter((id): id is number => id !== null);
     const labelById = await masterService.resolveMasterContents(ids);
     return paginated(
