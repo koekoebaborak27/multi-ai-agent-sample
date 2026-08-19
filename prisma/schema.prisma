@@ -77,7 +77,9 @@ model Party {
   companyTypeMasterId Int? // 契約先分類（マスタ分類コード CONTRACT_COMPANY_TYPE）配下の Master.id。FK は張らない
   contactInfo         String?
   createdAt           DateTime @default(now())
+  createdBy           String? // 登録した利用者の User.id（FK は張らない）
   updatedAt           DateTime @updatedAt
+  updatedBy           String? // 最後に更新した利用者の User.id（FK は張らない）
 
   contracts Contract[]
 }
@@ -93,7 +95,9 @@ model Contract {
   status           String    @default("DRAFT") // DRAFT / ACTIVE / TERMINATED 等（案件に応じて拡張）
   categoryMasterId Int? // 契約分類（マスタ分類コード CONTRACT_TYPE）配下の Master.id。FK は張らない
   createdAt        DateTime  @default(now())
+  createdBy        String? // 登録した利用者の User.id（FK は張らない）
   updatedAt        DateTime  @updatedAt
+  updatedBy        String? // 最後に更新した利用者の User.id（FK は張らない）
 
   items ContractItem[]
 

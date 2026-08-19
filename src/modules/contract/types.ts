@@ -31,3 +31,29 @@ export interface ContractSummary {
   categoryMasterId: number | null;
   categoryLabel: string;
 }
+
+// 契約の状態の一覧。UI部品の選択肢と入力チェック（validation.ts）の両方で参照している。
+export const CONTRACT_STATUSES = ["DRAFT", "ACTIVE", "TERMINATED"] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+
+// 契約の状態を画面に表示する日本語ラベルへ変換するための対応表
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  DRAFT: "下書き",
+  ACTIVE: "有効",
+  TERMINATED: "終了",
+};
+
+/** 契約検索で使う絞り込み条件。指定しなければ全件が対象になる */
+export interface ContractSearchCriteria {
+  partyId?: string;
+  status?: ContractStatus;
+  categoryMasterId?: number;
+}
+
+/** 契約詳細・更新画面に表示する情報。登録者・更新者はUser.idをそのまま表示する（表示名の解決は行わない） */
+export interface ContractDetail extends ContractSummary {
+  createdAt: Date;
+  createdBy: string | null;
+  updatedAt: Date;
+  updatedBy: string | null;
+}
