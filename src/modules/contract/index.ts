@@ -3,6 +3,7 @@
 export { contractService } from "@/modules/contract/service";
 export { ContractTable } from "@/modules/contract/ui/contract-table";
 export { ContractForm } from "@/modules/contract/ui/contract-form";
+export { PartyCombobox, type PartyComboboxOption } from "@/modules/contract/ui/party-combobox";
 export {
   createContractAction,
   updateContractAction,
