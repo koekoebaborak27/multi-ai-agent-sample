@@ -37,7 +37,7 @@
 
 **マスタ分類の見直し（全4項目）が完了した**（2026-08-19）。実施内容・検証結果は [完了済みの作業](#完了済みの作業) の該当行から履歴をたどること。
 
-**次は、実装したブランチ `feat/master-category-code` をコミット・PR化し、レビュー後にマージすること。** マージ後、本番への反映が2ステップ必要（いずれもユーザー主導）。
+**次は、[PR #21](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/21)（`feat/master-category-code`）のレビュー・CI通過を待ってマージすること。** マージ後、本番への反映が2ステップ必要（いずれもユーザー主導）。
 
 1. 本番 `DATABASE_URL` に対して `prisma migrate deploy`（3本のマイグレーションが未適用）
 2. 本番 `DATABASE_URL` に対して `pnpm prisma:seed`（「契約先分類」「契約分類」の初期データ投入。他のUser/Announcementのupsertは対象データ既存のためno-opで安全）
@@ -75,7 +75,7 @@ git status --porcelain                                   # 未コミット差分
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `feat/master-category-code`（マスタ分類の見直し。工程1〜4）が**未コミット・未PR**（実装・テスト・ブラウザ確認は完了）。それ以外は特になし。`test/master-excel-export-unit-test` が [PR #20](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/20)（**レビュー待ち、未マージ**）。`feat/master-excel-export-model` が [PR #18](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/18)、`refactor/master-excel-drop-artificial-delay` が [PR #19](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/19)、`feat/master-csv-sync` が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image` が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs` が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
+| 作業ブランチ | `feat/master-category-code`（マスタ分類の見直し。工程1〜4）が [PR #21](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/21)（**レビュー待ち、未マージ**）。それ以外は特になし。`test/master-excel-export-unit-test` が [PR #20](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/20)（**レビュー待ち、未マージ**）。`feat/master-excel-export-model` が [PR #18](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/18)、`refactor/master-excel-drop-artificial-delay` が [PR #19](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/19)、`feat/master-csv-sync` が [PR #16](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/16)、`feat/worker-image` が [PR #15](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/15)、`feat/infra-cloud-run-jobs` が [PR #14](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/14)、`feat/master-management`（工程 1〜18）が [PR #13](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/13) でそれぞれマージ済み、リモート・ローカルとも削除済み |
 | 本番 DB | `20260816192822_add_master_excel_export` まで**適用済み**（2026-08-18）。マスタ分類の見直し（工程1〜4）のマイグレーション3本は**ローカルのみ適用、本番は未反映**（`feat/master-category-code` のマージ後に対応） |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類は本来の3件に加え、契約先分類・契約分類とその配下のマスタ4件（検証用、`CORP`/`INDIV`/`GYOMU`/`HOSYU`）が入っている。契約先・契約にも検証用データが1件ずつ入っている |
 | ローカル `.env` | **`DATABASE_URL` が本番Supabaseを指す設定になっている**（2026-08-19判明。経緯は [`docs/todo/notes/supabase.md`](notes/supabase.md#2026-08-19-envのdatabase_urlが本番を指したまま残っていた)）。ローカル作業は `.env.local`（Git管理外）で `DATABASE_URL` / `STORAGE_TYPE=local` / `WORKER_INVOKE_MODE=none` を上書きして行うこと。**Prisma CLI（`prisma migrate` 系）は `.env.local` を読まないため、`DATABASE_URL=<ローカル接続文字列>` を明示指定して実行する** |
