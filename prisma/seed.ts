@@ -24,12 +24,32 @@ async function main() {
   });
 
   await prisma.announcement.upsert({
+    where: { id: "seed-master-update-20260818" },
+    update: {
+      title: "2026/8/18 システムアップデート",
+      body: "マスタ管理画面をアップデートしました。\n一覧・登録・更新・削除・CSVダウンロードなど一般的な画面構成に変更しました。\nまた、Node.jsのexcel.jsを利用したEXCELダウンロードの機能を追加しました。本機能は\n別サーバで処理することで処理に時間がかかってもシステムに影響を与えない仕組みにしています。",
+      createdAt: new Date("2026-08-18T00:00:00+09:00"),
+    },
+    create: {
+      id: "seed-master-update-20260818",
+      title: "2026/8/18 システムアップデート",
+      body: "マスタ管理画面をアップデートしました。\n一覧・登録・更新・削除・CSVダウンロードなど一般的な画面構成に変更しました。\nまた、Node.jsのexcel.jsを利用したEXCELダウンロードの機能を追加しました。本機能は\n別サーバで処理することで処理に時間がかかってもシステムに影響を与えない仕組みにしています。",
+      createdAt: new Date("2026-08-18T00:00:00+09:00"),
+    },
+  });
+
+  await prisma.announcement.upsert({
     where: { id: "seed-welcome" },
-    update: {},
+    update: {
+      title: "2026/8/10 サンプル契約管理システムをリリースしました。",
+      body: "本システムはClaudeCode、Codex、gitHubCopilotによるマルチAI開発を行う上での開発基盤となるサンプルシステムです。\nまずはサンプルプログラムのREADME.mdなどをご確認ください。",
+      createdAt: new Date("2026-08-10T00:00:00+09:00"),
+    },
     create: {
       id: "seed-welcome",
-      title: "ようこそ",
-      body: "開発基盤のセットアップが完了しました。",
+      title: "2026/8/10 サンプル契約管理システムをリリースしました。",
+      body: "本システムはClaudeCode、Codex、gitHubCopilotによるマルチAI開発を行う上での開発基盤となるサンプルシステムです。\nまずはサンプルプログラムのREADME.mdなどをご確認ください。",
+      createdAt: new Date("2026-08-10T00:00:00+09:00"),
     },
   });
 
