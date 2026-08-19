@@ -12,7 +12,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">ダッシュボード</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">トップ</h1>
 
       <Card className="relative overflow-hidden">
         {/* 右上に置く同心円の飾り。操作の対象ではないため、読み上げの対象からも外している */}
@@ -63,15 +63,15 @@ export default async function DashboardPage() {
               {announcements.map((a) => (
                 <li key={a.id} className="border-b pb-2 last:border-0">
                   <p className="font-medium">{a.title}</p>
-                  <p className="text-sm text-muted-foreground">{a.body}</p>
+                  <p className="max-w-3xl text-sm leading-6 whitespace-pre-line text-muted-foreground">
+                    {a.body}
+                  </p>
                 </li>
               ))}
             </ul>
           )}
         </CardContent>
       </Card>
-
-      <p className="text-sm text-muted-foreground">※ マスタは案件ごとに後続実装します。</p>
     </div>
   );
 }
