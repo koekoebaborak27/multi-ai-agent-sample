@@ -21,3 +21,17 @@ export interface PartySummary {
   companyTypeLabel: string;
   contactInfo: string | null;
 }
+
+/** 契約先検索で使う絞り込み条件。どちらも指定しなければ全件が対象になる */
+export interface PartySearchCriteria {
+  keyword?: string;
+  companyTypeMasterId?: number;
+}
+
+/** 契約先詳細・更新画面に表示する情報。登録者・更新者はUser.idをそのまま表示する（表示名の解決は行わない） */
+export interface PartyDetail extends PartySummary {
+  createdAt: Date;
+  createdBy: string | null;
+  updatedAt: Date;
+  updatedBy: string | null;
+}

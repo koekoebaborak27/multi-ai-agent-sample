@@ -2,6 +2,7 @@ import { masterService } from "@/modules/master";
 import { partyRepository } from "@/modules/party/repository";
 import {
   PARTY_COMPANY_TYPE_CATEGORY_CODE,
+  type PartySearchCriteria,
   type PartySortField,
   type PartySummary,
 } from "@/modules/party/types";
@@ -38,15 +39,23 @@ async function assertCompanyTypeValid(companyTypeMasterId: number | undefined): 
 }
 
 export const partyService = {
-  // 契約先の一覧を、指定されたページの分だけ取得する。
+  // 契約先の一覧を、検索条件に従って指定されたページの分だけ取得する。
   async list(
+    criteria: PartySearchCriteria,
     page: number,
     pageSize: number,
     sort: PartySortField = "name",
     order: SortOrder = "asc",
   ): Promise<Paginated<PartySummary>> {
     const { skip, take } = toSkipTake({ page, pageSize });
-    const [parties, total] = await partyRepository.listAndCount(skip, take, sort, order);
+    const keyword = criteria.keyword?.trim() || undefined;
+    const [parties, total] = await partyRepository.listAndCount(
+      { keyword, companyTypeMasterId: criteria.companyTypeMasterId },
+      skip,
+      take,
+      sort,
+      order,
+    );
     const ids = parties.map((p) => p.companyTypeMasterId).filter((id): id is number => id !== null);
     const labelById = await masterService.resolveMasterContents(ids);
     return paginated(

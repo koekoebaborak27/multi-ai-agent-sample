@@ -1,4 +1,4 @@
-import { deletePartyAction } from "@/modules/party/actions";
+import Link from "next/link";
 import type { PartySortField, PartySummary } from "@/modules/party/types";
 import type { SortOrder } from "@/shared/api/pagination";
 import { Button } from "@/shared/ui/button";
@@ -14,14 +14,16 @@ import {
 
 interface PartyTableProps {
   parties: PartySummary[];
+  returnTo: string;
   sort: PartySortField;
   order: SortOrder;
-  baseUrl: string;
 }
 
-// 契約先の一覧テーブル。
-// 見出しをクリックしたときの並び替えは、並び順を変えたURLへのリンクとして実現している。
-export function PartyTable({ parties, sort, order, baseUrl }: PartyTableProps) {
+// 契約先の検索結果を表示する一覧テーブル。
+// 見出しをクリックしたときの並び替えは、並び順を変えたURLへのリンクにしている
+// （リンク先に移動すると、その並び順であらためて検索し直した結果が表示される）。
+// 行の操作は詳細画面への遷移のみで、削除ボタンは置かない（詳細画面だけに配置する方針。§00.4）。
+export function PartyTable({ parties, returnTo, sort, order }: PartyTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -30,7 +32,7 @@ export function PartyTable({ parties, sort, order, baseUrl }: PartyTableProps) {
             sortKey="name"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
             名称
           </SortableTableHead>
@@ -40,7 +42,7 @@ export function PartyTable({ parties, sort, order, baseUrl }: PartyTableProps) {
             sortKey="contactInfo"
             currentSort={sort}
             currentOrder={order}
-            baseUrl={baseUrl}
+            baseUrl={returnTo}
           >
             連絡先
           </SortableTableHead>
@@ -52,7 +54,7 @@ export function PartyTable({ parties, sort, order, baseUrl }: PartyTableProps) {
         {parties.length === 0 ? (
           <TableRow>
             <TableCell colSpan={4} className="text-center text-muted-foreground">
-              契約先がいません
+              該当する契約先がありません
             </TableCell>
           </TableRow>
         ) : (
@@ -64,13 +66,12 @@ export function PartyTable({ parties, sort, order, baseUrl }: PartyTableProps) {
               {/* 連絡先は任意入力なので、未入力の場合は「-」を表示する */}
               <TableCell>{p.contactInfo ?? "-"}</TableCell>
               <TableCell className="text-right">
-                {/* 削除する契約先を伝えるため、行ごとに識別子を持たせた小さなフォームにしている */}
-                <form action={deletePartyAction} className="inline">
-                  <input type="hidden" name="id" value={p.id} />
-                  <Button type="submit" variant="ghost" size="sm">
-                    削除
-                  </Button>
-                </form>
+                {/* 詳細画面から一覧へ戻ってきたときに同じ検索条件・ページを表示できるよう、戻り先のURLを渡す */}
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/parties/${p.id}?returnTo=${encodeURIComponent(returnTo)}`}>
+                    詳細
+                  </Link>
+                </Button>
               </TableCell>
             </TableRow>
           ))

@@ -53,7 +53,7 @@ describe("party/service list", () => {
       ]);
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map([[41, "法人"]]));
 
-      const result = await partyService.list(1, 30);
+      const result = await partyService.list({}, 1, 30);
 
       expect(masterService.resolveMasterContents).toHaveBeenCalledWith([41]);
       expect(result.items[0]).toMatchObject({
@@ -71,7 +71,7 @@ describe("party/service list", () => {
       ]);
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map());
 
-      const result = await partyService.list(1, 30);
+      const result = await partyService.list({}, 1, 30);
 
       expect(masterService.resolveMasterContents).toHaveBeenCalledWith([]);
       expect(result.items[0]).toMatchObject({
@@ -89,7 +89,7 @@ describe("party/service list", () => {
       ]);
       vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map());
 
-      const result = await partyService.list(1, 30);
+      const result = await partyService.list({}, 1, 30);
 
       expect(result.items[0].companyTypeLabel).toBe("未設定");
     });

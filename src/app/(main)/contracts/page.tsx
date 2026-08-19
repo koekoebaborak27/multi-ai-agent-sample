@@ -33,7 +33,7 @@ export default async function ContractsPage({
   // 契約一覧と、登録フォームの契約先・契約分類プルダウン用の一覧を同時に取得する（待ち時間を短くするため）
   const [result, partyList, categoryOptions] = await Promise.all([
     contractService.list(query.page, env.PAGE_SIZE, query.sort, query.order),
-    partyService.list(1, env.PAGE_SIZE),
+    partyService.list({}, 1, env.PAGE_SIZE),
     masterService.listMasterOptionsByCategoryCode(CONTRACT_CATEGORY_MASTER_CATEGORY_CODE),
   ]);
   // 見出しをクリックして並び替えるときの、リンク先の元になるURL
