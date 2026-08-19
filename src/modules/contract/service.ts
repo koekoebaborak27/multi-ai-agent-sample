@@ -2,6 +2,7 @@ import { masterService } from "@/modules/master";
 import { contractRepository, type ContractWithParty } from "@/modules/contract/repository";
 import {
   CONTRACT_CATEGORY_MASTER_CATEGORY_CODE,
+  type ContractDetail,
   type ContractSearchCriteria,
   type ContractSortField,
   type ContractSummary,
@@ -81,6 +82,23 @@ export const contractService = {
       total,
       { page, pageSize },
     );
+  },
+
+  // 詳細画面に表示する契約1件を取得する。
+  // 見つからない場合はエラーにせず「無し」を返し、その後どう扱うか（404画面を出すなど）は呼び出し側に任せる。
+  async findDetail(id: string): Promise<ContractDetail | null> {
+    const contract = await contractRepository.findById(id);
+    if (!contract) return null;
+    const labelById = await masterService.resolveMasterContents(
+      contract.categoryMasterId !== null ? [contract.categoryMasterId] : [],
+    );
+    return {
+      ...toSummary(contract, labelById),
+      createdAt: contract.createdAt,
+      createdBy: contract.createdBy,
+      updatedAt: contract.updatedAt,
+      updatedBy: contract.updatedBy,
+    };
   },
 
   // 確認画面を出す前に、選択された契約先・契約分類が有効かどうかだけを確認したい場面があるため、
