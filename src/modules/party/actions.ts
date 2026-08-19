@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { partyService } from "@/modules/party/service";
-import { createPartySchema, parsePartyReturnTo } from "@/modules/party/validation";
+import {
+  createPartySchema,
+  parsePartyReturnTo,
+  updatePartySchema,
+} from "@/modules/party/validation";
 import { getCurrentUser } from "@/shared/auth/session";
 import { withOp } from "@/shared/observability/with-op";
 import { AppError, Errors, isAppError } from "@/shared/errors/app-error";
@@ -17,8 +21,7 @@ import { canWrite } from "@/shared/constants/roles";
 
 /**
  * 契約先の登録・更新フォームの状態。画面と処理の間で往復する。
- * original で始まる項目は更新前の値で、確認画面で変更前後を並べて表示するために保持する
- * （更新の実装は工程5で追加する。現時点ではmode="update"は使わない）。
+ * original で始まる項目は更新前の値で、確認画面で変更前後を並べて表示するために保持する。
  */
 export interface PartyFormState {
   mode: "create" | "update";
@@ -105,6 +108,97 @@ export const createPartyAction = withOp(
       throw error;
     }
   },
+);
+
+// 契約先を更新する。
+// 分類の登録と同じく確認・実行の2段階で進むほか、更新画面を開いた時点の最終更新日時（updatedAt）と
+// 変更前の値（originalで始まる項目）を画面から受け取り、他の利用者との競合確認・確認画面の
+// 変更前後表示に使う（§13.2）。
+export const updatePartyAction = withOp(
+  "party.update",
+  async (prev: PartyFormState, formData: FormData): Promise<PartyFormState> => {
+    const user = await requireWriter();
+    const intent = formData.get("intent") === "execute" ? "execute" : "confirm";
+    const rawName = String(formData.get("name") ?? "");
+    const rawCompanyTypeMasterId = String(formData.get("companyTypeMasterId") ?? "");
+    const rawContactInfo = String(formData.get("contactInfo") ?? "");
+    const returnTo = parsePartyReturnTo(String(formData.get("returnTo") ?? prev.returnTo));
+    // 変更前の値。確認画面では入力欄が無く送信されないため、その場合は前回の状態から引き継ぐ
+    const originalName = String(formData.get("originalName") ?? prev.originalName ?? "");
+    const originalCompanyTypeMasterIdRaw = String(
+      formData.get("originalCompanyTypeMasterId") ?? prev.originalCompanyTypeMasterId ?? "",
+    );
+    const originalCompanyTypeLabel = String(
+      formData.get("originalCompanyTypeLabel") ?? prev.originalCompanyTypeLabel ?? "",
+    );
+    const originalContactInfo = String(
+      formData.get("originalContactInfo") ?? prev.originalContactInfo ?? "",
+    );
+    const phase = intent === "execute" ? "confirm" : "input";
+
+    const parsed = updatePartySchema.safeParse({
+      id: formData.get("id"),
+      name: rawName,
+      companyTypeMasterId: rawCompanyTypeMasterId || undefined,
+      contactInfo: rawContactInfo || undefined,
+      updatedAt: formData.get("updatedAt"),
+    });
+
+    if (!parsed.success) {
+      return {
+        ...prev,
+        mode: "update",
+        phase,
+        returnTo,
+        name: rawName,
+        companyTypeMasterId: toSelectedCompanyTypeId(rawCompanyTypeMasterId),
+        contactInfo: rawContactInfo,
+        originalName,
+        originalCompanyTypeMasterId: toSelectedCompanyTypeId(originalCompanyTypeMasterIdRaw),
+        originalCompanyTypeLabel,
+        originalContactInfo,
+        error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
+      };
+    }
+
+    // 確認画面の表示にもエラー時の再表示にも使うため、入力後の状態をここで組み立てておく
+    const nextState: PartyFormState = {
+      ...prev,
+      mode: "update",
+      phase,
+      returnTo,
+      id: parsed.data.id,
+      name: parsed.data.name,
+      companyTypeMasterId: parsed.data.companyTypeMasterId,
+      contactInfo: parsed.data.contactInfo,
+      updatedAt: parsed.data.updatedAt.toISOString(),
+      originalName,
+      originalCompanyTypeMasterId: toSelectedCompanyTypeId(originalCompanyTypeMasterIdRaw),
+      originalCompanyTypeLabel,
+      originalContactInfo,
+    };
+
+    try {
+      // 確認画面を出す前に、選択した契約先分類が現在も有効か先に確認しておく
+      if (intent === "confirm") {
+        await partyService.assertCompanyTypeValid(parsed.data.companyTypeMasterId);
+        return { ...nextState, phase: "confirm" };
+      }
+
+      // 更新したあと、一覧と詳細の両方の表示内容を最新にしてから、詳細画面へ移動する
+      await partyService.update(parsed.data, user.id);
+      revalidatePath("/parties");
+      revalidatePath(`/parties/${parsed.data.id}`);
+      redirect(`/parties/${parsed.data.id}?updated=1&returnTo=${encodeURIComponent(returnTo)}`);
+    } catch (error) {
+      if (isAppError(error)) {
+        return { ...nextState, error: error.userMessage };
+      }
+      throw error;
+    }
+  },
+  // 更新は「誰がいつ何を変えたか」を後から追えるようにしたいので、成功時の記録にも入力内容を残す
+  { includeArgsInSuccessLog: true },
 );
 
 /**

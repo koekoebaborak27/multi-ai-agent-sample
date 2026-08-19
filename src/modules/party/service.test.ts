@@ -14,7 +14,7 @@ vi.mock("@/modules/party/repository", () => ({
     listAndCount: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
-    update: vi.fn(),
+    updateIfUnchanged: vi.fn(),
     remove: vi.fn(),
   },
 }));
@@ -168,42 +168,86 @@ describe("party/service create", () => {
 });
 
 describe("party/service update", () => {
+  const baseUpdatedAt = new Date("2026-08-19T00:00:00.000Z");
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe("対象の契約先が存在する場合", () => {
+  describe("対象の契約先が存在し、他の利用者による更新も無い場合", () => {
     it("契約先分類配下のマスタであることを確認してから更新する", async () => {
-      vi.mocked(partyRepository.findById).mockResolvedValue(makeParty({ id: "party-1" }));
-      vi.mocked(masterService.assertMasterInCategoryCode).mockResolvedValue(undefined);
-      vi.mocked(partyRepository.update).mockResolvedValue(
-        makeParty({ id: "party-1", companyTypeMasterId: 42 }),
+      vi.mocked(partyRepository.findById).mockResolvedValue(
+        makeParty({ id: "party-1", updatedAt: baseUpdatedAt }),
       );
-      vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map([[42, "個人"]]));
+      vi.mocked(masterService.assertMasterInCategoryCode).mockResolvedValue(undefined);
+      vi.mocked(partyRepository.updateIfUnchanged).mockResolvedValue(true);
 
-      const result = await partyService.update({
-        id: "party-1",
-        name: "サンプル契約先",
-        companyTypeMasterId: 42,
-      });
+      await partyService.update(
+        {
+          id: "party-1",
+          name: "サンプル契約先",
+          companyTypeMasterId: 42,
+          updatedAt: baseUpdatedAt,
+        },
+        "user-1",
+      );
 
       expect(masterService.assertMasterInCategoryCode).toHaveBeenCalledWith(
         42,
         "CONTRACT_COMPANY_TYPE",
       );
-      expect(result).toMatchObject({ companyTypeMasterId: 42, companyTypeLabel: "個人" });
+      expect(partyRepository.updateIfUnchanged).toHaveBeenCalledWith(
+        "party-1",
+        baseUpdatedAt,
+        expect.objectContaining({ companyTypeMasterId: 42, updatedBy: "user-1" }),
+      );
     });
   });
 
   describe("対象の契約先が存在しない場合", () => {
-    it("AppError(NOT_FOUND) を投げ、分類の検証も更新も行わない", async () => {
+    it("AppError(PARTY_NOT_FOUND) を投げ、分類の検証も更新も行わない", async () => {
       vi.mocked(partyRepository.findById).mockResolvedValue(null);
 
       await expect(
-        partyService.update({ id: "missing", name: "サンプル契約先", companyTypeMasterId: 41 }),
-      ).rejects.toMatchObject({ code: "NOT_FOUND", httpStatus: 404 } satisfies Partial<AppError>);
+        partyService.update(
+          {
+            id: "missing",
+            name: "サンプル契約先",
+            companyTypeMasterId: 41,
+            updatedAt: baseUpdatedAt,
+          },
+          "user-1",
+        ),
+      ).rejects.toMatchObject({
+        code: "PARTY_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
       expect(masterService.assertMasterInCategoryCode).not.toHaveBeenCalled();
-      expect(partyRepository.update).not.toHaveBeenCalled();
+      expect(partyRepository.updateIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("画面を開いた時点から他の利用者が先に更新していた場合", () => {
+    it("AppError(PARTY_CONCURRENT_UPDATE) を投げ、更新を行わない", async () => {
+      vi.mocked(partyRepository.findById).mockResolvedValue(
+        makeParty({ id: "party-1", updatedAt: new Date("2026-08-19T01:00:00.000Z") }),
+      );
+
+      await expect(
+        partyService.update(
+          {
+            id: "party-1",
+            name: "サンプル契約先",
+            companyTypeMasterId: 41,
+            updatedAt: baseUpdatedAt,
+          },
+          "user-1",
+        ),
+      ).rejects.toMatchObject({
+        code: "PARTY_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(partyRepository.updateIfUnchanged).not.toHaveBeenCalled();
     });
   });
 });

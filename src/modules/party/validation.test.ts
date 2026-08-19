@@ -52,24 +52,33 @@ describe("party/validation createPartySchema", () => {
 describe("party/validation updatePartySchema", () => {
   describe("正常系", () => {
     it("識別子・名称・分類を受け付ける", () => {
+      const updatedAt = new Date("2026-08-19T00:00:00.000Z");
       expect(
         updatePartySchema.parse({
           id: "party-1",
           name: "サンプル契約先",
           companyTypeMasterId: "41",
+          updatedAt,
         }),
       ).toEqual({
         id: "party-1",
         name: "サンプル契約先",
         companyTypeMasterId: 41,
         contactInfo: undefined,
+        updatedAt,
       });
     });
   });
 
   describe("識別子が空の場合", () => {
     it("入力エラーとして拒否する", () => {
-      expect(updatePartySchema.safeParse({ id: "", name: "サンプル契約先" }).success).toBe(false);
+      expect(
+        updatePartySchema.safeParse({
+          id: "",
+          name: "サンプル契約先",
+          updatedAt: new Date(),
+        }).success,
+      ).toBe(false);
     });
   });
 });

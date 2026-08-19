@@ -22,12 +22,17 @@ export const createPartySchema = z.object({
 });
 export type CreatePartyInput = z.infer<typeof createPartySchema>;
 
-/** 契約先の更新フォームの入力チェック。新規登録の項目に、対象を示す識別子を加えたもの */
+/**
+ * 契約先の更新フォームの入力チェック。新規登録の項目に、対象を示す識別子を加えたもの。
+ * updatedAtは更新画面を開いた時点の最終更新日時で、保存時に他の利用者が先に更新していないかを
+ * 確かめるために画面から一緒に送られてくる（§13.2）。
+ */
 export const updatePartySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, "名称は必須です").max(200),
   companyTypeMasterId: companyTypeMasterIdSchema,
   contactInfo: z.string().max(500).optional(),
+  updatedAt: z.coerce.date(),
 });
 export type UpdatePartyInput = z.infer<typeof updatePartySchema>;
 

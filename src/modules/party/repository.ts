@@ -49,9 +49,24 @@ export const partyRepository = {
     return prisma.party.create({ data });
   },
 
-  // 契約先を1件更新する
-  update(id: string, data: Prisma.PartyUpdateInput): Promise<Party> {
-    return prisma.party.update({ where: { id }, data });
+  // 契約先を更新する。ただし「最終更新日時がexpectedUpdatedAtのままである」ときだけ更新する。
+  // 更新画面を開いてから保存するまでの間に他の利用者が更新していた場合、この条件に合わなくなるので
+  // 上書きされない。更新できたかどうかをtrue/falseで返す（マスタ機能と同じ方式）。
+  async updateIfUnchanged(
+    id: string,
+    expectedUpdatedAt: Date,
+    data: {
+      name: string;
+      companyTypeMasterId: number | null;
+      contactInfo: string | null;
+      updatedBy: string;
+    },
+  ): Promise<boolean> {
+    const result = await prisma.party.updateMany({
+      where: { id, updatedAt: expectedUpdatedAt },
+      data,
+    });
+    return result.count === 1;
   },
 
   // 契約先を1件削除する

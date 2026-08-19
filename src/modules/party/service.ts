@@ -9,12 +9,28 @@ import {
 } from "@/modules/party/types";
 import type { CreatePartyInput, UpdatePartyInput } from "@/modules/party/validation";
 import { toSkipTake, paginated, type Paginated, type SortOrder } from "@/shared/api/pagination";
-import { Errors } from "@/shared/errors/app-error";
+import { AppError } from "@/shared/errors/app-error";
 import type { Party } from "@prisma/client";
 
 // マスタから解決できなかった（未選択・削除済みなどで内容を取得できなかった）場合の表示文言。
 // docs/specs/02_basic-design/master/01_データベース.md §01.1.4 の規約に合わせる。
 const UNSET_LABEL = "未設定";
+
+// 対象の契約先が見つからないときのエラー（すでに削除された、URLの指定が誤っている、など）。
+// マスタ機能のMASTER_NOT_FOUND等と異なりErrorsファクトリを使わず直接組み立てる（§00.6）。
+function partyNotFound(id: string): AppError {
+  return new AppError("PARTY_NOT_FOUND", 404, "対象の契約先が見つかりません", { id });
+}
+
+// 契約先の更新・削除画面を開いてから保存するまでの間に、他の利用者が先に更新・削除していたときのエラー
+function partyConcurrentUpdate(id: string): AppError {
+  return new AppError(
+    "PARTY_CONCURRENT_UPDATE",
+    409,
+    "ほかの利用者によって更新されています。最新の内容を確認してください",
+    { id },
+  );
+}
 
 /** データベースから取得した契約先を、画面で使う項目だけに絞った形へ詰め替える */
 function toSummary(p: Party, labelById: Map<number, string>): PartySummary {
@@ -104,20 +120,32 @@ export const partyService = {
     return toSummary(party, labelById);
   },
 
-  // 契約先を更新する。存在しない契約先を指定された場合は、更新せずエラーにする。
-  async update(input: UpdatePartyInput): Promise<PartySummary> {
+  // 契約先を更新する。
+  // 更新画面を開いてから保存するまでの間に、他の利用者が先に更新・削除していないかを、
+  // 保存前の確認と、条件付きの更新（updateIfUnchanged）の2段階で確かめる（マスタ機能と同じ方式。§13.2）。
+  async update(input: UpdatePartyInput, userId: string): Promise<void> {
     const existing = await partyRepository.findById(input.id);
-    if (!existing) throw Errors.notFound("契約先が見つかりません");
+    if (!existing) throw partyNotFound(input.id);
+
+    if (existing.updatedAt.getTime() !== input.updatedAt.getTime()) {
+      throw partyConcurrentUpdate(input.id);
+    }
+
     await assertCompanyTypeValid(input.companyTypeMasterId);
-    const party = await partyRepository.update(input.id, {
+
+    const updated = await partyRepository.updateIfUnchanged(input.id, input.updatedAt, {
       name: input.name,
       companyTypeMasterId: input.companyTypeMasterId ?? null,
       contactInfo: input.contactInfo ?? null,
+      updatedBy: userId,
     });
-    const labelById = await masterService.resolveMasterContents(
-      party.companyTypeMasterId !== null ? [party.companyTypeMasterId] : [],
-    );
-    return toSummary(party, labelById);
+    if (!updated) {
+      // 1件も更新されなかった場合、対象が削除されたのか、他の利用者に先に更新されたのかが分からない。
+      // どちらなのかを判断して適切なメッセージを出すため、もう一度取得して確かめる。
+      const current = await partyRepository.findById(input.id);
+      if (!current) throw partyNotFound(input.id);
+      throw partyConcurrentUpdate(input.id);
+    }
   },
 
   // 契約先を削除する。
