@@ -15,7 +15,7 @@ vi.mock("@/modules/contract/repository", () => ({
     findPartyName: vi.fn(),
     create: vi.fn(),
     updateIfUnchanged: vi.fn(),
-    remove: vi.fn(),
+    deleteIfUnchanged: vi.fn(),
   },
 }));
 
@@ -250,6 +250,59 @@ describe("contract/service update", () => {
         httpStatus: 409,
       } satisfies Partial<AppError>);
       expect(contractRepository.updateIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("contract/service remove", () => {
+  const baseUpdatedAt = new Date("2026-08-19T00:00:00.000Z");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("対象の契約が存在し、他の利用者による更新も無い場合", () => {
+    it("削除する", async () => {
+      vi.mocked(contractRepository.findById).mockResolvedValue(
+        makeContract({ id: "contract-1", updatedAt: baseUpdatedAt }),
+      );
+      vi.mocked(contractRepository.deleteIfUnchanged).mockResolvedValue(true);
+
+      await contractService.remove({ id: "contract-1", updatedAt: baseUpdatedAt });
+
+      expect(contractRepository.deleteIfUnchanged).toHaveBeenCalledWith(
+        "contract-1",
+        baseUpdatedAt,
+      );
+    });
+  });
+
+  describe("対象の契約が存在しない場合", () => {
+    it("AppError(CONTRACT_NOT_FOUND) を投げる", async () => {
+      vi.mocked(contractRepository.findById).mockResolvedValue(null);
+
+      await expect(
+        contractService.remove({ id: "missing", updatedAt: baseUpdatedAt }),
+      ).rejects.toMatchObject({
+        code: "CONTRACT_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("画面を開いた時点から他の利用者が先に更新していた場合", () => {
+    it("AppError(CONTRACT_CONCURRENT_UPDATE) を投げ、削除しない", async () => {
+      vi.mocked(contractRepository.findById).mockResolvedValue(
+        makeContract({ id: "contract-1", updatedAt: new Date("2026-08-19T01:00:00.000Z") }),
+      );
+
+      await expect(
+        contractService.remove({ id: "contract-1", updatedAt: baseUpdatedAt }),
+      ).rejects.toMatchObject({
+        code: "CONTRACT_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(contractRepository.deleteIfUnchanged).not.toHaveBeenCalled();
     });
   });
 });

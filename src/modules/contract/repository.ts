@@ -92,8 +92,11 @@ export const contractRepository = {
     return result.count === 1;
   },
 
-  // 契約を1件削除する
-  async remove(id: string): Promise<void> {
-    await prisma.contract.delete({ where: { id } });
+  // 契約を削除する。物理削除であり、更新と同じく最終更新日時が変わっていないときだけ削除する。
+  async deleteIfUnchanged(id: string, expectedUpdatedAt: Date): Promise<boolean> {
+    const result = await prisma.contract.deleteMany({
+      where: { id, updatedAt: expectedUpdatedAt },
+    });
+    return result.count === 1;
   },
 };

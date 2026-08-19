@@ -7,7 +7,11 @@ import {
   type ContractSortField,
   type ContractSummary,
 } from "@/modules/contract/types";
-import type { CreateContractInput, UpdateContractInput } from "@/modules/contract/validation";
+import type {
+  CreateContractInput,
+  DeleteContractInput,
+  UpdateContractInput,
+} from "@/modules/contract/validation";
 import { toSkipTake, paginated, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError, Errors } from "@/shared/errors/app-error";
 
@@ -176,8 +180,26 @@ export const contractService = {
     }
   },
 
-  // 契約を削除する。
-  async remove(id: string): Promise<void> {
-    await contractRepository.remove(id);
+  // 契約を削除する。物理削除であり、元に戻せない。
+  // 検証の順序は権限（呼び出し元のServer Actionで確認済み）→存在→同時更新の順とする（§24.2）。
+  // 契約先の削除と異なり、依存関係のチェックは行わない（契約に紐づくContractItemを登録・参照する
+  // 画面がまだ存在しないため。§00.9.1）。
+  async remove(input: DeleteContractInput): Promise<{ title: string; partyName: string }> {
+    const existing = await contractRepository.findById(input.id);
+    if (!existing) throw contractNotFound(input.id);
+
+    if (existing.updatedAt.getTime() !== input.updatedAt.getTime()) {
+      throw contractConcurrentUpdate(input.id);
+    }
+
+    const deleted = await contractRepository.deleteIfUnchanged(input.id, input.updatedAt);
+    if (!deleted) {
+      // 1件も削除されなかった場合、対象がすでに削除されたのか、他の利用者に先に更新されたのかが分からない。
+      const current = await contractRepository.findById(input.id);
+      if (!current) throw contractNotFound(input.id);
+      throw contractConcurrentUpdate(input.id);
+    }
+
+    return { title: existing.title, partyName: existing.party.name };
   },
 };

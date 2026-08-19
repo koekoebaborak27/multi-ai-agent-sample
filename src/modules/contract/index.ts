@@ -6,6 +6,7 @@ export { ContractSearchForm } from "@/modules/contract/ui/contract-search-form";
 export { ContractCreateForm } from "@/modules/contract/ui/contract-create-form";
 export { ContractDetailView } from "@/modules/contract/ui/contract-detail-view";
 export { ContractUpdateForm } from "@/modules/contract/ui/contract-update-form";
+export { ContractDeletedToast } from "@/modules/contract/ui/contract-deleted-toast";
 export { PartyCombobox, type PartyComboboxOption } from "@/modules/contract/ui/party-combobox";
 export {
   createContractAction,

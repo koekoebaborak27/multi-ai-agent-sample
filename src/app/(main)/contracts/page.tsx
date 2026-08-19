@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   CONTRACT_CATEGORY_MASTER_CATEGORY_CODE,
   contractService,
+  ContractDeletedToast,
   ContractSearchForm,
   ContractTable,
   contractSearchQuerySchema,
@@ -91,6 +92,7 @@ export default async function ContractsPage({
 
   return (
     <div className="space-y-6">
+      <ContractDeletedToast />
       <h1 className="text-3xl font-semibold tracking-tight">契約管理</h1>
 
       <ContractSearchForm

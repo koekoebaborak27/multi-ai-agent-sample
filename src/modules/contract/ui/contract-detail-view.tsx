@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CONTRACT_STATUS_LABELS, type ContractDetail } from "@/modules/contract/types";
+import { ContractDeleteDialog } from "@/modules/contract/ui/contract-delete-dialog";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -100,7 +101,15 @@ export function ContractDetailView({
                 </Link>
               </Button>
             ) : null}
-            {/* 削除ボタン・確認ダイアログは工程12で追加する */}
+            {canWrite ? (
+              <ContractDeleteDialog
+                contractId={contract.id}
+                title={contract.title}
+                partyName={contract.partyName}
+                updatedAt={contract.updatedAt.toISOString()}
+                returnTo={returnTo}
+              />
+            ) : null}
           </div>
         </CardContent>
       </Card>
