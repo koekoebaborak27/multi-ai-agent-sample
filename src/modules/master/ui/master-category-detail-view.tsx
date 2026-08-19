@@ -73,7 +73,7 @@ export function MasterCategoryDetailView({
             </Button>
             {canWrite ? (
               <Button asChild>
-                <Link href={`/master/categories/${category.id}/edit`}>更新する</Link>
+                <Link href={`/master/categories/${category.id}/edit`}>編集する</Link>
               </Button>
             ) : null}
             {canWrite ? (
