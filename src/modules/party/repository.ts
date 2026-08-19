@@ -69,8 +69,17 @@ export const partyRepository = {
     return result.count === 1;
   },
 
-  // 契約先を1件削除する
-  async remove(id: string): Promise<void> {
-    await prisma.party.delete({ where: { id } });
+  // 指定した契約先に紐づく契約の件数を数える。削除条件（紐づく契約が0件であること）の判定に使う（§14.1）。
+  countContracts(id: string): Promise<number> {
+    return prisma.contract.count({ where: { partyId: id } });
+  },
+
+  // 契約先を削除する。物理削除であり、更新と同じく最終更新日時が変わっていないときだけ削除する。
+  // 紐づく契約が残っている場合はContract.partyIdの外部キー制約により失敗する（呼び出し元で処理する）。
+  async deleteIfUnchanged(id: string, expectedUpdatedAt: Date): Promise<boolean> {
+    const result = await prisma.party.deleteMany({
+      where: { id, updatedAt: expectedUpdatedAt },
+    });
+    return result.count === 1;
   },
 };

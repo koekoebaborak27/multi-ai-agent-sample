@@ -7,10 +7,14 @@ import {
   type PartySortField,
   type PartySummary,
 } from "@/modules/party/types";
-import type { CreatePartyInput, UpdatePartyInput } from "@/modules/party/validation";
+import type {
+  CreatePartyInput,
+  DeletePartyInput,
+  UpdatePartyInput,
+} from "@/modules/party/validation";
 import { toSkipTake, paginated, type Paginated, type SortOrder } from "@/shared/api/pagination";
 import { AppError } from "@/shared/errors/app-error";
-import type { Party } from "@prisma/client";
+import { Prisma, type Party } from "@prisma/client";
 
 // マスタから解決できなかった（未選択・削除済みなどで内容を取得できなかった）場合の表示文言。
 // docs/specs/02_basic-design/master/01_データベース.md §01.1.4 の規約に合わせる。
@@ -29,6 +33,16 @@ function partyConcurrentUpdate(id: string): AppError {
     409,
     "ほかの利用者によって更新されています。最新の内容を確認してください",
     { id },
+  );
+}
+
+// 削除対象の契約先に紐づく契約が1件以上存在するときのエラー（§14.1）
+function partyHasContracts(id: string, contractCount: number): AppError {
+  return new AppError(
+    "PARTY_HAS_CONTRACTS",
+    409,
+    `この契約先には${contractCount}件の契約が登録されているため削除できません。先に契約を削除してください。`,
+    { id, contractCount },
   );
 }
 
@@ -148,8 +162,42 @@ export const partyService = {
     }
   },
 
-  // 契約先を削除する。
-  async remove(id: string): Promise<void> {
-    await partyRepository.remove(id);
+  // 契約先を削除する。物理削除であり、元に戻せない。
+  // 検証の順序は権限（呼び出し元のServer Actionで確認済み）→存在→同時更新→紐づく契約の件数の順とする（§14.3）。
+  async remove(input: DeletePartyInput): Promise<{ name: string; companyTypeLabel: string }> {
+    const existing = await partyRepository.findById(input.id);
+    if (!existing) throw partyNotFound(input.id);
+
+    if (existing.updatedAt.getTime() !== input.updatedAt.getTime()) {
+      throw partyConcurrentUpdate(input.id);
+    }
+
+    const contractCount = await partyRepository.countContracts(input.id);
+    if (contractCount > 0) throw partyHasContracts(input.id, contractCount);
+
+    try {
+      const deleted = await partyRepository.deleteIfUnchanged(input.id, input.updatedAt);
+      if (!deleted) {
+        // 1件も削除されなかった場合、対象がすでに削除されたのか、他の利用者に先に更新されたのかが分からない。
+        const current = await partyRepository.findById(input.id);
+        if (!current) throw partyNotFound(input.id);
+        throw partyConcurrentUpdate(input.id);
+      }
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+        // 件数確認の直後に、他の利用者が同じ契約先へ契約を登録したことを意味する
+        const current = await partyRepository.countContracts(input.id);
+        throw partyHasContracts(input.id, current);
+      }
+      throw error;
+    }
+
+    const labelById = await masterService.resolveMasterContents(
+      existing.companyTypeMasterId !== null ? [existing.companyTypeMasterId] : [],
+    );
+    return {
+      name: existing.name,
+      companyTypeLabel: toSummary(existing, labelById).companyTypeLabel,
+    };
   },
 };

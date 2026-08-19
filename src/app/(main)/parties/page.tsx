@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   PARTY_COMPANY_TYPE_CATEGORY_CODE,
   partyService,
+  PartyDeletedToast,
   PartySearchForm,
   PartyTable,
   partySearchQuerySchema,
@@ -84,6 +85,7 @@ export default async function PartiesPage({
 
   return (
     <div className="space-y-6">
+      <PartyDeletedToast />
       <h1 className="text-3xl font-semibold tracking-tight">契約先管理</h1>
 
       <PartySearchForm

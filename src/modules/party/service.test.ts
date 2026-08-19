@@ -15,7 +15,8 @@ vi.mock("@/modules/party/repository", () => ({
     findById: vi.fn(),
     create: vi.fn(),
     updateIfUnchanged: vi.fn(),
-    remove: vi.fn(),
+    countContracts: vi.fn(),
+    deleteIfUnchanged: vi.fn(),
   },
 }));
 
@@ -248,6 +249,75 @@ describe("party/service update", () => {
         httpStatus: 409,
       } satisfies Partial<AppError>);
       expect(partyRepository.updateIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("party/service remove", () => {
+  const baseUpdatedAt = new Date("2026-08-19T00:00:00.000Z");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("紐づく契約が無い場合", () => {
+    it("削除する", async () => {
+      vi.mocked(partyRepository.findById).mockResolvedValue(
+        makeParty({ id: "party-1", updatedAt: baseUpdatedAt }),
+      );
+      vi.mocked(partyRepository.countContracts).mockResolvedValue(0);
+      vi.mocked(partyRepository.deleteIfUnchanged).mockResolvedValue(true);
+      vi.mocked(masterService.resolveMasterContents).mockResolvedValue(new Map());
+
+      await partyService.remove({ id: "party-1", updatedAt: baseUpdatedAt });
+
+      expect(partyRepository.deleteIfUnchanged).toHaveBeenCalledWith("party-1", baseUpdatedAt);
+    });
+  });
+
+  describe("紐づく契約が1件以上存在する場合", () => {
+    it("AppError(PARTY_HAS_CONTRACTS) を投げ、削除しない", async () => {
+      vi.mocked(partyRepository.findById).mockResolvedValue(
+        makeParty({ id: "party-1", updatedAt: baseUpdatedAt }),
+      );
+      vi.mocked(partyRepository.countContracts).mockResolvedValue(2);
+
+      await expect(
+        partyService.remove({ id: "party-1", updatedAt: baseUpdatedAt }),
+      ).rejects.toMatchObject({
+        code: "PARTY_HAS_CONTRACTS",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(partyRepository.deleteIfUnchanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("対象の契約先が存在しない場合", () => {
+    it("AppError(PARTY_NOT_FOUND) を投げる", async () => {
+      vi.mocked(partyRepository.findById).mockResolvedValue(null);
+
+      await expect(
+        partyService.remove({ id: "missing", updatedAt: baseUpdatedAt }),
+      ).rejects.toMatchObject({
+        code: "PARTY_NOT_FOUND",
+        httpStatus: 404,
+      } satisfies Partial<AppError>);
+    });
+  });
+
+  describe("画面を開いた時点から他の利用者が先に更新していた場合", () => {
+    it("AppError(PARTY_CONCURRENT_UPDATE) を投げ、削除しない", async () => {
+      vi.mocked(partyRepository.findById).mockResolvedValue(
+        makeParty({ id: "party-1", updatedAt: new Date("2026-08-19T01:00:00.000Z") }),
+      );
+
+      await expect(
+        partyService.remove({ id: "party-1", updatedAt: baseUpdatedAt }),
+      ).rejects.toMatchObject({
+        code: "PARTY_CONCURRENT_UPDATE",
+        httpStatus: 409,
+      } satisfies Partial<AppError>);
+      expect(partyRepository.countContracts).not.toHaveBeenCalled();
     });
   });
 });

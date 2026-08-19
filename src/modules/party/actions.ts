@@ -4,13 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { partyService } from "@/modules/party/service";
 import {
+  appendPartyDeletedFlag,
   createPartySchema,
+  deletePartySchema,
   parsePartyReturnTo,
   updatePartySchema,
 } from "@/modules/party/validation";
 import { getCurrentUser } from "@/shared/auth/session";
 import { withOp } from "@/shared/observability/with-op";
-import { AppError, Errors, isAppError } from "@/shared/errors/app-error";
+import { Errors, isAppError } from "@/shared/errors/app-error";
 import { canWrite } from "@/shared/constants/roles";
 
 // このファイルの各処理は、画面から送られた入力を受け取って登録・更新・削除を行う。
@@ -203,8 +205,8 @@ export const updatePartyAction = withOp(
 
 /**
  * 契約先削除フォームの状態。画面と処理の間で往復する。
- * name・companyTypeLabelは削除対象の内容で、削除確認ダイアログの表示に使う
- * （削除確認ダイアログの実装は工程6で追加する）。
+ * name・companyTypeLabelは削除対象の内容で、削除確認ダイアログの表示と、
+ * ログへ「何を削除したか」を残すために画面側から渡され、そのまま引き継がれる。
  */
 export interface DeletePartyFormState {
   id?: string;
@@ -217,14 +219,45 @@ export interface DeletePartyFormState {
 
 // 契約先を削除する。
 // 削除確認ダイアログの「削除する」ボタンから呼ばれ、確認画面を挟まず1回の送信で完了する。
+// 更新と同じく、詳細画面を開いた時点の最終更新日時を送り、他の利用者が先に更新・削除していないか、
+// また紐づく契約が残っていないかを確かめる（§14.3）。
 export const deletePartyAction = withOp(
   "party.delete",
-  async (formData: FormData): Promise<void> => {
+  async (prev: DeletePartyFormState, formData: FormData): Promise<DeletePartyFormState> => {
     await requireWriter();
-    const id = String(formData.get("id") ?? "");
-    if (!id) throw new AppError("VALIDATION_ERROR", 422, "契約先IDが不正です");
-    await partyService.remove(id);
-    // 削除した契約先が一覧に残らないよう、表示内容を最新にする
-    revalidatePath("/parties");
+    const returnTo = parsePartyReturnTo(String(formData.get("returnTo") ?? prev.returnTo));
+    const parsed = deletePartySchema.safeParse({
+      id: formData.get("id"),
+      updatedAt: formData.get("updatedAt"),
+    });
+
+    if (!parsed.success) {
+      return {
+        ...prev,
+        returnTo,
+        error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
+      };
+    }
+
+    const nextState: DeletePartyFormState = {
+      ...prev,
+      returnTo,
+      id: parsed.data.id,
+      updatedAt: parsed.data.updatedAt.toISOString(),
+    };
+
+    try {
+      // 削除したあと、一覧の表示内容を最新にしてから、削除完了の印を付けて一覧画面へ移動する
+      await partyService.remove(parsed.data);
+      revalidatePath("/parties");
+      redirect(appendPartyDeletedFlag(returnTo));
+    } catch (error) {
+      if (isAppError(error)) {
+        return { ...nextState, error: error.userMessage };
+      }
+      throw error;
+    }
   },
+  // 削除は元に戻せないため、「誰がいつ何を削除したか」を後から追えるようにログにも残す
+  { includeArgsInSuccessLog: true },
 );

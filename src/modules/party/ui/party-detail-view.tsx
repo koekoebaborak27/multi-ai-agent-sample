@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { PartyDetail } from "@/modules/party/types";
+import { PartyDeleteDialog } from "@/modules/party/ui/party-delete-dialog";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -80,7 +81,15 @@ export function PartyDetailView({
                 </Link>
               </Button>
             ) : null}
-            {/* 削除ボタン・確認ダイアログは工程6で追加する */}
+            {canWrite ? (
+              <PartyDeleteDialog
+                partyId={party.id}
+                name={party.name}
+                companyTypeLabel={party.companyTypeLabel}
+                updatedAt={party.updatedAt.toISOString()}
+                returnTo={returnTo}
+              />
+            ) : null}
           </div>
         </CardContent>
       </Card>
