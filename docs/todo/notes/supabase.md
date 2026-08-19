@@ -18,6 +18,7 @@ Supabase のプロジェクト作成から本番 DB の初期化、API キーの
 | 2026-08-02 | [本番 DB への適用手順](#本番-db-への適用手順) | PowerShell でのマイグレーション / seed 実行 |
 | 2026-08-02 | [Supabase の API キー形式](#supabase-の-api-キー形式) | 新形式キーは `apikey` ヘッダが要る |
 | 2026-08-02 | [ローカルの .env に本番の値を置いてよいか](#ローカルの-env-に本番の値を置いてよいか) | 変数ごとの判断基準と切り替え方 |
+| 2026-08-19 | [.envのDATABASE_URLが本番を指したまま残っていた](#2026-08-19-envのdatabase_urlが本番を指したまま残っていた) | 2026-08-02の方針違反を発見。`.env.local`での回避方法と、`.env`自体の要修正事項 |
 
 ## 2026-08-01 Supabase プロジェクトを作る
 
@@ -183,4 +184,29 @@ SUPABASE_STORAGE_BUCKET=uploads
 **Cloud Run 上の本番は `.env` を読まない。** [`.dockerignore`](../../../.dockerignore) に `.env` があるためイメージに含まれず、環境変数は Cloud Run のサービス設定から渡る（→ [本番の環境変数](cloud-run.md#本番の環境変数)）。上の切り替えはあくまで**ローカルから本番ストレージを触るため**のもので、本番デプロイとは無関係。同様に、ローカルを Docker Compose で動かす場合も `docker-compose.yml` の `environment` が `.env` より優先される。
 
 `secret` キーが漏れた場合は、Supabase ダッシュボードで当該キーを revoke して再発行し、**`.env` と Cloud Run の両方**を更新する。
+
+### 2026-08-19 .envのDATABASE_URLが本番を指したまま残っていた
+
+マスタ情報Excel取得機能のPlaywrightテスト（UT_30）に着手する際、ローカルの`.env`を確認したところ`DATABASE_URL`が本番Supabase（`aws-0-us-east-1.pooler.supabase.com`）を指していた。これは上記「[ローカルの .env に本番の値を置いてよいか](#ローカルの-env-に本番の値を置いてよいか)」で2026-08-02に確定した方針（`DATABASE_URL`は`.env`に置かず、本番DBを触るときだけ`$env:`でそのセッションに設定する）に反する状態。
+
+**原因は特定できていない。** 直近（2026-08-18）の本番動作確認セッションで、`$env:`ではなく`.env`自体を一時的に書き換え、戻し忘れた可能性がある。
+
+**このセッションでの対処（`.env`自体は変更していない）。** Git管理外の`.env.local`を新規作成し、以下で上書きした。Next.jsは`.env.local`を`.env`より優先して自動的に読むため、`pnpm dev`は無改修でローカルDBへ接続するようになる。
+
+```
+DATABASE_URL=postgresql://app:password@localhost:5432/app_db
+STORAGE_TYPE=local
+STORAGE_LOCAL_DIR=./uploads
+WORKER_INVOKE_MODE=none
+```
+
+**`pnpm worker`は`.env`だけを読む固定スクリプト（`tsx --env-file-if-exists=.env src/worker/index.ts`）のため、`.env.local`は効かない。** ローカルでworkerを動かす場合は、`pnpm worker`を使わず次のように明示的に両方のファイルを渡す（後に指定したファイルが優先される）。
+
+```powershell
+pnpm exec tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/worker/index.ts
+```
+
+**次回セッションでの対処が必要。** `.env`の`DATABASE_URL`をローカル値（`.env.example`と同じ`postgresql://app:password@localhost:5432/app_db`）へ戻すか、本当に意図的な変更であれば理由をこの節に追記すること。戻すまでは、`.env.local`を使わずに`pnpm dev`や`pnpm worker`を実行すると本番DBへ接続してしまう点に注意する。
+
+**副次的に判明した問題（コードの不具合ではない）。** ローカルの`.next`ビルドキャッシュが古い状態のまま`next dev`（Turbopack）を再起動すると、既存の画面ルート（今回は`/master/exports`）が404を返すことがあった。`.next`を削除して再起動すると解消する。原因（キャッシュの世代不整合か既知のTurbopackの挙動か）までは特定していない。
 
