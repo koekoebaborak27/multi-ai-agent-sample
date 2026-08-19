@@ -17,8 +17,8 @@
 |---|---|---|---|
 | ログイン | `/login` | [`src/modules/auth/`](src/modules/auth/) | Credentials（ID/PW）認証。Entra ID は環境変数が揃うと追加表示 |
 | ダッシュボード | `/` | [`src/modules/announcement/`](src/modules/announcement/) | 最新のお知らせ一覧 |
-| 契約管理 | `/contracts` | [`src/modules/contract/`](src/modules/contract/) | 契約の一覧（ページング）・登録・編集・削除 |
-| 契約先管理 | `/parties` | [`src/modules/party/`](src/modules/party/) | 契約先の一覧（ページング）・登録・編集・削除 |
+| 契約検索一覧 | `/contracts` | [`src/modules/contract/`](src/modules/contract/) | 契約先（コンボボックスで名称検索）・状態・分類による検索、列見出しによるソート、URLクエリ、ページング、新規登録（`/contracts/new`）と確認、詳細（`/contracts/{id}`）、更新（`/contracts/{id}/edit`）と確認（楽観ロック）、削除確認ダイアログ |
+| 契約先検索一覧 | `/parties` | [`src/modules/party/`](src/modules/party/) | 名称・分類による検索、列見出しによるソート、URLクエリ、ページング、新規登録（`/parties/new`）と確認、詳細（`/parties/{id}`）、更新（`/parties/{id}/edit`）と確認（楽観ロック）、削除確認ダイアログ（紐づく契約が残っている場合は削除不可） |
 | ユーザー管理 | `/admin/users` | [`src/modules/user/`](src/modules/user/) | ユーザーの一覧・登録・編集・削除（**ADMIN 限定**） |
 | パスワード変更 | `/settings/password` | [`src/modules/auth/`](src/modules/auth/) | 初回ログイン時は変更するまで他画面へ進めない |
 | マスタ検索一覧 | `/master` | [`src/modules/master/`](src/modules/master/) | 先頭分類を初期選択（「すべて」へ切替可）、分類・コード・内容による検索、検索条件の開閉、列見出しによるソート、URLクエリ、ページング、新規登録（`/master/new`）と確認、詳細（`/master/{id}`）、更新（`/master/{id}/edit`）と確認、削除確認ダイアログ |
