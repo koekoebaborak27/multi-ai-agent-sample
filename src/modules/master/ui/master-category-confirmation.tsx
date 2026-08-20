@@ -75,6 +75,7 @@ export function MasterCategoryConfirmation({
           そこで、確認した内容を見えない項目として持たせ、実行時に改めて送信している。
         */}
         <form action={formAction}>
+          <input type="hidden" name="code" value={code} />
           <input type="hidden" name="name" value={name} />
           {isUpdate ? (
             <>
