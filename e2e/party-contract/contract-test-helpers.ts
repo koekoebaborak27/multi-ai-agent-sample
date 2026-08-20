@@ -13,6 +13,16 @@ export async function login(
   password = process.env.SEED_ADMIN_PASSWORD ?? "Admin@123",
 ) {
   await page.goto("/login");
+  // 既にログイン済みの場合は/loginからホームへ転送され、入力欄は表示されない。
+  // 同一テスト内でフォームへ戻る場面でもセッションをそのまま使えるよう、この場合は入力を省く。
+  if (
+    !(await page
+      .getByLabel("ユーザーID")
+      .isVisible()
+      .catch(() => false))
+  ) {
+    return;
+  }
   await page.getByLabel("ユーザーID").fill(id);
   await page.getByRole("textbox", { name: "パスワード" }).fill(password);
   await page.getByRole("button", { name: "ログイン" }).click();
