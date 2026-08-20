@@ -47,6 +47,24 @@ describe("party/validation createPartySchema", () => {
       if (!result.success) expect(result.error.issues[0]?.message).toBe("名称は必須です");
     });
   });
+
+  describe("名称・連絡先が文字数上限を超える場合", () => {
+    it("日本語の入力エラーとして拒否する", () => {
+      const nameResult = createPartySchema.safeParse({ name: "あ".repeat(201) });
+      const contactInfoResult = createPartySchema.safeParse({
+        name: "サンプル契約先",
+        contactInfo: "あ".repeat(501),
+      });
+
+      expect(nameResult.success).toBe(false);
+      expect(contactInfoResult.success).toBe(false);
+      if (!nameResult.success)
+        expect(nameResult.error.issues[0]?.message).toBe("名称は200文字以内です");
+      if (!contactInfoResult.success) {
+        expect(contactInfoResult.error.issues[0]?.message).toBe("連絡先は500文字以内です");
+      }
+    });
+  });
 });
 
 describe("party/validation updatePartySchema", () => {
@@ -79,6 +97,31 @@ describe("party/validation updatePartySchema", () => {
           updatedAt: new Date(),
         }).success,
       ).toBe(false);
+    });
+  });
+
+  describe("名称・連絡先が文字数上限を超える場合", () => {
+    it("日本語の入力エラーとして拒否する", () => {
+      const updatedAt = new Date("2026-08-19T00:00:00.000Z");
+      const nameResult = updatePartySchema.safeParse({
+        id: "party-1",
+        name: "あ".repeat(201),
+        updatedAt,
+      });
+      const contactInfoResult = updatePartySchema.safeParse({
+        id: "party-1",
+        name: "サンプル契約先",
+        contactInfo: "あ".repeat(501),
+        updatedAt,
+      });
+
+      expect(nameResult.success).toBe(false);
+      expect(contactInfoResult.success).toBe(false);
+      if (!nameResult.success)
+        expect(nameResult.error.issues[0]?.message).toBe("名称は200文字以内です");
+      if (!contactInfoResult.success) {
+        expect(contactInfoResult.error.issues[0]?.message).toBe("連絡先は500文字以内です");
+      }
     });
   });
 });

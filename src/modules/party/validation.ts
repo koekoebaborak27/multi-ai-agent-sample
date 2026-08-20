@@ -16,9 +16,9 @@ const companyTypeMasterIdSchema = z
 
 /** 契約先の新規登録フォームの入力チェック。名称のみ必須で、分類・連絡先は任意 */
 export const createPartySchema = z.object({
-  name: z.string().min(1, "名称は必須です").max(200),
+  name: z.string().min(1, "名称は必須です").max(200, "名称は200文字以内です"),
   companyTypeMasterId: companyTypeMasterIdSchema,
-  contactInfo: z.string().max(500).optional(),
+  contactInfo: z.string().max(500, "連絡先は500文字以内です").optional(),
 });
 export type CreatePartyInput = z.infer<typeof createPartySchema>;
 
@@ -29,9 +29,9 @@ export type CreatePartyInput = z.infer<typeof createPartySchema>;
  */
 export const updatePartySchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1, "名称は必須です").max(200),
+  name: z.string().min(1, "名称は必須です").max(200, "名称は200文字以内です"),
   companyTypeMasterId: companyTypeMasterIdSchema,
-  contactInfo: z.string().max(500).optional(),
+  contactInfo: z.string().max(500, "連絡先は500文字以内です").optional(),
   updatedAt: z.coerce.date(),
 });
 export type UpdatePartyInput = z.infer<typeof updatePartySchema>;

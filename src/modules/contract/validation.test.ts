@@ -54,6 +54,14 @@ describe("contract/validation createContractSchema", () => {
       if (!result.success) expect(result.error.issues[0]?.message).toBe("契約名は必須です");
     });
   });
+
+  describe("契約名が文字数上限を超える場合", () => {
+    it("日本語の入力エラーとして拒否する", () => {
+      const result = createContractSchema.safeParse({ ...valid, title: "あ".repeat(201) });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues[0]?.message).toBe("契約名は200文字以内です");
+    });
+  });
 });
 
 describe("contract/validation updateContractSchema", () => {
@@ -75,6 +83,14 @@ describe("contract/validation updateContractSchema", () => {
   describe("状態が定義外の値の場合", () => {
     it("入力エラーとして拒否する", () => {
       expect(updateContractSchema.safeParse({ ...valid, status: "UNKNOWN" }).success).toBe(false);
+    });
+  });
+
+  describe("契約名が文字数上限を超える場合", () => {
+    it("日本語の入力エラーとして拒否する", () => {
+      const result = updateContractSchema.safeParse({ ...valid, title: "あ".repeat(201) });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues[0]?.message).toBe("契約名は200文字以内です");
     });
   });
 });

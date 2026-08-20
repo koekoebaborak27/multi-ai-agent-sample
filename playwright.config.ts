@@ -16,7 +16,8 @@ export default defineConfig({
   fullyParallel: true,
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
-    trace: "on-first-retry",
+    trace: "on",
+    video: "on",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

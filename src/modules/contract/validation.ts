@@ -20,7 +20,7 @@ const categoryMasterIdSchema = z
 /** 契約の新規登録フォームの入力チェック。開始日・終了日・契約分類は後から決めることもあるため任意 */
 export const createContractSchema = z.object({
   partyId: z.string().min(1, "契約先は必須です"),
-  title: z.string().min(1, "契約名は必須です").max(200),
+  title: z.string().min(1, "契約名は必須です").max(200, "契約名は200文字以内です"),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   status: statusEnum.default("DRAFT"),
@@ -35,7 +35,7 @@ export type CreateContractInput = z.infer<typeof createContractSchema>;
  */
 export const updateContractSchema = z.object({
   id: z.string().min(1),
-  title: z.string().min(1, "契約名は必須です").max(200),
+  title: z.string().min(1, "契約名は必須です").max(200, "契約名は200文字以内です"),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   status: statusEnum,
