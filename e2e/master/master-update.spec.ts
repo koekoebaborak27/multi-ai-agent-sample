@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const EVIDENCE_DIR = path.join(process.cwd(), "docs/test/unit/result/テスト結果UT_13_マスタ更新");
+const EVIDENCE_DIR = path.join(process.cwd(), "docs/test/unit/result/master/テスト結果UT_13_マスタ更新");
 
 function evidence(name: string) {
   return path.join(EVIDENCE_DIR, name);

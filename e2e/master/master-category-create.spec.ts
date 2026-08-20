@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 const EVIDENCE_DIR = path.join(
   process.cwd(),
-  "docs/test/unit/result/テスト結果UT_22_マスタ分類新規登録",
+  "docs/test/unit/result/master/テスト結果UT_22_マスタ分類新規登録",
 );
 
 function evidence(name: string) {

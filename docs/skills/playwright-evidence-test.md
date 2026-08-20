@@ -1,6 +1,6 @@
 # スキル: Playwrightで画面操作テストを実行しエビデンスを残す
 
-Markdown形式の単体テスト仕様書・テスト対象URL・ログイン情報・DB接続情報を受け取り、Playwrightで画面操作を自動実行する。必要ならDBの事前データを整え、操作後にDBの状態を確認し、PNGスクリーンショットとDB状態（CSVまたはJSON）、実行結果Markdownを `docs/test/unit/result/` 配下のテスト単位フォルダにエビデンスとして保存する。
+Markdown形式の単体テスト仕様書・テスト対象URL・ログイン情報・DB接続情報を受け取り、Playwrightで画面操作を自動実行する。必要ならDBの事前データを整え、操作後にDBの状態を確認し、PNGスクリーンショットとDB状態（CSVまたはJSON）、実行結果Markdownを `docs/test/unit/result/<ドメイン>/` 配下のテスト単位フォルダにエビデンスとして保存する。
 
 このファイルが手順の**正本**。Claude Code / GitHub Copilot / Codex の各入口ファイルは、ここを読ませるだけの薄いラッパーであり、手順を複製しない。
 
@@ -23,17 +23,17 @@ Markdown形式の単体テスト仕様書・テスト対象URL・ログイン情
 - Markdownの単体テスト仕様書に沿ってブラウザ操作をしたいとき
 - ログイン、入力、登録、検索、編集、削除などの画面操作を自動化したいとき
 - DBの値を事前に準備し、画面操作後のDB状態を確認したいとき
-- `docs/test/unit/result/` 配下にPNGスクリーンショット、DB出力CSV/JSON、実行結果Markdownを保存したいとき
+- `docs/test/unit/result/<ドメイン>/` 配下にPNGスクリーンショット、DB出力CSV/JSON、実行結果Markdownを保存したいとき
 
 ## 受け取る情報（事前確認）
 
 | 項目 | 必須 | 備考 |
 |---|---|---|
-| テスト仕様書のパス | ○ | Markdown形式。例: `docs/test/unit/spec/UT_10_マスタ検索一覧.md`（`create-unit-test-spec` スキルの保存先規則） |
+| テスト仕様書のパス | ○ | Markdown形式。例: `docs/test/unit/spec/master/UT_10_マスタ検索一覧.md`（`create-unit-test-spec` スキルの保存先規則） |
 | テスト対象URL | ○ | 例: `http://localhost:3000`。既定は `playwright.config.ts` の `E2E_BASE_URL` |
 | ログインID | ○ | 画面操作でログインが必要な場合 |
 | パスワード or 環境変数名 | ○ | **環境変数名を優先して聞く**（手順2）。`.env.example` に自動テスト用アカウント（`SEED_ADMIN_PASSWORD` 等）が用意されている場合はそれを使ってよいか確認する |
-| エビデンス保存先フォルダ | — | 聞かない。`docs/test/unit/result/テスト結果<仕様書のファイル名（拡張子を除く）>/` に固定する（「エビデンス保存の命名規則」参照） |
+| エビデンス保存先フォルダ | — | 聞かない。`docs/test/unit/result/<ドメイン>/テスト結果<仕様書のファイル名（拡張子を除く）>/` に固定する（「エビデンス保存の命名規則」参照） |
 | DB確認対象（テーブル名） | 画面操作がDBを変える場合は○ | 例: `contracts, contract_parties, contract_terms` |
 | DB接続情報 | DBを確認・準備する場合は○ | 通常は `DATABASE_URL` 環境変数（値そのものは読まない。手順3） |
 
@@ -74,7 +74,7 @@ Markdown形式の単体テスト仕様書・テスト対象URL・ログイン情
 | Playwright未導入 | `package.json` の `devDependencies` に `@playwright/test` があるか | 無ければ導入コマンド（下記）を提示し、実行前に承認を得る |
 | 対象URLが本番でないこと | `localhost` / `127.0.0.1` / 開発用ホスト名か | Cloud Run の本番URL（`*.run.app` 等、[`docs/specs/99_infra/`](../specs/99_infra/README.md) に記載の本番URL）らしき文字列なら**停止し、ユーザーに確認する** |
 | DB接続先が本番でないこと | `DATABASE_URL` のホスト部分が `localhost` / `db`（Docker Compose のサービス名）か | `supabase.co` を含む等、本番 Supabase らしき文字列なら**停止し、ユーザーに確認する**。値そのものはログに出さず、ホスト部分の要約だけ提示する |
-| 生成するファイル | テストコードの配置予定パス、`docs/test/unit/result/テスト結果<仕様書のファイル名>/` 配下に作るエビデンス、DB確認の有無 | 手順1の一覧と合わせて提示し、「この内容で実行してよいか」を確認する |
+| 生成するファイル | テストコードの配置予定パス、`docs/test/unit/result/<ドメイン>/テスト結果<仕様書のファイル名>/` 配下に作るエビデンス、DB確認の有無 | 手順1の一覧と合わせて提示し、「この内容で実行してよいか」を確認する |
 | テストデータの一時操作 | ページング確認等で大量データが要る場合の一時作成、0件確認等で既存データを一時削除する場合の対象と復元方法 | 「テストデータの準備・後始末の方針」の節に沿って内容を具体的に提示し、承認を得る |
 
 Playwright導入コマンド（承認後に実行）:
@@ -108,17 +108,17 @@ pnpm exec playwright install chromium
 
 ### 5. Playwrightのテストコードを作成する
 
-- 配置場所: `e2e/<仕様書のスラッグ>.spec.ts`（例: `e2e/contract-create.spec.ts`）。**再実行できるよう、通常のPlaywrightテストファイルとして作る**（使い捨てスクリプトにしない）。
+- 配置場所: `e2e/<ドメイン>/<仕様書のスラッグ>.spec.ts`（例: `e2e/party-contract/contract-create.spec.ts`）。`<ドメイン>` は仕様書の保存先（`docs/test/unit/spec/<ドメイン>/`）と揃える。**再実行できるよう、通常のPlaywrightテストファイルとして作る**（使い捨てスクリプトにしない）。
 - 実装方針は「Playwright実装方針」の節に従う。
 - 主要な画面遷移の直後に `page.screenshot({ path: ... })` を呼び、命名規則に沿ったファイル名で保存する。
 
 ### 6. テストを実行する
 
 ```powershell
-pnpm exec playwright test e2e/<ファイル名>.spec.ts
+pnpm exec playwright test e2e/<ドメイン>/<ファイル名>.spec.ts
 ```
 
-- 既定はヘッドレス実行。**ユーザーが「画面を見ながら」「画面表示しながら」テストしてほしいと指示した場合は `--headed` を付ける**（`pnpm exec playwright test e2e/<ファイル名>.spec.ts --headed`）。実行にはローカルの `pnpm dev` サーバーが起動している必要があるため、Bashではなく `preview_start`（`.claude/launch.json` の `dev` 等の既存設定を使う）で起動する。
+- 既定はヘッドレス実行。**ユーザーが「画面を見ながら」「画面表示しながら」テストしてほしいと指示した場合は `--headed` を付ける**（`pnpm exec playwright test e2e/<ドメイン>/<ファイル名>.spec.ts --headed`）。実行にはローカルの `pnpm dev` サーバーが起動している必要があるため、Bashではなく `preview_start`（`.claude/launch.json` の `dev` 等の既存設定を使う）で起動する。
 - 失敗時は `--trace on` や `pnpm exec playwright show-report` で原因を確認してよい（追加のファイル生成を伴わない調査コマンドなので手順3の承認範囲内とみなす）。
 - 失敗した場合、原因を切り分けたうえで手順9の「失敗時の原因候補」に記録する。テストコードの再実行はユーザーに再度断らずに行ってよいが、**DBへの書き込みを伴う再実行**（事前データの再投入など）は都度確認する。
 
@@ -130,7 +130,7 @@ pnpm exec playwright test e2e/<ファイル名>.spec.ts
 ### 8. 後始末を判断する
 
 - テストで投入した事前データや、操作によって作られた行をローカルDBに残すかどうかをユーザーに確認する（次回実行時の衝突を避けたい場合は削除、証跡として残したい場合は保持）。
-- エビデンス（`docs/test/unit/result/` 配下）は常に `.gitignore` 対象のためリポジトリには残らない。テストコード（`e2e/` 配下）はリポジトリに残る資産のため、そのままコミットしてよいかをユーザーに確認する。
+- エビデンス（`docs/test/unit/result/<ドメイン>/` 配下）は常に `.gitignore` 対象のためリポジトリには残らない。テストコード（`e2e/` 配下）はリポジトリに残る資産のため、そのままコミットしてよいかをユーザーに確認する。
 
 ### 9. 実行結果をMarkdownでまとめる
 
@@ -168,7 +168,7 @@ pnpm exec playwright test e2e/<ファイル名>.spec.ts
 
 ## エビデンス保存の命名規則
 
-**保存先フォルダは `docs/test/unit/result/テスト結果<仕様書のファイル名（拡張子を除く）>/` に固定する。** テスト単位（＝仕様書1件）と設計書が1対1で対応するようにするため、聞かずにこの規則で決める。例えば仕様書が `10_マスタ検索一覧.md` なら保存先は `docs/test/unit/result/テスト結果10_マスタ検索一覧/` になる。同名フォルダが既にある場合は、上書きするか連番を付けて残すかを手順3の確認時にユーザーに確認する。
+**保存先フォルダは `docs/test/unit/result/<ドメイン>/テスト結果<仕様書のファイル名（拡張子を除く）>/` に固定する。** テスト単位（＝仕様書1件）と設計書が1対1で対応するようにするため、聞かずにこの規則で決める。`<ドメイン>` は指定された仕様書のパス（`docs/test/unit/spec/<ドメイン>/<ファイル名>`）にすでに現れているので、そのまま使う（`create-unit-test-spec` スキルのドメイン判定規則と揃える）。例えば仕様書が `docs/test/unit/spec/master/UT_10_マスタ検索一覧.md` なら保存先は `docs/test/unit/result/master/テスト結果UT_10_マスタ検索一覧/` になる。同名フォルダが既にある場合は、上書きするか連番を付けて残すかを手順3の確認時にユーザーに確認する。
 
 このフォルダの直下に、次の命名で保存する。連番は仕様書のテストケース順・操作順に対応させる。
 
@@ -178,7 +178,7 @@ pnpm exec playwright test e2e/<ファイル名>.spec.ts
 | DB事前状態 | `db_before_<テーブル名>.csv`（複数テーブルをまとめる場合は `db_before.json`） | `db_before_contracts.csv` |
 | DB事後状態 | `db_after_<テーブル名>.csv`（同上は `db_after.json`） | `db_after_contracts.csv` |
 | 実行結果 | `result.md` 固定 | `result.md` |
-| テストコード | 保存先フォルダではなく `e2e/<スラッグ>.spec.ts` に置く（再実行用の資産のため） | `e2e/contract-create.spec.ts` |
+| テストコード | 保存先フォルダではなく `e2e/<ドメイン>/<スラッグ>.spec.ts` に置く（再実行用の資産のため） | `e2e/party-contract/contract-create.spec.ts` |
 
 ファイル名は半角英数字・アンダースコア・ハイフンのみで組み立て、空白や全角記号は避ける（Windowsパス・シェル引数での事故を防ぐため）。
 

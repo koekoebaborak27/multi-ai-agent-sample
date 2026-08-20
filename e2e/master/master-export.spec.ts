@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 const EVIDENCE_DIR = path.join(
   process.cwd(),
-  "docs/test/unit/result/テスト結果UT_15_マスタCSVダウンロード",
+  "docs/test/unit/result/master/テスト結果UT_15_マスタCSVダウンロード",
 );
 
 function evidence(name: string) {
