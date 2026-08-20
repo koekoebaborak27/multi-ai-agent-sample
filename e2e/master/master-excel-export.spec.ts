@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 
 const EVIDENCE_DIR = path.join(
   process.cwd(),
-  "docs/test/unit/result/テスト結果UT_30_マスタ情報Excel取得",
+  "docs/test/unit/result/master/テスト結果UT_30_マスタ情報Excel取得",
 );
 function evidence(name: string) {
   return path.join(EVIDENCE_DIR, name);
