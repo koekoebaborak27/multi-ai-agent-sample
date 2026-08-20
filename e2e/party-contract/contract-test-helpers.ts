@@ -7,7 +7,11 @@ import { PrismaClient } from "@prisma/client";
 export const prisma = new PrismaClient();
 
 /** ログイン画面を通じて指定した権限のセッションを作る。 */
-export async function login(page: Page, id = "admin", password = process.env.SEED_ADMIN_PASSWORD ?? "Admin@123") {
+export async function login(
+  page: Page,
+  id = "admin",
+  password = process.env.SEED_ADMIN_PASSWORD ?? "Admin@123",
+) {
   await page.goto("/login");
   await page.getByLabel("ユーザーID").fill(id);
   await page.getByRole("textbox", { name: "パスワード" }).fill(password);
@@ -17,7 +21,11 @@ export async function login(page: Page, id = "admin", password = process.env.SEE
 
 /** 指定した証跡用フォルダを作り、ファイルの完全パスを返す。 */
 export function evidenceDirectory(specName: string) {
-  const directory = path.join(process.cwd(), "docs/test/unit/result/party-contract", `テスト結果${specName}`);
+  const directory = path.join(
+    process.cwd(),
+    "docs/test/unit/result/party-contract",
+    `テスト結果${specName}`,
+  );
   fs.mkdirSync(directory, { recursive: true });
   return (name: string) => path.join(directory, name);
 }

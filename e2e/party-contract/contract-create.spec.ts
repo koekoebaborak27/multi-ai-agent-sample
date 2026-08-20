@@ -1,14 +1,84 @@
 import { test, expect } from "@playwright/test";
-import { evidenceDirectory, login, prisma, selectOption, selectParty } from "./contract-test-helpers";
+import {
+  evidenceDirectory,
+  login,
+  prisma,
+  selectOption,
+  selectParty,
+} from "./contract-test-helpers";
 const evidence = evidenceDirectory("UT_21_契約新規登録");
 test.describe.serial("契約新規登録（CTR-02/03）", () => {
- const ids:string[]=[]; let party:{id:string;name:string}; let category:{id:number;content:string};
- test.beforeAll(async()=>{ party=await prisma.party.create({data:{name:"E2E契約登録先"}}); ids.push(party.id); category=await prisma.master.findFirstOrThrow({where:{category:{code:"CONTRACT_TYPE"}}}); });
- test.afterAll(async()=>{await prisma.contract.deleteMany({where:{partyId:{in:ids}}});await prisma.party.deleteMany({where:{id:{in:ids}}});await prisma.$disconnect();});
- async function fill(page:any,title:string){await login(page);await page.goto("/contracts/new");await selectParty(page,party.name);await page.getByRole("textbox",{name:"契約名"}).fill(title);}
- test("TC-001 必須項目のみで登録する",async({page})=>{await fill(page,"E2E必須契約");await page.getByRole("button",{name:"確認する"}).click();await expect(page.getByText("新規登録",{exact:true})).toBeVisible();await page.screenshot({path:evidence("001_新規登録確認画面.png"),fullPage:true});await page.getByRole("button",{name:"実行"}).click();await expect(page.getByText("登録しました")).toBeVisible({timeout:15000});const c=await prisma.contract.findFirstOrThrow({where:{title:"E2E必須契約"}});expect(c.status).toBe("DRAFT");});
- test("TC-002 全項目を指定して登録する",async({page})=>{await fill(page,"E2E全項目契約");await page.getByLabel("開始日").fill("2026-01-01");await page.getByLabel("終了日").fill("2026-12-31");await selectOption(page,"有効","状態");await selectOption(page,category.content,"契約分類");await page.getByRole("button",{name:"確認する"}).click();await page.getByRole("button",{name:"実行"}).click();await expect(page.getByText("登録しました")).toBeVisible({timeout:15000});});
- test("TC-003〜TC-004 必須項目エラー",async({page})=>{await login(page);await page.goto("/contracts/new");await page.getByRole("textbox",{name:"契約名"}).fill("x");await page.getByRole("button",{name:"確認する"}).click();await expect(page.getByText("契約先は必須です")).toBeVisible();await fill(page,"");await page.getByRole("textbox",{name:"契約名"}).evaluate((el:any)=>el.removeAttribute("required"));await page.getByRole("button",{name:"確認する"}).click();await expect(page.getByText("契約名は必須です")).toBeVisible();await page.screenshot({path:evidence("004_契約名未入力エラー.png"),fullPage:true});});
- test("TC-007〜TC-010 境界値・修正・キャンセル",async({page})=>{await fill(page,"a".repeat(200));await page.getByRole("button",{name:"確認する"}).click();await page.getByRole("button",{name:"実行"}).click();await expect(page.getByText("登録しました")).toBeVisible({timeout:15000});await fill(page,"修正確認契約");await page.getByRole("button",{name:"確認する"}).click();await page.getByRole("button",{name:"入力内容を修正"}).click();await expect(page.getByRole("textbox",{name:"契約名"})).toHaveValue("修正確認契約");await page.getByRole("link",{name:"キャンセル"}).click();await expect(page).toHaveURL(/\/contracts$/);});
- test("TC-012 VIEWERは新規登録画面を開けない",async({page})=>{await login(page,"viwTest",process.env.SEED_VIEWER_PASSWORD??"test@123");await page.goto("/contracts/new");await expect(page).toHaveURL("http://localhost:3000/contracts");await page.screenshot({path:evidence("012_VIEWER権限制御.png"),fullPage:true});});
+  const ids: string[] = [];
+  let party: { id: string; name: string };
+  let category: { id: number; content: string };
+  test.beforeAll(async () => {
+    party = await prisma.party.create({ data: { name: "E2E契約登録先" } });
+    ids.push(party.id);
+    category = await prisma.master.findFirstOrThrow({
+      where: { category: { code: "CONTRACT_TYPE" } },
+    });
+  });
+  test.afterAll(async () => {
+    await prisma.contract.deleteMany({ where: { partyId: { in: ids } } });
+    await prisma.party.deleteMany({ where: { id: { in: ids } } });
+    await prisma.$disconnect();
+  });
+  async function fill(page: any, title: string) {
+    await login(page);
+    await page.goto("/contracts/new");
+    await selectParty(page, party.name);
+    await page.getByRole("textbox", { name: "契約名" }).fill(title);
+  }
+  test("TC-001 必須項目のみで登録する", async ({ page }) => {
+    await fill(page, "E2E必須契約");
+    await page.getByRole("button", { name: "確認する" }).click();
+    await expect(page.getByText("新規登録", { exact: true })).toBeVisible();
+    await page.screenshot({ path: evidence("001_新規登録確認画面.png"), fullPage: true });
+    await page.getByRole("button", { name: "実行" }).click();
+    await expect(page.getByText("登録しました")).toBeVisible({ timeout: 15000 });
+    const c = await prisma.contract.findFirstOrThrow({ where: { title: "E2E必須契約" } });
+    expect(c.status).toBe("DRAFT");
+  });
+  test("TC-002 全項目を指定して登録する", async ({ page }) => {
+    await fill(page, "E2E全項目契約");
+    await page.getByLabel("開始日").fill("2026-01-01");
+    await page.getByLabel("終了日").fill("2026-12-31");
+    await selectOption(page, "有効", "状態");
+    await selectOption(page, category.content, "契約分類");
+    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "実行" }).click();
+    await expect(page.getByText("登録しました")).toBeVisible({ timeout: 15000 });
+  });
+  test("TC-003〜TC-004 必須項目エラー", async ({ page }) => {
+    await login(page);
+    await page.goto("/contracts/new");
+    await page.getByRole("textbox", { name: "契約名" }).fill("x");
+    await page.getByRole("button", { name: "確認する" }).click();
+    await expect(page.getByText("契約先は必須です")).toBeVisible();
+    await fill(page, "");
+    await page
+      .getByRole("textbox", { name: "契約名" })
+      .evaluate((el: any) => el.removeAttribute("required"));
+    await page.getByRole("button", { name: "確認する" }).click();
+    await expect(page.getByText("契約名は必須です")).toBeVisible();
+    await page.screenshot({ path: evidence("004_契約名未入力エラー.png"), fullPage: true });
+  });
+  test("TC-007〜TC-010 境界値・修正・キャンセル", async ({ page }) => {
+    await fill(page, "a".repeat(200));
+    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "実行" }).click();
+    await expect(page.getByText("登録しました")).toBeVisible({ timeout: 15000 });
+    await fill(page, "修正確認契約");
+    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "入力内容を修正" }).click();
+    await expect(page.getByRole("textbox", { name: "契約名" })).toHaveValue("修正確認契約");
+    await page.getByRole("link", { name: "キャンセル" }).click();
+    await expect(page).toHaveURL(/\/contracts$/);
+  });
+  test("TC-012 VIEWERは新規登録画面を開けない", async ({ page }) => {
+    await login(page, "viwTest", process.env.SEED_VIEWER_PASSWORD ?? "test@123");
+    await page.goto("/contracts/new");
+    await expect(page).toHaveURL("http://localhost:3000/contracts");
+    await page.screenshot({ path: evidence("012_VIEWER権限制御.png"), fullPage: true });
+  });
 });
