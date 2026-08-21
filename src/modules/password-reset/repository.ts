@@ -4,6 +4,10 @@ import type { PasswordResetToken, User } from "@prisma/client";
 // 送信回数の上限を数える対象期間（24時間）
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+// 発行記録が確定の時点で使えない状態（使用済み・期限切れ）に変わっていたことを表す、
+// このファイル内だけで使う印。$transaction の中で投げると、それまでの変更がすべて取り消される。
+class TokenNotUsable extends Error {}
+
 export const passwordResetRepository = {
   // メールアドレス（小文字）から利用者を1件取得する
   findUserByEmail(email: string): Promise<User | null> {
@@ -32,5 +36,62 @@ export const passwordResetRepository = {
     expiresAt: Date;
   }): Promise<PasswordResetToken> {
     return prisma.passwordResetToken.create({ data });
+  },
+
+  // 合言葉の要約値から、有効な発行記録と対象の利用者をまとめて取得する。
+  // 使用済み・期限切れ・利用者が存在しない（削除済み含む）のいずれかであれば null を返す
+  // （どれが原因かは呼び出し側でも区別しない。画面には同じ「開けない」表示しかしないため）。
+  async findValidToken(
+    tokenHash: string,
+    now: Date,
+  ): Promise<{ token: PasswordResetToken; user: User } | null> {
+    const token = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+    if (!token || token.usedAt || token.expiresAt <= now) return null;
+
+    const user = await prisma.user.findUnique({ where: { id: token.userId } });
+    if (!user || user.deleted) return null;
+
+    return { token, user };
+  },
+
+  // 新しいパスワードを確定する。パスワードの更新・失敗回数とロックの解除・
+  // 使った発行記録と他の未使用の発行記録の無効化を1つのまとまりとして行い、
+  // 途中で失敗したらすべて元に戻す。
+  // 確定しようとした時点で発行記録が使用済み・期限切れに変わっていた場合
+  // （画面を開いたまま放置された、二重に送信された等）は、何も変更せず false を返す。
+  async resetPassword(params: {
+    tokenId: string;
+    userId: string;
+    passwordHash: string;
+    now: Date;
+  }): Promise<boolean> {
+    try {
+      await prisma.$transaction(async (tx) => {
+        const usedToken = await tx.passwordResetToken.updateMany({
+          where: { id: params.tokenId, usedAt: null, expiresAt: { gt: params.now } },
+          data: { usedAt: params.now },
+        });
+        if (usedToken.count === 0) throw new TokenNotUsable();
+
+        await tx.user.update({
+          where: { id: params.userId },
+          data: {
+            passwordHash: params.passwordHash,
+            mustChangePassword: false,
+            failedAttempts: 0,
+            lockedAt: null,
+          },
+        });
+
+        await tx.passwordResetToken.updateMany({
+          where: { userId: params.userId, usedAt: null, id: { not: params.tokenId } },
+          data: { usedAt: params.now },
+        });
+      });
+      return true;
+    } catch (e) {
+      if (e instanceof TokenNotUsable) return false;
+      throw e;
+    }
   },
 };

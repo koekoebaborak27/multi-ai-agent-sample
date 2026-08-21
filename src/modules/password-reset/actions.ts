@@ -1,7 +1,8 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { passwordResetService } from "@/modules/password-reset/service";
-import { forgotPasswordSchema } from "@/modules/password-reset/validation";
+import { forgotPasswordSchema, resetPasswordSchema } from "@/modules/password-reset/validation";
 import { isAppError } from "@/shared/errors/app-error";
 import { withOp } from "@/shared/observability/with-op";
 
@@ -27,5 +28,35 @@ export const requestPasswordResetAction = withOp(
       if (!isAppError(e)) throw e;
     }
     return { submitted: true };
+  },
+);
+
+/** 再設定フォーム（PWR-02）の状態。エラーがあればメッセージを画面へ返す */
+export interface ResetPasswordFormState {
+  error?: string;
+}
+
+// 新しいパスワードを確定する。
+// URLが無効だった場合はエラーメッセージを画面に返し、成功したらログイン画面へ移動する。
+// お知らせメールの送信に失敗しても、パスワードの変更自体は成功しているため無視する。
+export const resetPasswordAction = withOp(
+  "password-reset.reset",
+  async (_prev: ResetPasswordFormState, formData: FormData): Promise<ResetPasswordFormState> => {
+    const parsed = resetPasswordSchema.safeParse({
+      newPassword: formData.get("newPassword"),
+      confirmPassword: formData.get("confirmPassword"),
+    });
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "入力内容に誤りがあります" };
+    }
+    const token = String(formData.get("token") ?? "");
+
+    try {
+      await passwordResetService.resetPassword(token, parsed.data.newPassword);
+    } catch (e) {
+      if (!isAppError(e)) throw e;
+      if (e.code !== "MAIL_SEND_FAILED") return { error: e.userMessage };
+    }
+    redirect("/login?message=password-reset");
   },
 );

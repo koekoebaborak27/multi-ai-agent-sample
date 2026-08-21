@@ -17,6 +17,7 @@
 |---|---|---|---|
 | ログイン | `/login` | [`src/modules/auth/`](src/modules/auth/) | Credentials（ID/PW）認証。Entra ID は環境変数が揃うと追加表示 |
 | パスワード再発行の申請 | `/forgot-password` | [`src/modules/password-reset/`](src/modules/password-reset/) | ログイン不要。メールアドレスを入力すると再設定用URLを送信（登録の有無は画面に出さない） |
+| パスワードの再設定 | `/reset-password/{token}` | [`src/modules/password-reset/`](src/modules/password-reset/) | ログイン不要。メールのURLから新しいパスワードを設定（失敗回数・アカウントロックも解除。URLは1度使うと無効化） |
 | ダッシュボード | `/` | [`src/modules/announcement/`](src/modules/announcement/) | 最新のお知らせ一覧 |
 | 契約検索一覧 | `/contracts` | [`src/modules/contract/`](src/modules/contract/) | 契約先（コンボボックスで名称検索）・状態・分類による検索、列見出しによるソート、URLクエリ、ページング、新規登録（`/contracts/new`）と確認、詳細（`/contracts/{id}`）、更新（`/contracts/{id}/edit`）と確認（楽観ロック）、削除確認ダイアログ |
 | 契約先検索一覧 | `/parties` | [`src/modules/party/`](src/modules/party/) | 名称・分類による検索、列見出しによるソート、URLクエリ、ページング、新規登録（`/parties/new`）と確認、詳細（`/parties/{id}`）、更新（`/parties/{id}/edit`）と確認（楽観ロック）、削除確認ダイアログ（紐づく契約が残っている場合は削除不可） |

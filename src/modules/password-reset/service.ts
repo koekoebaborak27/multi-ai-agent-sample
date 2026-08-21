@@ -1,7 +1,9 @@
+import { authService } from "@/modules/auth";
 import { passwordResetRepository } from "@/modules/password-reset/repository";
 import { createToken, hashToken } from "@/modules/password-reset/token";
 import type { SkipReason } from "@/modules/password-reset/types";
 import type { ForgotPasswordInput } from "@/modules/password-reset/validation";
+import { AppError } from "@/shared/errors/app-error";
 import { sendMail } from "@/shared/mail";
 import { childLogger } from "@/shared/observability/logger";
 
@@ -9,6 +11,14 @@ import { childLogger } from "@/shared/observability/logger";
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 // 24時間あたりに送ってよい回数の上限
 const MAX_REQUESTS_PER_DAY = 5;
+// URLが使えないときに画面へ出す文言。理由（合言葉不一致・使用済み・期限切れ・利用者不在）
+// によらず同じ文言にする。どれが原因かを外部から探れないようにするため。
+const RESET_TOKEN_INVALID_MESSAGE =
+  "このURLは使用済みか、有効期限が切れています。お手数ですが、もう一度お申し込みください。";
+
+function resetTokenInvalid(): AppError {
+  return new AppError("RESET_TOKEN_INVALID", 400, RESET_TOKEN_INVALID_MESSAGE);
+}
 
 const log = childLogger({ op: "password-reset.request" });
 
@@ -58,5 +68,42 @@ export const passwordResetService = {
       to: email,
       template: { kind: "password-reset", token, userId: user.id, displayName: user.displayName },
     });
+  },
+
+  /** 再設定画面（PWR-02）を開けるかどうかを確かめる。開けない理由は問わない */
+  async canOpen(token: string): Promise<boolean> {
+    const found = await passwordResetRepository.findValidToken(hashToken(token), new Date());
+    return found !== null;
+  },
+
+  /**
+   * 新しいパスワードを確定する。
+   * 確認は画面表示時と同じ内容をやり直し、通ったときだけパスワードを変更する。
+   * 通知メールの送信に失敗しても、パスワードの変更自体は取り消さない。
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const now = new Date();
+    const found = await passwordResetRepository.findValidToken(hashToken(token), now);
+    if (!found) throw resetTokenInvalid();
+
+    const passwordHash = await authService.hashPassword(newPassword);
+    const ok = await passwordResetRepository.resetPassword({
+      tokenId: found.token.id,
+      userId: found.user.id,
+      passwordHash,
+      now,
+    });
+    if (!ok) throw resetTokenInvalid();
+
+    if (found.user.email) {
+      await sendMail({
+        to: found.user.email,
+        template: {
+          kind: "password-changed",
+          userId: found.user.id,
+          displayName: found.user.displayName,
+        },
+      });
+    }
   },
 };

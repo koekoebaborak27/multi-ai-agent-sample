@@ -1,9 +1,10 @@
 /**
- * 対象: password-reset/validation forgotPasswordSchema
- * 目的: メールアドレスの必須・形式・文字数の入力チェックを担保する
+ * 対象: password-reset/validation forgotPasswordSchema・resetPasswordSchema
+ * 目的: メールアドレスの必須・形式・文字数の入力チェックと、
+ *       新しいパスワードの文字数・英数字混在・確認一致の入力チェックを担保する
  */
 import { describe, expect, it } from "vitest";
-import { forgotPasswordSchema } from "@/modules/password-reset/validation";
+import { forgotPasswordSchema, resetPasswordSchema } from "@/modules/password-reset/validation";
 
 describe("password-reset/validation forgotPasswordSchema", () => {
   describe("正常系", () => {
@@ -40,6 +41,70 @@ describe("password-reset/validation forgotPasswordSchema", () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0]?.message).toBe("メールアドレスが長すぎます");
+      }
+    });
+  });
+});
+
+describe("password-reset/validation resetPasswordSchema", () => {
+  describe("正常系", () => {
+    it("8文字以上・英数字混在・確認一致の入力を受け付ける", () => {
+      const result = resetPasswordSchema.safeParse({
+        newPassword: "newpass1",
+        confirmPassword: "newpass1",
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("新しいパスワードが8文字未満の場合", () => {
+    it("「新しいパスワードは8文字以上にしてください」を返す", () => {
+      const result = resetPasswordSchema.safeParse({
+        newPassword: "pass1",
+        confirmPassword: "pass1",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toBe("新しいパスワードは8文字以上にしてください");
+      }
+    });
+  });
+
+  describe("新しいパスワードに英字が含まれない場合", () => {
+    it("「英字を含めてください」を返す", () => {
+      const result = resetPasswordSchema.safeParse({
+        newPassword: "12345678",
+        confirmPassword: "12345678",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toBe("英字を含めてください");
+      }
+    });
+  });
+
+  describe("新しいパスワードに数字が含まれない場合", () => {
+    it("「数字を含めてください」を返す", () => {
+      const result = resetPasswordSchema.safeParse({
+        newPassword: "newpassword",
+        confirmPassword: "newpassword",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toBe("数字を含めてください");
+      }
+    });
+  });
+
+  describe("確認用パスワードが一致しない場合", () => {
+    it("「新しいパスワードが一致しません」を返す", () => {
+      const result = resetPasswordSchema.safeParse({
+        newPassword: "newpass1",
+        confirmPassword: "newpass2",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toBe("新しいパスワードが一致しません");
       }
     });
   });
