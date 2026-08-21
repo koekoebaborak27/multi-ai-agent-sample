@@ -43,6 +43,11 @@ export const userService = {
     const existing = await userRepository.findById(input.userId);
     if (existing) throw Errors.conflict("そのユーザーIDは既に存在します", { userId: input.userId });
 
+    // 大文字・小文字だけが違う同じアドレスを重複登録させないため、保存前に小文字へ揃える
+    const email = input.email.toLowerCase();
+    const existingEmail = await userRepository.findByEmail(email);
+    if (existingEmail) throw Errors.conflict("このメールアドレスは既に使われています", { email });
+
     // パスワードはそのまま保存せず、元に戻せない形に変換してから保存する
     const passwordHash =
       input.password && input.password.length > 0
@@ -53,7 +58,7 @@ export const userService = {
       id: input.userId,
       role: input.role,
       displayName: input.displayName ?? null,
-      email: input.email && input.email.length > 0 ? input.email : null,
+      email,
       passwordHash,
       // 管理者が決めた初期パスワードを本人以外が知っている状態なので、初回ログイン時に変更させる
       mustChangePassword: passwordHash !== null,
@@ -61,14 +66,25 @@ export const userService = {
     return toSummary(user);
   },
 
-  // 利用者の表示名と役割を更新する。
+  // 利用者の表示名・メールアドレス・役割を更新する。
   // パスワードとログインIDはここでは変更できない（パスワードは本人が変更する）。
+  // メールアドレスが未登録の利用者もいるため、空のままの更新も許す。
   async update(input: UpdateUserInput): Promise<UserSummary> {
     const existing = await userRepository.findById(input.userId);
     if (!existing) throw Errors.notFound("ユーザーが見つかりません");
+
+    const email = input.email && input.email.length > 0 ? input.email.toLowerCase() : null;
+    if (email) {
+      const existingEmail = await userRepository.findByEmail(email);
+      if (existingEmail && existingEmail.id !== input.userId) {
+        throw Errors.conflict("このメールアドレスは既に使われています", { email });
+      }
+    }
+
     const user = await userRepository.update(input.userId, {
       role: input.role,
       displayName: input.displayName ?? null,
+      email,
     });
     return toSummary(user);
   },

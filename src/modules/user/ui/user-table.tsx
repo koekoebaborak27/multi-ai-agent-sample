@@ -1,5 +1,6 @@
 import { deleteUserAction } from "@/modules/user/actions";
 import type { UserSortField, UserSummary } from "@/modules/user/types";
+import { UserEditDialog } from "@/modules/user/ui/user-edit-dialog";
 import type { SortOrder } from "@/shared/api/pagination";
 import { Button } from "@/shared/ui/button";
 import {
@@ -42,6 +43,8 @@ export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
           >
             表示名
           </SortableTableHead>
+          {/* 未登録の利用者を見つけられるよう、一覧にもメールアドレスを表示する */}
+          <TableHead>メール</TableHead>
           <SortableTableHead
             sortKey="role"
             currentSort={sort}
@@ -73,7 +76,7 @@ export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
       <TableBody>
         {users.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6} className="text-center text-muted-foreground">
+            <TableCell colSpan={7} className="text-center text-muted-foreground">
               ユーザーがいません
             </TableCell>
           </TableRow>
@@ -82,6 +85,7 @@ export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
             <TableRow key={u.userId}>
               <TableCell className="font-mono">{u.userId}</TableCell>
               <TableCell>{u.displayName ?? "-"}</TableCell>
+              <TableCell>{u.email ?? "-"}</TableCell>
               <TableCell>{u.role}</TableCell>
               <TableCell>{u.authMethod}</TableCell>
               {/*
@@ -99,6 +103,7 @@ export function UserTable({ users, sort, order, baseUrl }: UserTableProps) {
                 )}
               </TableCell>
               <TableCell className="text-right">
+                <UserEditDialog user={u} />
                 {/* 削除する利用者を伝えるため、行ごとに識別子を持たせた小さなフォームにしている */}
                 <form action={deleteUserAction} className="inline">
                   <input type="hidden" name="userId" value={u.userId} />

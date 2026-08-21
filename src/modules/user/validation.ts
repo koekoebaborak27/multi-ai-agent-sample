@@ -11,7 +11,7 @@ const roleEnum = z.enum(ALL_ROLES as [string, ...string[]]);
 export const createUserSchema = z.object({
   userId: z.string().min(1, "ユーザーIDは必須です").max(64, "ユーザーIDは64文字以内です"),
   displayName: z.string().max(128).optional(),
-  email: z.union([z.string().email("メール形式が不正です"), z.literal("")]).optional(),
+  email: z.string().min(1, "メールアドレスは必須です").email("メール形式が不正です"),
   role: roleEnum,
   password: z
     .union([z.string().min(8, "パスワードは8文字以上にしてください").max(128), z.literal("")])
@@ -19,10 +19,14 @@ export const createUserSchema = z.object({
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
-/** 利用者の更新フォームの入力チェック。変更できるのは表示名と役割のみ */
+/**
+ * 利用者の更新フォームの入力チェック。変更できるのは表示名・メールアドレス・役割。
+ * メールアドレスが未登録の利用者もいるため、更新画面でも空のままにしておける。
+ */
 export const updateUserSchema = z.object({
   userId: z.string().min(1).max(64),
   displayName: z.string().max(128).optional(),
+  email: z.union([z.string().email("メール形式が不正です"), z.literal("")]).optional(),
   role: roleEnum,
 });
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
