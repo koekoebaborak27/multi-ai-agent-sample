@@ -30,19 +30,18 @@
 | **workerサンプル一式（Cloud Run Jobs本番構成の構築7＋マスタ情報Excel取得機能9）** | **16 / 16** |
 | **マスタ分類の見直し** | **4 / 4** |
 | **契約先・契約の管理画面整備** | **6 / 6** |
+| **パスワード再発行機能（要件・設計3＋メール送信設定4＋製造6＋テスト1＋本番1）** | **7 / 15** |
 | 残っているタスク（期限なしの宿題） | 未対応 9 件 |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
 
 ## 次にやること
 
-**契約先の単体テスト仕様書作成と画面操作テストが完了した**（2026-08-20）。UT_10〜14（契約先の検索一覧・新規登録・詳細・更新・削除）を計48ケース実施し47件成功、1件（VIEWERによるServer Action直接実行拒否）は技術的制約によりスキップ。詳細は [履歴](history/2026-08-w3.md#2026-08-20-契約先の単体テスト仕様書作成と画面操作テストを完了) を参照。
+**契約先・契約の単体テストとテスト資材の整理まで完了している**（2026-08-20）。詳細は履歴の [契約先](history/2026-08-w3.md#2026-08-20-契約先の単体テスト仕様書作成と画面操作テストを完了)・[フォルダ再編](history/2026-08-w3.md#2026-08-20-単体テスト仕様書証跡e2eテストをドメイン別サブフォルダへ整理)・[契約](history/2026-08-w3.md#2026-08-20-契約の単体テスト仕様書作成と画面操作テストを完了) を参照。
 
-**続けて、`docs/test/unit/spec`・`docs/test/unit/result`・`e2e` を master/party-contract のドメイン別サブフォルダへ再編した**（2026-08-20、[PR #25](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/25)）。詳細は [履歴](history/2026-08-w3.md#2026-08-20-単体テスト仕様書証跡e2eテストをドメイン別サブフォルダへ整理) を参照。
+**メール送信の設定（4）は完了している**（2026-08-21。Gmail SMTP で実送信を確認済み）→ [履歴](history/2026-08-w3.md#2026-08-21-メール送信手段をgmail-smtpへ変更し送信できる状態にした)。
 
-**契約の単体テスト仕様書作成と画面操作テストが完了した**（2026-08-20）。UT_20〜24（契約の検索一覧・新規登録・詳細・更新・削除）を計54ケース実施し53件成功、1件（VIEWERによるServer Action直接実行拒否）は技術的制約により未実施。詳細は [履歴](history/2026-08-w3.md#2026-08-20-契約の単体テスト仕様書作成と画面操作テストを完了) を参照。
-
-**次にやることは、[残っているタスク](#残っているタスク)から優先順位を決めて着手すること。** まず `git status --porcelain` で未コミット差分がないことを確認する。
+**次にやることは、[パスワード再発行機能](#パスワード再発行機能) の 5-工程1（データベースの変更）に着手すること。** 設計は [基本設計書](../specs/02_basic-design/password-reset/README.md) にある。まず `git status --porcelain` で未コミット差分がないことを確認する（**2026-08-21 のメール送信対応が未コミットで残っている場合は先にコミットする**）。
 
 **作業前に必ず確認すること。** ローカルの `.env` が一時的に本番Supabase（`DATABASE_URL`）を指す設定になっていることが2026-08-19に判明した（経緯・対処は [`docs/todo/notes/supabase.md`](notes/supabase.md#2026-08-19-envのdatabase_urlが本番を指したまま残っていた) を参照）。`pnpm dev` / `pnpm worker` / Prismaスクリプトを実行する前に、接続先がローカルであることを確認するか、`.env.local` でローカルDBへ上書きすること。**Prisma CLI（`prisma migrate` 系コマンド）は `.env.local` を読まない**（Next.jsのランタイムだけが優先読み込みする）ため、`DATABASE_URL=<ローカル接続文字列>` を明示的に指定してコマンドを実行すること。
 
@@ -75,14 +74,36 @@ git status --porcelain                                   # 未コミット差分
 - [x] **5. 契約先の単体テスト仕様書を作成し、画面操作テストを実施する**（2026-08-20。UT_10〜14、48ケース中47件成功・1件は技術的制約によりスキップ）→ [履歴](history/2026-08-w3.md#2026-08-20-契約先の単体テスト仕様書作成と画面操作テストを完了)
 - [x] **6. 契約の単体テスト仕様書を作成し、画面操作テストを実施する**（2026-08-20。UT_20〜24、54ケース中53件成功・1件は技術的制約により未実施）→ [履歴](history/2026-08-w3.md#2026-08-20-契約の単体テスト仕様書作成と画面操作テストを完了)
 
+## パスワード再発行機能
+
+ログイン画面の「パスワードを忘れた場合はこちら」から、**メールで届いた URL の画面で利用者自身が新しいパスワードを入力する**方式（2026-08-21 に確定。パスワードそのものはメールに載せない）。メール送信は **SMTP**（テンプレートの検証は Gmail、本格流用時は Resend / Amazon SES へ乗り換え。理由は [`foundation_plan.md` §6-2](../foundation_plan.md#6-2-メール送信テンプレートは-gmail-smtp本格流用時は-resend--amazon-ses)）。設計書は [`02_basic-design/password-reset/`](../specs/02_basic-design/password-reset/README.md)。
+
+- [x] **1. 要件定義を行う**（2026-08-21。要件定義書は [`01_パスワードリセット.md`](../specs/01_requirements/password-reset/01_パスワードリセット.md)）→ [履歴](history/2026-08-w3.md#2026-08-21-パスワード再発行機能の要件定義を実施)
+- [x] **2. 設計書を作成する**（2026-08-21。[`02_basic-design/password-reset/`](../specs/02_basic-design/password-reset/README.md) に7ファイル）→ [履歴](history/2026-08-w3.md#2026-08-21-パスワードリセット機能の設計書を作成)
+- [x] **3. 製造工程をチェックリスト化する**（2026-08-21。下記5番の工程1〜6へ分解済み）→ [履歴](history/2026-08-w3.md#2026-08-21-パスワードリセット機能の設計書を作成)
+- [x] **4. メールを送信できる状態にする**（2026-08-21。コンソール操作はユーザー自身が実施）→ [履歴](history/2026-08-w3.md#2026-08-21-メール送信手段をgmail-smtpへ変更し送信できる状態にした)
+  - [x] 4-1. Resend の無料枠と制約を確認した（月3,000通・1日100通。**ただし独自ドメインを登録するまで他人宛に送れない**と判明し、下記の方針変更に至った）
+  - [x] 4-2. 送信手段を **Gmail SMTP** に決めた（ドメイン不要・無料で他人宛に送れる。本格流用時は Resend / Amazon SES へ乗り換える）
+  - [x] 4-3. 送信専用の Google アカウントを作り、2段階認証を有効にしてアプリパスワードを発行した（DNS 設定は不要になった）
+  - [x] 4-4. `.env.local` へ設定し実送信を確認、手順を [`infra_design_09_メール送信.md`](../specs/99_infra/infra_design_09_メール送信.md) へ残した（**本番の Secret Manager 登録は 7 で実施する**）
+- [ ] **5. 製造する**
+  - [ ] 工程1. データベースを変更する（`User.email` の重複禁止と小文字化、`PasswordResetToken`・`EmailChangeToken` の追加。[`01_データベース.md`](../specs/02_basic-design/password-reset/01_データベース.md)）
+  - [ ] 工程2. メール送信の共通の仕組みを作る（`shared/mail`。設定・4種類の文面・開発時はログへ出すだけ。[`02_メール送信.md`](../specs/02_basic-design/password-reset/02_メール送信.md)）
+  - [ ] 工程3. 利用者管理をメールアドレスに対応させる（登録時必須・更新画面で変更可・一覧に表示。[`20_メールアドレス管理.md` §20.1](../specs/02_basic-design/password-reset/20_メールアドレス管理.md#201-管理者による登録と変更)）
+  - [ ] 工程4. 再発行の申請画面（PWR-01）とログイン画面のリンクを実装する（送信回数の制限・公開ルートの設定を含む。[`10_再発行申請.md`](../specs/02_basic-design/password-reset/10_再発行申請.md)）
+  - [ ] 工程5. パスワード再設定画面（PWR-02）を実装する（ロック解除・変更完了メールを含む。[`11_パスワード再設定.md`](../specs/02_basic-design/password-reset/11_パスワード再設定.md)）
+  - [ ] 工程6. 本人によるメールアドレス変更（EML-01・EML-02）を実装する（確認用URLで確かめる。[`20_メールアドレス管理.md` §20.2](../specs/02_basic-design/password-reset/20_メールアドレス管理.md#202-本人による変更eml-01)）
+- [ ] **6. 単体テスト仕様書を作成し、画面操作テストを実施する**
+- [ ] **7. 本番へ反映する**（マイグレーション適用・**Secret Manager へ `smtp-password` を登録**し Cloud Run の環境変数を設定・本番での送信確認。手順は [`infra_design_09_メール送信.md` §09.1.7](../specs/99_infra/infra_design_09_メール送信.md#0917-本番cloud-runに設定する)）
+
 ## 残っているタスク
 
 いずれも**期限のない宿題**。判断材料は各リンク先にまとまっている。
 
 - [ ] **`main` のブランチ保護をどうするか決める** — 当面は運用ルールで守る。選択肢 3 つと確認コマンドは [`docs/specs/99_infra/` §02.1.6](../specs/99_infra/infra_design_02_GitHubリポジトリ.md#0216-ブランチ保護を設定する)
-- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §09.1.1](../specs/99_infra/infra_design_09_構築後の運用.md#0911-本番へ反映する)
+- [ ] **ドキュメントのみの変更で Cloud Build を走らせない仕組みを入れるか決める** — 当面は放置。選択肢 3 つは [`docs/specs/99_infra/` §09.1.1](../specs/99_infra/infra_design_10_構築後の運用.md#1011-本番へ反映する)
 - [ ] **`output: "standalone"` 化を検討する** — 「Cloud Run Jobs本番構成の構築」の1で worker 用イメージの分離が完了し、着手条件は整った。論点・落とし穴 5 つ・検証コマンドは [`docs/todo/notes/`](notes/docker-image.md#standalone-化の設計上の論点)
-- [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §09.1.2](../specs/99_infra/infra_design_09_構築後の運用.md#0912-データベースの構造を変更する)
+- [ ] **マイグレーションの自動化を検討する** — 当面はローカルからの手動 `prisma migrate deploy`。理由と手順は [`prisma_operations.md`](../prisma_operations.md)、[`docs/specs/99_infra/` §09.1.2](../specs/99_infra/infra_design_10_構築後の運用.md#1012-データベースの構造を変更する)
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 - [ ] **Prismaのマイグレーション履歴を1本に統合するか検討する** — 今のこの本番運用中プロジェクトでは統合しない（本番DBの`_prisma_migrations`の記録とファイルの中身が食い違い、次回の`prisma migrate deploy`が失敗するため。[`prisma_operations.md`](../prisma_operations.md) §1-6「やってはいけないこと」参照）。次にこのリポジトリを新しい案件のテンプレートとして複製する際（[`foundation_plan.md`](../foundation_plan.md) §9、Supabase/Google Cloudのプロジェクトを新規作成するタイミング）、真っさらなDBに対して `migrations` を1本の初期マイグレーションへ作り直すことを検討する
 
@@ -100,6 +121,7 @@ git status --porcelain                                   # 未コミット差分
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし）。マスタ情報Excel取得（MST-11）はUT_30（2026-08-19）でローカルのPlaywright実機確認（全11ケース）を完了済み。マスタ分類の見直し（工程1〜4）は2026-08-19にローカルで手動のブラウザ確認済み（Playwright仕様書は未作成）。契約先（PTY-01〜05）はUT_10〜14（2026-08-20）でローカルのPlaywright実機確認（48ケース中47件成功・1件は技術的制約によりスキップ）を完了済み。契約（CTR-01〜05）はUT_20〜24（2026-08-20）でローカルのPlaywright実機確認（54ケース中53件成功・1件は技術的制約により未実施）を完了済み |
 | 直近の検証 | 2026-08-20、契約の単体テストでUT_20〜24のPlaywright画面操作テストを実施し、54ケース中53件成功・1件未実施。同日、単体テスト仕様書・証跡・E2Eテストのドメイン別サブフォルダ再編で `pnpm typecheck`/`format:check` 成功。契約先の単体テストでは `pnpm lint`/`format:check`/`typecheck`/`test`（298件）/`build` すべて成功 |
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1、`https://contract-app-24516671242.us-central1.run.app`）。Cloud Run Jobs `contract-worker`（us-central1）は worker専用サービスアカウント `contract-worker-runner` で稼働（Secret Manager の `database-url` / `supabase-service-role-key` への参照権限のみ付与）。タスクのタイムアウトは900秒。Cloud Buildはapp・worker両方のイメージを自動でビルド・反映する設定済み。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
+| メール送信 | **ローカルのみ設定済み**（2026-08-21）。送信専用の Gmail アカウントとアプリパスワードを `.env.local` に設定し、実送信を確認済み。**本番（Cloud Run / Secret Manager）は未設定**。`.env.example` の既定は `MAIL_TRANSPORT=console`（送らずログへ出すだけ）のため、設定なしでも開発できる |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
 
 ## 完了済みの作業

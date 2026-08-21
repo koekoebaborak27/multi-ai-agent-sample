@@ -29,6 +29,7 @@
 - shadcn/ui + Tailwind CSS、React Hook Form + Zod
 - 一覧表示は shadcn/ui の `<Table>` ＋ サーバ駆動のソート/ページング（TanStack Table は不採用）
 - pg-boss（ジョブワーカー雛形）、papaparse + iconv-lite（CSV、将来用）
+- nodemailer（メール送信。SMTP のみに対応し、特定サービスの独自 API には依存しない。§6-2 参照）
 - Pino（構造化ログ）
 - Vitest（単体）+ Playwright（E2E 雛形）
 - lint/format: ESLint + Prettier
@@ -82,6 +83,16 @@ Prisma の標準的な命名規約に従う（テーブル名・カラム名と�
 - **`AUTH_URL`**: Cloud Run の URL はデプロイ前に確定しないため、初回デプロイ後に発行された URL を設定して再デプロイする 2 段階になる。`AUTH_TRUST_HOST=true` はリバースプロキシ背後のため必須（`env.ts` の既定は `false`）。
 - **無料枠の制約**: DB容量・ストレージ容量・稼働時間・スリープ等の制限があるため、利用開始時・本番公開前に各サービスの最新の無料枠条件を確認する。
 
+## 6-2. メール送信（テンプレートは Gmail SMTP、本格流用時は Resend / Amazon SES）
+
+> **2026-08-21 決定**: 当初はパスワード再発行のメール送信に Resend の独自 API を使う想定だったが、**Resend・Amazon SES とも「送信元として自分が管理するドメインを登録するまで他人宛に送れない」制約があり、ドメイン取得に年間費用がかかる**ことが判明した。テンプレートを完全無料で検証できる状態に保つため、次の二段構えへ変更した。経緯は [`docs/todo/history/`](todo/history/2026-08-w3.md#2026-08-21-メール送信手段をgmail-smtpへ変更し送信できる状態にした)。
+
+- **アプリが対応するのはメール送信の共通規格である SMTP のみ**とし、特定サービスの独自の呼び出し方には対応しない。Gmail・Resend・Amazon SES はいずれも SMTP に対応しているため、**接続先の設定値（`SMTP_*`）を差し替えるだけで乗り換えられ、コードの変更が不要**になる。
+- **このテンプレートの動作確認は Gmail SMTP で行う。** ドメインを持たなくても無料で他人宛に送れるため。送信専用の Google アカウントを作り、そのアプリパスワードを使う。1日あたり約500通が上限。
+- **案件へ本格的に流用する段階では Resend または Amazon SES へ乗り換える。** Gmail は業務利用を想定した仕組みではなく、独自ドメインのアドレスを差出人にできないため。乗り換えに必要なのはドメインの用意・DNS への SPF / DKIM 登録・`SMTP_*` の差し替えのみ。
+- 開発中は `MAIL_TRANSPORT=console` とし、実際には送らず内容をログへ出す。
+- 設定手順は [`docs/specs/99_infra/` §09.1](specs/99_infra/infra_design_09_メール送信.md#091-手順8-メール送信を設定する)、設計は [`02_メール送信.md`](specs/02_basic-design/password-reset/02_メール送信.md)。
+
 ## 7. CI/CD（GitHub Actions + Cloud Build）
 
 - **GitHub Actions**（[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)）: push / PR ごとに `pnpm install` → ESLint → Prettier check → `tsc --noEmit` → `prisma validate` → Vitest → `next build` を実行。PostgreSQLは `services:` で起動しマイグレーション適用まで検証する。**デプロイは行わない**（テストのみ）。
@@ -108,6 +119,15 @@ MAX_ATTEMPTS=20
 PAGE_SIZE=30
 LOG_LEVEL=info
 LOG_PRETTY=true
+
+APP_BASE_URL=http://localhost:3000   # メールに載せるURLの先頭部分。本番はCloud RunのURL
+MAIL_TRANSPORT=console               # console（ログへ出すだけ）| smtp（実際に送る）
+MAIL_FROM=                           # 送信元アドレス。Gmailの場合はSMTP_USERと同じ値
+MAIL_FROM_NAME=契約管理システム
+SMTP_HOST=smtp.gmail.com             # SESは email-smtp.<region>.amazonaws.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=                       # Gmailはアプリパスワード16文字。本番はSecret Managerの smtp-password
 ```
 
 ## 9. 案件ごとの拡張方法
@@ -118,6 +138,7 @@ LOG_PRETTY=true
 2. 案件固有の業務モジュールを `src/modules/<機能>/` に追加する（標準ファイル構成に従う）。
 3. 認証で Entra ID が不要な案件は `.env` に Entra 関連の値を設定しないだけでよい（コード変更不要）。
 4. Supabase / Google Cloud のプロジェクトを案件ごとに新規作成し、環境変数を差し替える。
+5. メール送信を使う案件は、**Gmail SMTP から Resend または Amazon SES へ乗り換える**（§6-2）。案件のドメインを用意し、DNS へ SPF / DKIM を登録し、`SMTP_*` と `MAIL_FROM` を差し替える。コードの変更は不要。手順は [`docs/specs/99_infra/` §09.1.8](specs/99_infra/infra_design_09_メール送信.md#0918-本格運用時に-resend--amazon-ses-へ乗り換える)。
 
 ## 参照
 
