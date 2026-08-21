@@ -17,6 +17,7 @@
 | [`storage-signed-url.md`](storage-signed-url.md) | Supabase Storage の公開 URL から署名 URL への差し替え方針と、実機確認で判明した落とし穴。 |
 | [`docker-image.md`](docker-image.md) | 本番イメージの軽量化（実測値つきの内訳）、worker の起動方法、未実施の standalone 化の論点。 |
 | [`cloud-run.md`](cloud-run.md) | Cloud Run のサービス作成時の設定値、Cloud Build が落ちた 2 つの原因、本番の環境変数と確認手順。 |
+| [`prisma-cli.md`](prisma-cli.md) | `prisma migrate dev` がエージェントの非対話シェルで使えない問題と、`prisma migrate diff` を使った代替手順。 |
 
 ## 全節の索引
 
@@ -38,3 +39,4 @@
 | 2026-08-04 | [本番の環境変数](cloud-run.md#本番の環境変数) | Cloud Run に設定する 9 個 |
 | 2026-08-04 | [デプロイ後の確認](cloud-run.md#デプロイ後の確認) | 疎通コマンドと、自動デプロイの反映を判定する方法 |
 | 2026-08-04 | [本番で動かさないもの](cloud-run.md#本番で動かさないもの) | ワーカー / ローカル用 DB |
+| 2026-08-21 | [`prisma migrate dev` がエージェントの非対話シェルで使えない](prisma-cli.md#prisma-migrate-dev-がエージェントの非対話シェルで使えない) | `prisma migrate diff` + 手動フォルダ作成 + `migrate deploy` での代替手順 |

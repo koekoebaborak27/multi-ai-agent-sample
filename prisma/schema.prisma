@@ -23,11 +23,36 @@ model User {
   lockedAt           DateTime? // ロック日時（null=未ロック）
   mustChangePassword Boolean   @default(false) // 次回ログイン時にPW変更を強制
   externalId         String?   @unique // Entra の oid(sub)。突合キー
-  email              String?
+  email              String?   @unique // 保存前に小文字へ揃える。空(null)は重複扱いされないため複数人が空のままでも問題ない
   displayName        String?
   deleted            Boolean   @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+}
+
+/// パスワード再設定用URLの発行記録。URLの合言葉はそのまま保存せず、要約値だけを持つ。
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String // 対象の利用者（User.id。FK は張らない。既存方針に合わせる）
+  tokenHash String    @unique // 合言葉の要約値（SHA-256の16進文字列）
+  expiresAt DateTime // 有効期限（発行から30分後）
+  usedAt    DateTime? // 使った日時。null なら未使用
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt]) // 24時間の発行回数を数えるために使う
+}
+
+/// 本人によるメールアドレス変更の申し込み。確認用URLが開かれるまで User.email は変えない。
+model EmailChangeToken {
+  id        String    @id @default(cuid())
+  userId    String // 申し込んだ利用者（User.id）
+  newEmail  String // 変更先のメールアドレス（小文字へ揃えて保存する）
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }
 
 /// ダッシュボード用お知らせ（任意機能）。
