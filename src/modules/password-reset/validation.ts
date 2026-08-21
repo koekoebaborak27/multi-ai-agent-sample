@@ -30,3 +30,24 @@ export const resetPasswordSchema = z
     message: "新しいパスワードが一致しません",
   });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/**
+ * メールアドレス変更申し込み画面（EML-01）の入力チェック。
+ * 「今のアドレスと同じでないこと」を確かめるには今のアドレスが要るため、固定のスキーマにはできず、
+ * 呼び出す側が今のアドレスを渡して作る関数にしている。
+ */
+export function requestEmailChangeSchema(currentEmail: string | null) {
+  return z
+    .object({
+      newEmail: z
+        .string()
+        .min(1, "メールアドレスを入力してください")
+        .email("メールアドレスの形式が正しくありません")
+        .max(254, "メールアドレスが長すぎます"),
+    })
+    .refine((v) => v.newEmail.toLowerCase() !== (currentEmail ?? "").toLowerCase(), {
+      path: ["newEmail"],
+      message: "現在のメールアドレスと同じです",
+    });
+}
+export type RequestEmailChangeInput = z.infer<ReturnType<typeof requestEmailChangeSchema>>;

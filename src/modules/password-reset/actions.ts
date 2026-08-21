@@ -2,7 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { passwordResetService } from "@/modules/password-reset/service";
-import { forgotPasswordSchema, resetPasswordSchema } from "@/modules/password-reset/validation";
+import {
+  forgotPasswordSchema,
+  requestEmailChangeSchema,
+  resetPasswordSchema,
+} from "@/modules/password-reset/validation";
+import { getCurrentUser } from "@/shared/auth/session";
+import { MESSAGES } from "@/shared/constants/messages";
 import { isAppError } from "@/shared/errors/app-error";
 import { withOp } from "@/shared/observability/with-op";
 
@@ -58,5 +64,41 @@ export const resetPasswordAction = withOp(
       if (e.code !== "MAIL_SEND_FAILED") return { error: e.userMessage };
     }
     redirect("/login?message=password-reset");
+  },
+);
+
+/** メールアドレス変更申し込みフォーム（EML-01）の状態。エラーがあればメッセージを画面へ返す */
+export interface RequestEmailChangeFormState {
+  error?: string;
+  submitted?: boolean;
+}
+
+// メールアドレス変更の申し込みを受け付ける。
+// 入力されたアドレス宛に確認メールを送るため、送信に失敗した場合は（パスワード再発行と違い）
+// エラーをそのまま画面に出す。自分で入力したアドレスなので、届かないことを伝えてよい。
+export const requestEmailChangeAction = withOp(
+  "password-reset.request-email-change",
+  async (
+    _prev: RequestEmailChangeFormState,
+    formData: FormData,
+  ): Promise<RequestEmailChangeFormState> => {
+    const user = await getCurrentUser();
+    if (!user) return { error: MESSAGES.auth.loginRequired };
+
+    const currentEmail = await passwordResetService.getCurrentEmail(user.id);
+    const parsed = requestEmailChangeSchema(currentEmail).safeParse({
+      newEmail: formData.get("newEmail"),
+    });
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "入力内容に誤りがあります" };
+    }
+
+    try {
+      await passwordResetService.requestEmailChange(user.id, parsed.data.newEmail);
+    } catch (e) {
+      if (!isAppError(e)) throw e;
+      return { error: e.userMessage };
+    }
+    return { submitted: true };
   },
 );
