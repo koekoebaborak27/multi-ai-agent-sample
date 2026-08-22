@@ -40,3 +40,4 @@
 | 2026-08-04 | [デプロイ後の確認](cloud-run.md#デプロイ後の確認) | 疎通コマンドと、自動デプロイの反映を判定する方法 |
 | 2026-08-04 | [本番で動かさないもの](cloud-run.md#本番で動かさないもの) | ワーカー / ローカル用 DB |
 | 2026-08-21 | [`prisma migrate dev` がエージェントの非対話シェルで使えない](prisma-cli.md#prisma-migrate-dev-がエージェントの非対話シェルで使えない) | `prisma migrate diff` + 手動フォルダ作成 + `migrate deploy` での代替手順 |
+| 2026-08-22 | [ローカルのDocker全部入れ運用でnode_modulesが古いまま固定される](docker-image.md#2026-08-22-ローカルのdocker全部入れ運用でnode_modulesが古いまま固定される) | 匿名ボリュームの仕組みと`pnpm install`自動化による恒久対応 |

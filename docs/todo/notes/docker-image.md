@@ -15,6 +15,7 @@
 | 2026-08-02 | [本番イメージから落としたもの](#本番イメージから落としたもの) | 実測値つきの内訳。効いた施策と効かなかった施策 |
 | 2026-08-02 | [worker の起動コマンド](#worker-の起動コマンド) | 環境ごとの正しい起動方法と、`pnpm worker` が本番で使えない 2 つの理由 |
 | 未実施 | [standalone 化の設計上の論点](#standalone-化の設計上の論点) | worker との衝突、5 つの落とし穴、ローカル検証手順 |
+| 2026-08-22 | [ローカルのDocker全部入れ運用でnode_modulesが古いまま固定される](#2026-08-22-ローカルのdocker全部入れ運用でnode_modulesが古いまま固定される) | 匿名ボリュームの仕組みと`pnpm install`自動化による恒久対応 |
 
 ## 2026-08-02 イメージを軽量化する
 
@@ -115,6 +116,33 @@ node: .env: not found
 ```
 
 起動のたびに外部へ取得しに行くのは遅く、ネットワーク不調なら起動そのものが失敗する。**本番コンテナ内では実行ファイルを直接叩くこと。** この注意は [`docker/Dockerfile`](../../../docker/Dockerfile) の `CMD` 付近にもコメントで残してある。
+
+## 2026-08-22 ローカルのDocker全部入れ運用でnode_modulesが古いまま固定される
+
+**症状。** `docker compose up -d`（`db`/`app`/`worker`全部をDockerで動かす運用）で開発中、`package.json`に依存パッケージを追加したはずなのに `Module not found: Can't resolve '<パッケージ名>'` というビルドエラーが起きた（今回は`nodemailer`）。
+
+**原因。** [`docker-compose.yml`](../../../docker/docker-compose.yml) の `app`/`worker` サービスは次の3つをボリュームとして持つ。
+
+```yaml
+volumes:
+  - ..:/app              # ソースコードはホストと共有（リアルタイム反映）
+  - /app/node_modules     # ← 匿名ボリューム。イメージビルド時点の中身のまま固定される
+  - /app/.next
+```
+
+`..:/app`でソースコードは常に最新が見えるが、`/app/node_modules`は**匿名ボリューム**（コンテナ起動用の一時領域）として別扱いになっており、`docker compose up`のたびに`pnpm install`が走るわけではない。**イメージをビルドした時点のnode_modulesがそのまま固定される。** 今回はイメージビルド日（2026-08-03）より後（2026-08-21）に`nodemailer`を`package.json`へ追加したため、コンテナ内には存在しなかった。
+
+**紛らわしかった点。** このリポジトリには「DBだけDocker＋アプリはホストで直接`pnpm dev`」という運用（`AGENTS.md`が元々案内していた既定の手順）と、「DB・アプリ・worker全部Docker」という運用の2通りが存在する。作業中に無自覚にこの2つが入れ替わり、「ホストで動くのにDockerでは動かない」という食い違いとして表面化した。原因の切り分けには、エラー画面のスタックトレースのパス形式（Windowsパス `C:\...` ならホスト直接、Linuxパス `/app/...` ならDockerコンテナ内）が手がかりになった。
+
+**恒久対応。** `app`/`worker`の起動コマンド先頭に `pnpm install &&` を追加し、コンテナ起動のたびに自動で依存関係を揃え直すようにした。
+
+```
+command: sh -c "pnpm install && pnpm prisma generate && pnpm prisma migrate deploy && pnpm exec next dev --webpack"
+```
+
+依存関係が既に揃っている場合、`pnpm install`は数秒で完了を確認するだけなので起動時間への影響は小さい。あわせて、`next.config.ts`の`serverExternalPackages`に`nodemailer`が漏れていた（Node専用パッケージをバンドル対象から外す設定。`pino`/`pg-boss`等は登録済みだったが、後から追加した`nodemailer`だけ登録し忘れていた）ことも判明したため、そちらも追記した。
+
+**どちらの運用を使うかは案件ごとに選ぶ。** 本リポジトリでは現在「DB・アプリ・worker全部Docker」を採用している（`AGENTS.md`の「ポイント」節に明記）。
 
 ## 未実施 standalone 化（積み残し）
 
