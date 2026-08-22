@@ -28,7 +28,7 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/`     | アプリ本体（`app/` ルーティング → `modules/<機能>` 縦割り → `shared/` 横断）。規約は `@src/AGENTS.md`                                                                                                                                                   |
 | `prisma/`  | スキーマ・マイグレーション・seed。規約は `@prisma/AGENTS.md`                                                                                                                                                                                      |
-| `docker/`  | Dockerfile（app/worker 共用）+ docker-compose（ローカル開発用 DB）                                                                                                                                                                           |
+| `docker/`  | Dockerfile（app/worker 共用）+ docker-compose（「DB だけ」「DB・app・worker 全部」の 2 通りの起動に対応）                                                                                                                                                     |
 | `docs/`    | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/`、開発フローは `docs/development/gitの操作ルール.md`、残タスク一式は `docs/todo/`（本編 `TODO.md` + 補足 `notes/` + 履歴 `history/`）。設計書と手順書は機能・手順ごとに分割してあり、各ディレクトリの `README.md` が索引 |
 | `.github/` | Copilot 指示（`copilot-instructions.md`）+ Copilot プロンプト（`prompts/`）+ CI ワークフロー（`workflows/ci.yml`）                                                                                                                                 |
 | `.agents/` | Codex が読むリポジトリ内スキル（`skills/<name>/SKILL.md`）                                                                                                                                                                                    |
@@ -42,7 +42,10 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 - **CI は GitHub Actions**（lint / typecheck / test）、**デプロイは Cloud Run の GitHub 連携自動デプロイ**（Cloud Build トリガー。push 契機。GitHub Actions 側に deploy ワークフローは持たない）。
 - 本番 DB / ストレージは **Supabase**（PostgreSQL + Storage）。ローカルは Docker Compose の PostgreSQL + ローカルファイルシステムで代替する。
 - **Next.js 16 ではミドルウェアは `src/proxy.ts`**（旧 `middleware.ts` から改名・Node ランタイム）。
-- ローカル開発は `pnpm dev` の前に DB を起動: `docker compose -f docker/docker-compose.yml up -d db`
+- **ローカル開発の起動方法は2通りあり、このテンプレート自体はどちらにも対応している。** 案件（このテンプレートを使う各プロジェクト）ごとにどちらを使うか決め、決めた方法をこの節に書き足しておく。
+  - **DBだけDocker＋アプリはパソコンで直接動かす**: `docker compose -f docker/docker-compose.yml up -d db` の後に `pnpm dev`。修正がすぐ反映され、後述の「部品の入れ忘れ」も起きない。
+  - **DB・アプリ・workerを全部Docker（箱）の中で動かす**: `docker compose -f docker/docker-compose.yml up -d`。環境をまるごと揃えたい場合向け。**注意点**: `app`/`worker` の箱の中にある部品（`node_modules`）は、箱を作った時点の中身のまま固定される保存領域に入っている。そのため `package.json` に部品を追加・更新した後は、`docker compose -f docker/docker-compose.yml exec app pnpm install`（`worker` を使っている場合は同様に `exec worker`）を実行して箱の中身も揃えないと、「Module not found」のようなエラーになる。
+  - 本リポジトリでは現在「DB・アプリ・workerを全部Docker」を使用している。
 - 認証は Auth.js v5。Credentials（ID/PW）は必須、Microsoft Entra ID は環境変数が揃っている場合のみ有効化される任意プロバイダ（案件によって使う/使わないを選べる）。
 
 ## 最小規約
