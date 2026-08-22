@@ -52,8 +52,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # 起動のたびに Prisma Client を最新化 → マイグレーション適用 → dev サーバ起動
-    command: sh -c "pnpm prisma generate && pnpm prisma migrate deploy && pnpm exec next dev --webpack"
+    # 起動のたびに 部品を最新化 → Prisma Client を最新化 → マイグレーション適用 → dev サーバ起動
+    # node_modules はイメージを作った時点の中身のまま固定される保存領域のため、
+    # package.json に部品を追加・更新しても起動時に pnpm install しないと反映されない
+    command: sh -c "pnpm install && pnpm prisma generate && pnpm prisma migrate deploy && pnpm exec next dev --webpack"
 
   worker:
     build:
@@ -81,7 +83,10 @@ services:
     # 先に走る prisma generate と tsx watch 自身が 9229 を取り合い、肝心の worker 本体が
     # 「address already in use」で受付口を持てないため（実測で確認済み）。
     # tsx watch は Node フラグを実行側の子プロセスへ渡すので、この書き方なら本体に付く。
-    command: sh -c "pnpm prisma generate && pnpm exec tsx watch --inspect=0.0.0.0:9229 --env-file-if-exists=.env src/worker/index.ts"
+    #
+    # node_modules はイメージを作った時点の中身のまま固定される保存領域のため、
+    # package.json に部品を追加・更新しても起動時に pnpm install しないと反映されない
+    command: sh -c "pnpm install && pnpm prisma generate && pnpm exec tsx watch --inspect=0.0.0.0:9229 --env-file-if-exists=.env src/worker/index.ts"
 
 volumes:
   db-data:

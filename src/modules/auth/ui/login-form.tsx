@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { loginWithCredentials, loginWithEntra, type FormState } from "@/modules/auth/actions";
 import { Button } from "@/shared/ui/button";
@@ -54,6 +55,12 @@ export function LoginForm({ entraEnabled }: { entraEnabled: boolean }) {
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "ログイン中..." : "ログイン"}
         </Button>
+        <Link
+          href="/forgot-password"
+          className="block text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+        >
+          パスワードを忘れた場合はこちら
+        </Link>
       </form>
     </div>
   );

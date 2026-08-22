@@ -58,6 +58,7 @@ export const updateUserAction = withOp(
     const parsed = updateUserSchema.safeParse({
       userId: formData.get("userId"),
       displayName: formData.get("displayName") || undefined,
+      email: formData.get("email") || undefined,
       role: formData.get("role"),
     });
     if (!parsed.success) {

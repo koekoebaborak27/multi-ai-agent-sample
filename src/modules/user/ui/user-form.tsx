@@ -32,7 +32,7 @@ export function UserForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">メール</Label>
-        <Input id="email" name="email" type="email" />
+        <Input id="email" name="email" type="email" required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="role">ロール</Label>

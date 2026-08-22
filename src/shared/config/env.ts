@@ -17,6 +17,10 @@ const booleanish = z
 // .env に項目名だけ書いて値が空のままの場合は、「設定されていない」として扱う
 const optionalUrl = z.preprocess((v) => (v === "" ? undefined : v), z.string().url().optional());
 
+// 空のまま・未設定のときに既定のURLを使う（APP_BASE_URL用）
+const urlWithDefault = (defaultValue: string) =>
+  z.preprocess((v) => (v === "" || v === undefined ? defaultValue : v), z.string().url());
+
 // 環境変数の一覧と、それぞれの初期値・入力チェックの定義
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -49,6 +53,16 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_STORAGE_BUCKET: z.string().default("uploads"),
 
+  // メール送信
+  APP_BASE_URL: urlWithDefault("http://localhost:3000"),
+  MAIL_TRANSPORT: z.enum(["console", "smtp"]).default("console"),
+  MAIL_FROM: z.string().optional(),
+  MAIL_FROM_NAME: z.string().default("契約管理システム"),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+
   // worker の起動（本番のみ）。none（既定）ではアプリから worker を起動する処理を行わない。
   // cloud-run-job では Cloud Run Admin API 経由で Cloud Run Jobs を単発起動する（設計書§40.7）。
   WORKER_INVOKE_MODE: z.enum(["none", "cloud-run-job"]).default("none"),
@@ -60,20 +74,34 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 // WORKER_INVOKE_MODE が cloud-run-job のときは、起動先を特定するための3項目が必須になる。
-// 設定漏れを実際に使う場面（依頼のたび）ではなく起動時点で気付けるようにするための検証。
+// MAIL_TRANSPORT が smtp のときは、接続先を特定するための3項目が必須になる。
+// いずれも、設定漏れを実際に使う場面（依頼のたび・送信のたび）ではなく起動時点で気付けるようにするための検証。
 const envSchemaWithWorkerInvoke = envSchema.superRefine((val, ctx) => {
-  if (val.WORKER_INVOKE_MODE !== "cloud-run-job") return;
-  for (const key of [
-    "CLOUD_RUN_JOB_NAME",
-    "CLOUD_RUN_JOB_REGION",
-    "GOOGLE_CLOUD_PROJECT",
-  ] as const) {
-    if (!val[key]) {
-      ctx.addIssue({
-        code: "custom",
-        path: [key],
-        message: `WORKER_INVOKE_MODE=cloud-run-job のときは ${key} が必須です`,
-      });
+  if (val.WORKER_INVOKE_MODE === "cloud-run-job") {
+    for (const key of [
+      "CLOUD_RUN_JOB_NAME",
+      "CLOUD_RUN_JOB_REGION",
+      "GOOGLE_CLOUD_PROJECT",
+    ] as const) {
+      if (!val[key]) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: `WORKER_INVOKE_MODE=cloud-run-job のときは ${key} が必須です`,
+        });
+      }
+    }
+  }
+
+  if (val.MAIL_TRANSPORT === "smtp") {
+    for (const key of ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"] as const) {
+      if (!val[key]) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: `MAIL_TRANSPORT=smtp のときは ${key} が必須です`,
+        });
+      }
     }
   }
 });

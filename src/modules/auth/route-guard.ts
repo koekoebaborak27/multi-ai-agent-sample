@@ -3,6 +3,9 @@ import { ROLES, type Role } from "@/shared/constants/roles";
 /** 初回パスワード変更を行う画面のパス */
 export const PASSWORD_CHANGE_PATH = "/settings/password";
 
+/** ログインしていなくても開ける画面のパス（前方一致で判定する） */
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
+
 /** 移動先を決めるために必要な、リクエスト1件分の情報 */
 export interface RouteGuardInput {
   /** リクエストのパス（クエリを含まない） */
@@ -26,10 +29,10 @@ export interface RouteGuardInput {
 export function decideRedirect(input: RouteGuardInput): string | null {
   const { path, isLoggedIn, isServerAction, mustChangePassword, role } = input;
 
-  // 未ログインなら、ログイン画面以外はすべてログイン画面へ送る。
+  // 未ログインなら、ログイン不要な画面以外はすべてログイン画面へ送る。
   // 保存などの処理の呼び出しでも同じように止める（ログインしないまま業務処理に届かせないため）。
   if (!isLoggedIn) {
-    return path.startsWith("/login") ? null : "/login";
+    return PUBLIC_PATHS.some((p) => path.startsWith(p)) ? null : "/login";
   }
 
   // ここからは、ログイン済みの利用者を本来居るべき画面へ案内する処理。
