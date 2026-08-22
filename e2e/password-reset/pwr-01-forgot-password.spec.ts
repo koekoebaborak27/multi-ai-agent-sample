@@ -29,7 +29,12 @@ test.describe.serial("パスワード再発行申請（PWR-01）", () => {
       data: { id: USER_ID, role: "VIEWER", email: USER_EMAIL, displayName: "E2E申請確認用" },
     });
     await prisma.user.create({
-      data: { id: LIMIT_USER_ID, role: "VIEWER", email: LIMIT_USER_EMAIL, displayName: "E2E上限確認用" },
+      data: {
+        id: LIMIT_USER_ID,
+        role: "VIEWER",
+        email: LIMIT_USER_EMAIL,
+        displayName: "E2E上限確認用",
+      },
     });
     // 24時間以内に5件のPasswordResetTokenを用意し、送信回数の上限到達を再現する（TC-004用）
     const now = new Date();
@@ -48,7 +53,11 @@ test.describe.serial("パスワード再発行申請（PWR-01）", () => {
     });
     fs.writeFileSync(
       evidence("db_before.json"),
-      JSON.stringify(before.map((t) => ({ userId: t.userId, usedAt: t.usedAt })), null, 2),
+      JSON.stringify(
+        before.map((t) => ({ userId: t.userId, usedAt: t.usedAt })),
+        null,
+        2,
+      ),
     );
   });
 
@@ -59,10 +68,16 @@ test.describe.serial("パスワード再発行申請（PWR-01）", () => {
     });
     fs.writeFileSync(
       evidence("db_after.json"),
-      JSON.stringify(after.map((t) => ({ userId: t.userId, usedAt: t.usedAt })), null, 2),
+      JSON.stringify(
+        after.map((t) => ({ userId: t.userId, usedAt: t.usedAt })),
+        null,
+        2,
+      ),
     );
 
-    await prisma.passwordResetToken.deleteMany({ where: { userId: { in: [USER_ID, LIMIT_USER_ID] } } });
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: { in: [USER_ID, LIMIT_USER_ID] } },
+    });
     await prisma.user.deleteMany({ where: { id: { in: [USER_ID, LIMIT_USER_ID] } } });
     await prisma.$disconnect();
   });

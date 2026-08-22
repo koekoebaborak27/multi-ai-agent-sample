@@ -23,7 +23,13 @@ const TARGET_USER_EMAIL = "e2e-user-target@example.com";
 const NEW_USER_ID = "e2eUserNew";
 const NEW_USER_EMAIL = "e2e-user-new@example.com";
 const DUP_ATTEMPT_USER_ID = "e2eUserDupAttempt";
-const ALL_USER_IDS = [DUP_USER_ID, NO_EMAIL_USER_ID, TARGET_USER_ID, NEW_USER_ID, DUP_ATTEMPT_USER_ID];
+const ALL_USER_IDS = [
+  DUP_USER_ID,
+  NO_EMAIL_USER_ID,
+  TARGET_USER_ID,
+  NEW_USER_ID,
+  DUP_ATTEMPT_USER_ID,
+];
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -43,13 +49,23 @@ test.describe.serial("利用者メールアドレス管理（20.1）", () => {
     fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
 
     await prisma.user.create({
-      data: { id: DUP_USER_ID, role: "VIEWER", email: DUP_USER_EMAIL, displayName: "E2E重複確認用" },
+      data: {
+        id: DUP_USER_ID,
+        role: "VIEWER",
+        email: DUP_USER_EMAIL,
+        displayName: "E2E重複確認用",
+      },
     });
     await prisma.user.create({
       data: { id: NO_EMAIL_USER_ID, role: "VIEWER", displayName: "E2E未登録編集確認用" },
     });
     await prisma.user.create({
-      data: { id: TARGET_USER_ID, role: "VIEWER", email: TARGET_USER_EMAIL, displayName: "E2E編集対象" },
+      data: {
+        id: TARGET_USER_ID,
+        role: "VIEWER",
+        email: TARGET_USER_EMAIL,
+        displayName: "E2E編集対象",
+      },
     });
 
     const before = await prisma.user.findMany({
@@ -95,7 +111,9 @@ test.describe.serial("利用者メールアドレス管理（20.1）", () => {
     await page.getByRole("textbox", { name: "メール" }).fill(DUP_USER_EMAIL);
     await page.getByRole("button", { name: "ユーザーを作成" }).click();
 
-    await expect(page.getByText("このメールアドレスは既に使われています", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("このメールアドレスは既に使われています", { exact: true }),
+    ).toBeVisible();
     await page.screenshot({ path: evidence("002_新規登録重複エラー.png"), fullPage: true });
 
     const count = await prisma.user.count({ where: { id: DUP_ATTEMPT_USER_ID } });
@@ -139,7 +157,9 @@ test.describe.serial("利用者メールアドレス管理（20.1）", () => {
     await dialog.getByRole("textbox", { name: "メール" }).fill(DUP_USER_EMAIL);
     await dialog.getByRole("button", { name: "保存する" }).click();
 
-    await expect(dialog.getByText("このメールアドレスは既に使われています", { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByText("このメールアドレスは既に使われています", { exact: true }),
+    ).toBeVisible();
     await expect(dialog).toBeVisible();
     await page.screenshot({ path: evidence("005_編集重複エラー.png"), fullPage: true });
 

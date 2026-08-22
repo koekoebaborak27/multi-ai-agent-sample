@@ -53,7 +53,12 @@ test.describe.serial("メールアドレス変更確認（EML-02）", () => {
     const passwordHash = await hash(PASSWORD, ARGON2_OPTS);
 
     await prisma.user.createMany({
-      data: ALL_USER_IDS.map((id) => ({ id, role: "VIEWER", passwordHash, displayName: `E2E確認用${id}` })),
+      data: ALL_USER_IDS.map((id) => ({
+        id,
+        role: "VIEWER",
+        passwordHash,
+        displayName: `E2E確認用${id}`,
+      })),
     });
 
     const before = await prisma.user.findMany({
@@ -83,7 +88,9 @@ test.describe.serial("メールアドレス変更確認（EML-02）", () => {
     await page.goto(`/settings/email/confirm/${token}`);
 
     await expect(page.getByText("変更が完了しました", { exact: true })).toBeVisible();
-    await expect(page.getByText(`メールアドレスを変更しました。新しいメールアドレス: ${newEmail}`)).toBeVisible();
+    await expect(
+      page.getByText(`メールアドレスを変更しました。新しいメールアドレス: ${newEmail}`),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "メールアドレス設定へ戻る" })).toHaveAttribute(
       "href",
       "/settings/email",
@@ -97,7 +104,11 @@ test.describe.serial("メールアドレス変更確認（EML-02）", () => {
   });
 
   test("TC-002 期限切れ・使用済みURLを開いたときの表示", async ({ page }) => {
-    const token = await createEmailChangeToken(USER_EXPIRED_ID, "e2e-eml-confirm-expired@example.com", -60 * 1000);
+    const token = await createEmailChangeToken(
+      USER_EXPIRED_ID,
+      "e2e-eml-confirm-expired@example.com",
+      -60 * 1000,
+    );
 
     await login(page, USER_EXPIRED_ID);
     await page.goto(`/settings/email/confirm/${token}`);

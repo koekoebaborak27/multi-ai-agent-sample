@@ -38,13 +38,29 @@ test.describe.serial("メールアドレス変更申込（EML-01）", () => {
     const passwordHash = await hash(PASSWORD, ARGON2_OPTS);
 
     await prisma.user.create({
-      data: { id: USER_A_ID, role: "VIEWER", email: USER_A_EMAIL, passwordHash, displayName: "E2E申込確認用A" },
+      data: {
+        id: USER_A_ID,
+        role: "VIEWER",
+        email: USER_A_EMAIL,
+        passwordHash,
+        displayName: "E2E申込確認用A",
+      },
     });
     await prisma.user.create({
-      data: { id: USER_NO_EMAIL_ID, role: "VIEWER", passwordHash, displayName: "E2E未登録申込確認用" },
+      data: {
+        id: USER_NO_EMAIL_ID,
+        role: "VIEWER",
+        passwordHash,
+        displayName: "E2E未登録申込確認用",
+      },
     });
     await prisma.user.create({
-      data: { id: USER_OTHER_ID, role: "VIEWER", email: USER_OTHER_EMAIL, displayName: "E2E重複確認用" },
+      data: {
+        id: USER_OTHER_ID,
+        role: "VIEWER",
+        email: USER_OTHER_EMAIL,
+        displayName: "E2E重複確認用",
+      },
     });
 
     const before = await prisma.user.findMany({
@@ -64,7 +80,9 @@ test.describe.serial("メールアドレス変更申込（EML-01）", () => {
     await prisma.emailChangeToken.deleteMany({
       where: { userId: { in: [USER_A_ID, USER_NO_EMAIL_ID, USER_OTHER_ID] } },
     });
-    await prisma.user.deleteMany({ where: { id: { in: [USER_A_ID, USER_NO_EMAIL_ID, USER_OTHER_ID] } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [USER_A_ID, USER_NO_EMAIL_ID, USER_OTHER_ID] } },
+    });
     await prisma.$disconnect();
   });
 
@@ -97,7 +115,9 @@ test.describe.serial("メールアドレス変更申込（EML-01）", () => {
 
     await expect(page.getByLabel("新しいメールアドレス")).toHaveCount(0);
     await expect(
-      page.getByText("入力されたアドレスに確認用のURLをお送りしました。URLを開くと変更が完了します。"),
+      page.getByText(
+        "入力されたアドレスに確認用のURLをお送りしました。URLを開くと変更が完了します。",
+      ),
     ).toBeVisible();
     await page.screenshot({ path: evidence("003_申し込み完了後.png"), fullPage: true });
 
@@ -137,7 +157,9 @@ test.describe.serial("メールアドレス変更申込（EML-01）", () => {
     await page.getByLabel("新しいメールアドレス").fill(USER_OTHER_EMAIL);
     await page.getByRole("button", { name: "確認メールを送る" }).click();
 
-    await expect(page.getByText("このメールアドレスは既に使われています", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("このメールアドレスは既に使われています", { exact: true }),
+    ).toBeVisible();
     await page.screenshot({ path: evidence("005_重複アドレスエラー.png"), fullPage: true });
 
     const afterCount = await prisma.emailChangeToken.count({ where: { userId: USER_A_ID } });

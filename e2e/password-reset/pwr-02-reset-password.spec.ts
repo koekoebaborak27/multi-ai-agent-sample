@@ -52,7 +52,9 @@ test.describe.serial("パスワード再設定（PWR-02）", () => {
     });
     fs.writeFileSync(evidence("db_after.json"), JSON.stringify(after, null, 2));
 
-    await prisma.passwordResetToken.deleteMany({ where: { userId: { in: [USER_ID, LOCKED_USER_ID] } } });
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: { in: [USER_ID, LOCKED_USER_ID] } },
+    });
     await prisma.user.deleteMany({ where: { id: { in: [USER_ID, LOCKED_USER_ID] } } });
     await prisma.$disconnect();
   });
@@ -62,7 +64,11 @@ test.describe.serial("パスワード再設定（PWR-02）", () => {
     reusedToken = token;
     const now = new Date();
     await prisma.passwordResetToken.create({
-      data: { userId: USER_ID, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + TTL_MS) },
+      data: {
+        userId: USER_ID,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(now.getTime() + TTL_MS),
+      },
     });
 
     await page.goto(`/reset-password/${token}`);
@@ -147,7 +153,11 @@ test.describe.serial("パスワード再設定（PWR-02）", () => {
     const token = createToken();
     const now = new Date();
     await prisma.passwordResetToken.create({
-      data: { userId: USER_ID, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + TTL_MS) },
+      data: {
+        userId: USER_ID,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(now.getTime() + TTL_MS),
+      },
     });
     const before = (await prisma.user.findUniqueOrThrow({ where: { id: USER_ID } })).passwordHash;
 
@@ -167,7 +177,11 @@ test.describe.serial("パスワード再設定（PWR-02）", () => {
     const token = createToken();
     const now = new Date();
     await prisma.passwordResetToken.create({
-      data: { userId: USER_ID, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + TTL_MS) },
+      data: {
+        userId: USER_ID,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(now.getTime() + TTL_MS),
+      },
     });
     const before = (await prisma.user.findUniqueOrThrow({ where: { id: USER_ID } })).passwordHash;
 
@@ -176,7 +190,9 @@ test.describe.serial("パスワード再設定（PWR-02）", () => {
     await page.getByLabel("新しいパスワード（確認）").fill("abc123x");
     await page.getByRole("button", { name: "設定する" }).click();
 
-    await expect(page.getByText("新しいパスワードは8文字以上にしてください", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("新しいパスワードは8文字以上にしてください", { exact: true }),
+    ).toBeVisible();
     await page.screenshot({ path: evidence("006_文字数不足エラー.png"), fullPage: true });
 
     const after = (await prisma.user.findUniqueOrThrow({ where: { id: USER_ID } })).passwordHash;
