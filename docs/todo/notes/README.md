@@ -41,3 +41,4 @@
 | 2026-08-04 | [本番で動かさないもの](cloud-run.md#本番で動かさないもの) | ワーカー / ローカル用 DB |
 | 2026-08-21 | [`prisma migrate dev` がエージェントの非対話シェルで使えない](prisma-cli.md#prisma-migrate-dev-がエージェントの非対話シェルで使えない) | `prisma migrate diff` + 手動フォルダ作成 + `migrate deploy` での代替手順 |
 | 2026-08-22 | [ローカルのDocker全部入れ運用でnode_modulesが古いまま固定される](docker-image.md#2026-08-22-ローカルのdocker全部入れ運用でnode_modulesが古いまま固定される) | 匿名ボリュームの仕組みと`pnpm install`自動化による恒久対応 |
+| 2026-08-22 | [パスワード再発行機能を本番へ反映する](cloud-run.md#2026-08-22-パスワード再発行機能を本番へ反映する) | 追加系マイグレーションの適用順・Secret Manager権限の付け忘れ・環境変数の入力ミス |

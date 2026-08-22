@@ -2,7 +2,7 @@
 
 ログイン画面から利用者が自分でパスワードを設定し直せるようにする機能の基本設計。あわせて、その前提となるメールアドレスの登録・変更と、メールを送る仕組みを扱う。
 
-要件は [`docs/specs/01_requirements/password-reset/01_パスワードリセット.md`](../../01_requirements/password-reset/01_パスワードリセット.md)、残タスクは [`docs/todo/TODO.md`](../../../todo/TODO.md#パスワード再発行機能)。決定の経緯は [`docs/todo/history/2026-08-w3.md`](../../../todo/history/2026-08-w3.md) にある。
+要件は [`docs/specs/01_requirements/password-reset/01_パスワードリセット.md`](../../01_requirements/password-reset/01_パスワードリセット.md)。決定の経緯は [`docs/todo/history/2026-08-w3.md`](../../../todo/history/2026-08-w3.md) にある。この機能は2026-08-22に本番反映まで完了している（[`docs/todo/TODO.md`](../../../todo/TODO.md#完了済みの作業)の完了済みの作業を参照）。
 
 ## ファイルの分け方
 
