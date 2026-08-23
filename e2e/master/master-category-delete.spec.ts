@@ -149,6 +149,11 @@ test.describe.serial("マスタ分類削除（MST-07 削除確認ダイアログ
     await expect(dialog.getByText(code, { exact: true })).toBeVisible();
     await expect(dialog.getByText(name, { exact: true })).toBeVisible();
     await expect(dialog.getByText("削除したマスタ分類は元に戻せません。")).toBeVisible();
+    await expect(
+      dialog.getByText(
+        "システムで利用されているコードのため、編集・削除には十分注意してください。",
+      ),
+    ).toBeVisible();
     await expect(dialog.getByRole("button", { name: "キャンセル" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "削除する" })).toBeVisible();
     await page.screenshot({ path: evidence("004_削除ダイアログ表示項目.png"), fullPage: true });

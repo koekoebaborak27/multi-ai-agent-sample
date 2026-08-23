@@ -70,6 +70,9 @@ export function MasterCategoryDeleteDialog({
                 <dd className="break-words text-foreground">{name}</dd>
               </dl>
               <p className="text-sm text-destructive">削除したマスタ分類は元に戻せません。</p>
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                システムで利用されているコードのため、編集・削除には十分注意してください。
+              </p>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

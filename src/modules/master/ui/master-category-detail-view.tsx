@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MasterCategoryDetail } from "@/modules/master/types";
 import { MasterCategoryDeleteDialog } from "@/modules/master/ui/master-category-delete-dialog";
+import { MasterCategoryEditDialog } from "@/modules/master/ui/master-category-edit-dialog";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -72,9 +73,11 @@ export function MasterCategoryDetailView({
               <Link href="/master/categories">一覧へ戻る</Link>
             </Button>
             {canWrite ? (
-              <Button asChild>
-                <Link href={`/master/categories/${category.id}/edit`}>編集する</Link>
-              </Button>
+              <MasterCategoryEditDialog
+                categoryId={category.id}
+                code={category.code}
+                name={category.name}
+              />
             ) : null}
             {canWrite ? (
               <MasterCategoryDeleteDialog
