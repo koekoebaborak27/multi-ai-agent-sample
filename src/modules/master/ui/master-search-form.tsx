@@ -83,7 +83,7 @@ export function MasterSearchForm({
                 <SelectItem value={ALL_CATEGORIES}>すべて</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={String(category.id)}>
-                    {category.code} {category.name}
+                    {category.name}
                   </SelectItem>
                 ))}
               </SelectContent>

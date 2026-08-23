@@ -62,7 +62,7 @@ export function MasterCreateForm({ categories, returnTo }: MasterCreateFormProps
               <SelectContent>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={String(category.id)}>
-                    {category.code} {category.name}
+                    {category.name}
                   </SelectItem>
                 ))}
               </SelectContent>

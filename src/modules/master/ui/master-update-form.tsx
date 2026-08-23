@@ -97,7 +97,7 @@ export function MasterUpdateForm({ master, categories, returnTo }: MasterUpdateF
           <SelectContent>
             {categories.map((category) => (
               <SelectItem key={category.id} value={String(category.id)}>
-                {category.code} {category.name}
+                {category.name}
               </SelectItem>
             ))}
           </SelectContent>
