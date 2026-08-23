@@ -96,6 +96,11 @@ test.describe.serial("マスタ分類更新（MST-10 / MST-09）", () => {
     await page.screenshot({ path: evidence("001_更新確認画面.png"), fullPage: true });
 
     await page.getByRole("button", { name: "実行" }).click();
+    await expect(
+      page.getByText("システムで利用されているコードのため、編集・削除には十分注意してください。"),
+    ).toBeVisible();
+    await page.screenshot({ path: evidence("001_警告ダイアログ.png"), fullPage: true });
+    await page.getByRole("button", { name: "OK" }).click();
     await expect(page).toHaveURL(`http://localhost:3000/master/categories/${targetId}?updated=1`);
     await expect(page.getByText("更新しました")).toBeVisible();
     await expect(page.getByText("更新後分類名", { exact: true })).toBeVisible();
@@ -108,6 +113,7 @@ test.describe.serial("マスタ分類更新（MST-10 / MST-09）", () => {
     await page.goto(`/master/categories/${targetId}/edit`);
     await page.getByRole("button", { name: "確認する" }).click();
     await page.getByRole("button", { name: "実行" }).click();
+    await page.getByRole("button", { name: "OK" }).click();
 
     await expect(page).toHaveURL(`http://localhost:3000/master/categories/${targetId}?updated=1`);
     await expect(page.getByText("更新しました")).toBeVisible();
@@ -138,6 +144,7 @@ test.describe.serial("マスタ分類更新（MST-10 / MST-09）", () => {
     createdNames.push(name);
 
     await page.getByRole("button", { name: "実行" }).click();
+    await page.getByRole("button", { name: "OK" }).click();
     await expect(page.getByText("同じ名前のマスタ分類が登録されています")).toBeVisible();
     await page.screenshot({ path: evidence("004_実行時重複エラー.png"), fullPage: true });
 
@@ -160,6 +167,7 @@ test.describe.serial("マスタ分類更新（MST-10 / MST-09）", () => {
     createdNames.push("先行更新済み分類");
 
     await page.getByRole("button", { name: "実行" }).click();
+    await page.getByRole("button", { name: "OK" }).click();
     await expect(
       page.getByText(
         "ほかの利用者によって更新されています。最新の内容を確認してから、もう一度操作してください。",
@@ -178,6 +186,7 @@ test.describe.serial("マスタ分類更新（MST-10 / MST-09）", () => {
     await page.getByLabel("マスタ分類名").fill(name30);
     await page.getByRole("button", { name: "確認する" }).click();
     await page.getByRole("button", { name: "実行" }).click();
+    await page.getByRole("button", { name: "OK" }).click();
     await expect(page).toHaveURL(`http://localhost:3000/master/categories/${targetId}?updated=1`);
     await expect(page.getByText("更新しました")).toBeVisible();
     await page.screenshot({ path: evidence("006_30文字更新成功.png"), fullPage: true });
@@ -231,5 +240,40 @@ test.describe.serial("マスタ分類更新（MST-10 / MST-09）", () => {
     const current = await prisma.masterCategory.findUniqueOrThrow({ where: { id: targetId } });
     expect(current.name).toBe("更新対象分類");
     await page.screenshot({ path: evidence("010_キャンセルで破棄.png"), fullPage: true });
+  });
+
+  test("TC-011 「実行」ボタン押下時の警告確認ダイアログの表示内容と初期フォーカス", async ({
+    page,
+  }) => {
+    await login(page, ADMIN);
+    await page.goto(`/master/categories/${targetId}/edit`);
+    await page.getByRole("button", { name: "確認する" }).click();
+    await expect(page.getByRole("heading", { name: "入力内容の確認" })).toBeVisible();
+
+    await page.getByRole("button", { name: "実行" }).click();
+    await expect(page.getByRole("heading", { name: "マスタ分類を更新しますか？" })).toBeVisible();
+    await expect(
+      page.getByText("システムで利用されているコードのため、編集・削除には十分注意してください。"),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "キャンセル" }).last()).toBeFocused();
+    await page.screenshot({ path: evidence("011_実行警告ダイアログ表示.png"), fullPage: true });
+  });
+
+  test("TC-012 「実行」ボタン押下時の警告確認ダイアログのキャンセル動作", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto(`/master/categories/${targetId}/edit`);
+    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "実行" }).click();
+    await expect(page.getByRole("heading", { name: "マスタ分類を更新しますか？" })).toBeVisible();
+
+    await page.getByRole("button", { name: "キャンセル" }).last().click();
+    await expect(page.getByRole("heading", { name: "マスタ分類を更新しますか？" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "入力内容の確認" })).toBeVisible();
+    const current = await prisma.masterCategory.findUniqueOrThrow({ where: { id: targetId } });
+    expect(current.name).toBe("更新対象分類");
+    await page.screenshot({
+      path: evidence("012_実行警告ダイアログキャンセル.png"),
+      fullPage: true,
+    });
   });
 });

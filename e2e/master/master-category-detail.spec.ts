@@ -119,7 +119,7 @@ test.describe.serial("マスタ分類詳細（MST-07）", () => {
       await login(page, user);
       await page.goto(`/master/categories/${displayCategoryId}`);
 
-      const updateButton = page.getByRole("link", { name: "編集する" });
+      const updateButton = page.getByRole("button", { name: "編集する" });
       const deleteButton = page.getByRole("button", { name: "削除" });
       if (expectVisible) {
         await expect(updateButton).toBeVisible();
@@ -169,10 +169,41 @@ test.describe.serial("マスタ分類詳細（MST-07）", () => {
   test("TC-008 「編集する」ボタンでの画面遷移", async ({ page }) => {
     await login(page, ADMIN);
     await page.goto(`/master/categories/${displayCategoryId}`);
-    await page.getByRole("link", { name: "編集する" }).click();
+    await page.getByRole("button", { name: "編集する" }).click();
+    await page.getByRole("link", { name: "OK" }).click();
     await expect(page).toHaveURL(
       `http://localhost:3000/master/categories/${displayCategoryId}/edit`,
     );
     await page.screenshot({ path: evidence("008_編集するボタン遷移.png"), fullPage: true });
+  });
+
+  test("TC-009 「編集する」ボタン押下時の警告確認ダイアログの表示内容と初期フォーカス", async ({
+    page,
+  }) => {
+    await login(page, ADMIN);
+    await page.goto(`/master/categories/${displayCategoryId}`);
+    await page.getByRole("button", { name: "編集する" }).click();
+
+    await expect(page.getByRole("heading", { name: "マスタ分類を編集しますか？" })).toBeVisible();
+    await expect(
+      page.getByText("システムで利用されているコードのため、編集・削除には十分注意してください。"),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "キャンセル" })).toBeFocused();
+    await page.screenshot({ path: evidence("009_編集警告ダイアログ表示.png"), fullPage: true });
+  });
+
+  test("TC-010 「編集する」ボタン押下時の警告確認ダイアログのキャンセル動作", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto(`/master/categories/${displayCategoryId}`);
+    await page.getByRole("button", { name: "編集する" }).click();
+    await expect(page.getByRole("heading", { name: "マスタ分類を編集しますか？" })).toBeVisible();
+
+    await page.getByRole("button", { name: "キャンセル" }).click();
+    await expect(page.getByRole("heading", { name: "マスタ分類を編集しますか？" })).toHaveCount(0);
+    await expect(page).toHaveURL(`http://localhost:3000/master/categories/${displayCategoryId}`);
+    await page.screenshot({
+      path: evidence("010_編集警告ダイアログキャンセル.png"),
+      fullPage: true,
+    });
   });
 });

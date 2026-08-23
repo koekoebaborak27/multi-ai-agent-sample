@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { MasterCategoryFormState } from "@/modules/master/actions";
+import { MasterCategoryCautionDialog } from "@/modules/master/ui/master-category-caution-dialog";
 import { Button } from "@/shared/ui/button";
+import { DialogClose, DialogFooter } from "@/shared/ui/dialog";
 
 interface MasterCategoryConfirmationProps {
   state: MasterCategoryFormState;
@@ -63,7 +65,11 @@ export function MasterCategoryConfirmation({
         ) : null}
       </dl>
 
-      {state.error ? (
+      {/*
+        更新モードのエラーは、実行ボタンの警告確認ダイアログの中で表示する（下記）。
+        新規登録モードにはダイアログが無いため、ここに表示する。
+      */}
+      {!isUpdate && state.error ? (
         <p role="alert" className="text-sm text-destructive">
           {state.error}
         </p>
@@ -74,20 +80,60 @@ export function MasterCategoryConfirmation({
           この確認画面には入力欄が無いため、そのまま送信すると入力内容が失われる。
           そこで、確認した内容を見えない項目として持たせ、実行時に改めて送信している。
         */}
-        <form action={formAction}>
-          <input type="hidden" name="code" value={code} />
-          <input type="hidden" name="name" value={name} />
-          {isUpdate ? (
-            <>
-              <input type="hidden" name="categoryId" value={state.categoryId} />
-              <input type="hidden" name="updatedAt" value={state.updatedAt} />
-              <input type="hidden" name="originalName" value={state.originalName} />
-            </>
-          ) : null}
-          <Button type="submit" name="intent" value="execute" disabled={pending}>
-            {pending ? (isUpdate ? "更新中..." : "登録中...") : "実行"}
-          </Button>
-        </form>
+        {isUpdate ? (
+          // 更新モードは、契約先・契約モジュールがマスタ分類コードを参照している可能性があるため、
+          // 実行前に警告確認ダイアログを挟む（§00.5.1）。フォームはダイアログの中に置き、
+          // ダイアログ内の「OK」を押したときだけServer Actionを呼び出す。
+          <MasterCategoryCautionDialog
+            trigger={
+              <Button type="button" disabled={pending}>
+                {pending ? "更新中..." : "実行"}
+              </Button>
+            }
+            title="マスタ分類を更新しますか？"
+            code={code}
+            name={name}
+            pending={pending}
+          >
+            {(cancelButtonRef) => (
+              <form action={formAction} className="space-y-4">
+                <input type="hidden" name="code" value={code} />
+                <input type="hidden" name="name" value={name} />
+                <input type="hidden" name="categoryId" value={state.categoryId} />
+                <input type="hidden" name="updatedAt" value={state.updatedAt} />
+                <input type="hidden" name="originalName" value={state.originalName} />
+                {state.error ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    {state.error}
+                  </p>
+                ) : null}
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button
+                      ref={cancelButtonRef}
+                      type="button"
+                      variant="outline"
+                      disabled={pending}
+                    >
+                      キャンセル
+                    </Button>
+                  </DialogClose>
+                  <Button type="submit" name="intent" value="execute" disabled={pending}>
+                    {pending ? "更新中..." : "OK"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+          </MasterCategoryCautionDialog>
+        ) : (
+          <form action={formAction}>
+            <input type="hidden" name="code" value={code} />
+            <input type="hidden" name="name" value={name} />
+            <Button type="submit" name="intent" value="execute" disabled={pending}>
+              {pending ? "登録中..." : "実行"}
+            </Button>
+          </form>
+        )}
         <Button type="button" variant="outline" onClick={onEdit} disabled={pending}>
           入力内容を修正
         </Button>
