@@ -39,6 +39,7 @@ git checkout -b docs/update-readme
 
 # 3. 手順1で確認したファイルをステージする（複数ある場合は空白で区切って並べます）
 git add <対象ファイル>
+または、git add .　（変更された全ファイル）
 
 # 4. ステージできたことを確認する（左端に印が付いていればステージ済み）
 git status --short
