@@ -55,15 +55,21 @@ model EmailChangeToken {
   @@index([userId, createdAt])
 }
 
-/// ダッシュボード用お知らせ（任意機能）。
-model Announcement {
-  id        String   @id @default(cuid())
-  title     String
-  body      String
-  published Boolean  @default(true)
-  deleted   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+/// ダッシュボード（トップ画面）に表示する「お知らせ」。
+model News {
+  id        String    @id @default(cuid())
+  title     String    @db.VarChar(200)
+  body      String    @db.VarChar(3000)
+  category  String // INCIDENT(障害情報) / MAINTENANCE(メンテナンス) / NEWS(お知らせ)
+  published Boolean   @default(true)
+  startAt   DateTime?
+  endAt     DateTime?
+  createdAt DateTime  @default(now())
+  createdBy String? // 登録した利用者の User.id（FK は張らない。Master と同じ規約）
+  updatedAt DateTime  @updatedAt
+  updatedBy String? // 最後に更新した利用者の User.id（FK は張らない）
+
+  @@index([category, startAt])
 }
 
 /// マスタ分類。code は利用者が入力・変更できる業務コード（例: CONTRACT_TYPE）。

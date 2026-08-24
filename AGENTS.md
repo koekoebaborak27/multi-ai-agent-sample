@@ -30,10 +30,10 @@ Next.js + Prisma + PostgreSQL をベースに、認証・DB接続・観測性な
 | `prisma/`  | スキーマ・マイグレーション・seed。規約は `@prisma/AGENTS.md`                                                                                                                                                                                      |
 | `docker/`  | Dockerfile（app/worker 共用）+ docker-compose（「DB だけ」「DB・app・worker 全部」の 2 通りの起動に対応）                                                                                                                                                     |
 | `docs/`    | 設計・計画ドキュメント。正本は `@docs/foundation_plan.md`。作業手順（スキル）の正本は `docs/skills/`、開発フローは `docs/development/gitの操作ルール.md`、残タスク一式は `docs/todo/`（本編 `TODO.md` + 補足 `notes/` + 履歴 `history/`）。設計書と手順書は機能・手順ごとに分割してあり、各ディレクトリの `README.md` が索引 |
-| `.github/` | Copilot 指示（`copilot-instructions.md`）+ Copilot プロンプト（`prompts/`）+ CI ワークフロー（`workflows/ci.yml`）                                                                                                                                 |
-| `.agents/` | Codex が読むリポジトリ内スキル（`skills/<name>/SKILL.md`）                                                                                                                                                                                    |
+| `.github/` | Copilot 指示（`copilot-instructions.md`）+ Copilot プロンプト（`prompts/`）+ Copilot カスタムエージェント（`agents/<name>.agent.md`）+ CI ワークフロー（`workflows/ci.yml`）                                                                                       |
+| `.agents/` | Codex が読むリポジトリ内スキル（`skills/<name>/SKILL.md`。サブエージェントの入口も兼ねる）                                                                                                                                                                    |
 | `.codex/`  | Codex CLI のプロジェクト設定（`config.toml`。サンドボックス / 承認ポリシー）+ 権限ルール（`rules/*.rules`）                                                                                                                                                     |
-| `.claude/` | Claude Code が読むスキル（`skills/<name>/SKILL.md`）+ 権限設定（`settings.json`）                                                                                                                                                             |
+| `.claude/` | Claude Code が読むスキル（`skills/<name>/SKILL.md`）+ サブエージェント（`agents/<name>.md`）+ 権限設定（`settings.json`）                                                                                                                                    |
 | `.vscode/` | デバッグ構成・推奨拡張機能 + Copilot の権限設定（`settings.json`）                                                                                                                                                                                  |
 
 ## ポイント
@@ -103,3 +103,17 @@ pnpm prisma:seed    # 初期データ投入（初期 ADMIN）
 | Codex | `.agents/skills/<name>/SKILL.md` | 説明文による自動起動 |
 
 手順を変更するときは `docs/skills/<name>.md` だけを編集する。入口ファイルに手順を複製しない。
+
+## サブエージェント
+
+試行錯誤のログを本体の会話に残したくない等、独立した実行単位として動かす価値がある作業は、スキルとは別に「サブエージェント」としても用意する。**正本は引き続き `docs/skills/<name>.md`** に置き、二重管理を避ける。ツールごとに実現度合いが異なる点に注意。
+
+| ツール | 入口 | 起動方法 | 分離の実態 |
+|---|---|---|---|
+| Claude Code | `.claude/agents/<name>.md` | 自動委譲、または `@agent-<name>` / 自然言語での明示指定 | 独立した会話で実行し、要約のみ本体へ返る（真の分離） |
+| GitHub Copilot | `.github/agents/<name>.agent.md` | Copilot Chat のエージェント切替ドロップダウンから手動選択 | 会話全体がそのエージェントに切り替わる。要約だけを本体へ返す仕組みは無い |
+| Codex | `.agents/skills/<name>/SKILL.md`（既存の「スキル」と同じ入口を流用） | 説明文による自動起動 | 同一セッション内で実行される（真の分離は未対応。Codexにプロジェクト同梱できる独立サブエージェント機構が現状無いため） |
+
+試行錯誤の隔離によるトークン削減効果が確実に得られるのはClaude Codeのみ。Copilot / Codexは「役割ごとに指示を切り替えられる」以上の効果は期待しない。
+
+導入済み: `create-vitest-test`（Vitestの単体テスト作成・実行、`docs/skills/create-vitest-test.md`）

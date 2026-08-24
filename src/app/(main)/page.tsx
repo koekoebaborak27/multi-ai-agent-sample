@@ -1,5 +1,5 @@
 import { Megaphone } from "lucide-react";
-import { announcementService } from "@/modules/announcement";
+import { newsService } from "@/modules/news";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
 // ページを毎回サーバー側で作り直す設定。
@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 export const dynamic = "force-dynamic";
 
 // ログイン後に最初に表示される画面。公開中のお知らせを新しい順に並べる。
+// カテゴリ別の文字色分け・「さらに表示」（NewsFeed）は工程4・5で実装するため、
+// ここでは一覧の取得元をNewsモジュールへ差し替えるだけにとどめる。
 export default async function DashboardPage() {
-  const announcements = await announcementService.listLatest();
+  const announcements = await newsService.listLatest();
 
   return (
     <div className="space-y-6">
