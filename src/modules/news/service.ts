@@ -30,7 +30,10 @@ function toFeedItem(row: NewsFeedRow): NewsFeedItem {
 
 // 公開ステータス（§20.3）を判定する。DBには保存せず、一覧取得のたびに計算する。
 // publishedを最優先し、OFFの場合は公開期間の状態に関わらず常に「非公開中」とする。
-function toPublishStatus(news: Pick<News, "published" | "startAt" | "endAt">, now: Date): NewsPublishStatus {
+function toPublishStatus(
+  news: Pick<News, "published" | "startAt" | "endAt">,
+  now: Date,
+): NewsPublishStatus {
   if (!news.published) return "UNPUBLISHED";
   if (news.startAt && news.startAt.getTime() > now.getTime()) return "SCHEDULED";
   if (news.endAt && news.endAt.getTime() < now.getTime()) return "ENDED";
@@ -90,11 +93,17 @@ export const newsService = {
     const [rows, total] = await newsRepository.listNewsAndCount(filters, skip, take, sort, order);
 
     // 登録者・更新者の表示名を、1件ずつではなくまとめて解決する（N+1を避ける。マスタと同じ方針）
-    const userIds = rows.flatMap((row) => [row.createdBy, row.updatedBy]).filter((id): id is string => !!id);
+    const userIds = rows
+      .flatMap((row) => [row.createdBy, row.updatedBy])
+      .filter((id): id is string => !!id);
     const displayNameById = await userService.resolveDisplayNames(userIds);
 
     const now = new Date();
-    return paginated(rows.map((row) => toSummary(row, displayNameById, now)), total, { page, pageSize });
+    return paginated(
+      rows.map((row) => toSummary(row, displayNameById, now)),
+      total,
+      { page, pageSize },
+    );
   },
 
   // トップ画面（NEWS-01）・「さらに表示」（§10.2）で共通に使う、公開中のお知らせ取得。

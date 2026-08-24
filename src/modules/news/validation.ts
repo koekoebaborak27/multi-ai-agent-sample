@@ -62,10 +62,7 @@ const newsCategorySchema = z.enum(NEWS_CATEGORIES);
 
 // 公開終了日時が公開開始日時より前でないことを確認する（§21.3）。
 // 両方空欄、または片方だけが指定されている場合はこの検証を行わない（同時刻は許可する）。
-function refineNewsPeriod(
-  data: { startAt?: Date; endAt?: Date },
-  ctx: z.RefinementCtx,
-): void {
+function refineNewsPeriod(data: { startAt?: Date; endAt?: Date }, ctx: z.RefinementCtx): void {
   if (data.startAt && data.endAt && data.endAt.getTime() < data.startAt.getTime()) {
     ctx.addIssue({
       code: "custom",

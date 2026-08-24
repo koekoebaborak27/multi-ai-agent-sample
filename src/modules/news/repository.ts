@@ -44,7 +44,9 @@ function buildNewsWhereSql(filters: NewsListFilters): Prisma.Sql {
     const pattern = `%${filters.keyword}%`;
     conditions.push(Prisma.sql`("title" ILIKE ${pattern} OR "body" ILIKE ${pattern})`);
   }
-  return conditions.length > 0 ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}` : Prisma.empty;
+  return conditions.length > 0
+    ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+    : Prisma.empty;
 }
 
 // お知らせ一覧の並び順を組み立てる（startAt以外の3列。§20.1.3）。

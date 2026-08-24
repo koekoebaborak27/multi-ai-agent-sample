@@ -260,9 +260,7 @@ describe("auth/service changePassword", () => {
     it("AppError(NOT_FOUND)を投げる", async () => {
       vi.mocked(authRepository.findById).mockResolvedValue(null);
 
-      const result = await authService
-        .changePassword("unknown", "current", "new")
-        .catch((e) => e);
+      const result = await authService.changePassword("unknown", "current", "new").catch((e) => e);
 
       expect(isAppError(result) && result.code).toBe("NOT_FOUND");
       expect(authRepository.updatePassword).not.toHaveBeenCalled();
@@ -273,9 +271,7 @@ describe("auth/service changePassword", () => {
     it("AppError(FORBIDDEN)を投げる", async () => {
       vi.mocked(authRepository.findById).mockResolvedValue(buildUser({ passwordHash: null }));
 
-      const result = await authService
-        .changePassword("user-1", "current", "new")
-        .catch((e) => e);
+      const result = await authService.changePassword("user-1", "current", "new").catch((e) => e);
 
       expect(isAppError(result) && result.code).toBe("FORBIDDEN");
       expect(authRepository.updatePassword).not.toHaveBeenCalled();
