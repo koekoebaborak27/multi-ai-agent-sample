@@ -117,3 +117,5 @@
 | [2026-08-24 お知らせ管理機能のDBスキーマ変更（工程2）を完了](2026-08-w4.md#2026-08-24-お知らせ管理機能のdbスキーマ変更工程2を完了) | `Announcement`を`News`へ`ALTER TABLE RENAME`でデータを保持したまま移行し、`category`/`startAt`/`endAt`/`createdBy`/`updatedBy`を追加、`deleted`を削除。非対話シェルでの`prisma migrate dev`のハングとアドバイザリロック残留を発見・対処 |
 | [2026-08-24 お知らせ管理機能のモジュールリネームと土台実装（工程3）を完了](2026-08-w4.md#2026-08-24-お知らせ管理機能のモジュールリネームと土台実装工程3を完了) | `src/modules/announcement`を`src/modules/news`へリネームし、`types.ts`/`validation.ts`/`repository.ts`（`COALESCE`並び順の生SQL）/`service.ts`を新規実装。`page.tsx`・`seed.ts`も追随させ、typecheck/lint/test全成功とブラウザ確認を完了 |
 | [2026-08-25 READMEとREADME_SIMPLEを整理し導入手順書への誘導に統一](2026-08-w4.md#2026-08-25-readmeとreadme_simpleを整理し導入手順書への誘導に統一) | `README.md`のセットアップ・VSCodeデバッグ・E2Eテスト各節を`docs/development/`配下の手順書への案内に縮小。`README_SIMPLE.md`も導入手順書への案内ページへ位置づけを変更。リンク切れも修正 |
+| [2026-08-25 お知らせ管理機能のトップ画面表示（工程4）を完了](2026-08-w4.md#2026-08-25-お知らせ管理機能のトップ画面表示工程4を完了) | `NewsFeed`・`NewsItem`を追加し、公開日時・カテゴリ別の文字色・本文改行・0件表示を実装。Lint・型チェック・384件の単体テストが成功 |
+| [2026-08-25 初期データを変更する手順書を追加](2026-08-w4.md#2026-08-25-初期データを変更する手順書を追加) | 初期お知らせ・マスタ分類を変更してローカルDBへ反映する手順書を追加し、READMEからリンク |

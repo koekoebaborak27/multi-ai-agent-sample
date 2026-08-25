@@ -1,14 +1,14 @@
 import { Megaphone } from "lucide-react";
 import { newsService } from "@/modules/news";
+import { NewsFeed } from "@/modules/news/ui/news-feed";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 
 // ページを毎回サーバー側で作り直す設定。
 // ログインの確認とデータベースからの取得が必要なため、あらかじめページを作っておく仕組みは使わない。
 export const dynamic = "force-dynamic";
 
-// ログイン後に最初に表示される画面。公開中のお知らせを新しい順に並べる。
-// カテゴリ別の文字色分け・「さらに表示」（NewsFeed）は工程4・5で実装するため、
-// ここでは一覧の取得元をNewsモジュールへ差し替えるだけにとどめる。
+// ログイン後に最初に表示される画面。公開中のお知らせを最初の20件だけ取得して渡す。
+// カテゴリ別の表示はNewsFeedに任せ、工程5では同じコンポーネントに追加取得を加える。
 export default async function DashboardPage() {
   const announcements = await newsService.listLatest();
 
@@ -58,20 +58,7 @@ export default async function DashboardPage() {
           <CardTitle>お知らせ</CardTitle>
         </CardHeader>
         <CardContent className="relative">
-          {announcements.length === 0 ? (
-            <p className="text-sm text-muted-foreground">お知らせはありません</p>
-          ) : (
-            <ul className="space-y-3">
-              {announcements.map((a) => (
-                <li key={a.id} className="border-b pb-2 last:border-0">
-                  <p className="font-medium">{a.title}</p>
-                  <p className="max-w-3xl text-sm leading-6 whitespace-pre-line text-muted-foreground">
-                    {a.body}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+          <NewsFeed initialItems={announcements} />
         </CardContent>
       </Card>
     </div>
