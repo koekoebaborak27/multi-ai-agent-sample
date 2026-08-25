@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 export const dynamic = "force-dynamic";
 
 // ログイン後に最初に表示される画面。公開中のお知らせを最初の20件だけ取得して渡す。
-// カテゴリ別の表示はNewsFeedに任せ、工程5では同じコンポーネントに追加取得を加える。
+// カテゴリ別の表示と、追加取得の状態管理はNewsFeedに任せる。
 export default async function DashboardPage() {
-  const announcements = await newsService.listLatest();
+  const newsPage = await newsService.listPublished(0);
 
   return (
     <div className="space-y-6">
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
           <CardTitle>お知らせ</CardTitle>
         </CardHeader>
         <CardContent className="relative">
-          <NewsFeed initialItems={announcements} />
+          <NewsFeed initialItems={newsPage.items} initialHasMore={newsPage.hasMore} />
         </CardContent>
       </Card>
     </div>

@@ -49,5 +49,9 @@ export function decideRedirect(input: RouteGuardInput): string | null {
   // こちらは権限の確認なので、画面の表示か保存処理かを問わず必ず適用する。
   if (path.startsWith("/admin") && role !== ROLES.ADMIN) return "/";
 
+  // お知らせ管理は管理者と担当者だけが開ける。
+  // 画面上のメニューを隠してもURLを直接入力できるため、入口でも閲覧者を止める。
+  if (path.startsWith("/news") && role === ROLES.VIEWER) return "/";
+
   return null;
 }
