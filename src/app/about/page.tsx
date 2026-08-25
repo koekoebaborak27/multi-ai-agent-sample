@@ -30,7 +30,7 @@ const LP_STYLE = `
   }
   .lp-root, .lp-root *{box-sizing:border-box;}
   .lp-root{background:var(--bg);color:var(--ink);font-family:'Noto Sans JP','Space Grotesk',sans-serif;overflow-x:hidden;}
-  .lp-root .heading{font-family:'Zen Maru Gothic','Space Grotesk',sans-serif;font-weight:900;color:var(--ink);margin:0;}
+  .lp-root .heading{font-family:'Zen Maru Gothic','Space Grotesk',sans-serif;font-weight:900;color:var(--ink);margin:0;text-wrap:balance;}
   .lp-root a{color:var(--indigo);text-decoration:none;}
   .lp-root a:hover{color:#3B32C4;}
   .lp-root img,.lp-root svg{max-width:100%;}
@@ -493,9 +493,6 @@ const LP_BODY = `
           <div class="pill" style="background:rgba(255,107,74,0.28);color:#FFB49E;">REPLACE</div>
           <div style="font-size:13px;color:#B8B6D9;margin-top:10px;line-height:1.8;">業務モジュール・DB スキーマ・画面/帳票・業務ルール・テスト仕様</div>
         </div>
-      </div>
-      <div style="margin-top:44px;">
-        <div class="btn-primary" style="width:fit-content;margin:0 auto;">テンプレートについて相談する</div>
       </div>
     </div>
   </div>
