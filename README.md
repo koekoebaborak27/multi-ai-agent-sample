@@ -18,7 +18,7 @@
 | ログイン | `/login` | [`src/modules/auth/`](src/modules/auth/) | Credentials（ID/PW）認証。Entra ID は環境変数が揃うと追加表示 |
 | パスワード再発行の申請 | `/forgot-password` | [`src/modules/password-reset/`](src/modules/password-reset/) | ログイン不要。メールアドレスを入力すると再設定用URLを送信（登録の有無は画面に出さない） |
 | パスワードの再設定 | `/reset-password/{token}` | [`src/modules/password-reset/`](src/modules/password-reset/) | ログイン不要。メールのURLから新しいパスワードを設定（失敗回数・アカウントロックも解除。URLは1度使うと無効化） |
-| ダッシュボード | `/` | [`src/modules/announcement/`](src/modules/announcement/) | 最新のお知らせ一覧 |
+| ダッシュボード | `/` | [`src/modules/news/`](src/modules/news/) | 最新のお知らせ一覧 |
 | 契約検索一覧 | `/contracts` | [`src/modules/contract/`](src/modules/contract/) | 契約先（コンボボックスで名称検索）・状態・分類による検索、列見出しによるソート、URLクエリ、ページング、新規登録（`/contracts/new`）と確認、詳細（`/contracts/{id}`）、更新（`/contracts/{id}/edit`）と確認（楽観ロック）、削除確認ダイアログ |
 | 契約先検索一覧 | `/parties` | [`src/modules/party/`](src/modules/party/) | 名称・分類による検索、列見出しによるソート、URLクエリ、ページング、新規登録（`/parties/new`）と確認、詳細（`/parties/{id}`）、更新（`/parties/{id}/edit`）と確認（楽観ロック）、削除確認ダイアログ（紐づく契約が残っている場合は削除不可） |
 | ユーザー管理 | `/admin/users` | [`src/modules/user/`](src/modules/user/) | ユーザーの一覧・登録・編集・削除（**ADMIN 限定**） |
@@ -35,6 +35,8 @@
 初めてこのプロジェクトを動かす手順は [`docs/development/プロジェクトの導入手順.md`](docs/development/プロジェクトの導入手順.md) にまとめています。非エンジニアの方でも迷わないよう、用語の説明を含めて手順化してあります。より短い案内は [`README_SIMPLE.md`](README_SIMPLE.md) を参照してください。
 
 導入済みの状態で、2回目以降にこのプロジェクトを使う（起動してログインする・作業を終える）手順は [`docs/development/プロジェクト実行手順.md`](docs/development/プロジェクト実行手順.md) を参照してください。
+
+初期お知らせやマスタ分類などの初期データを変更する手順は、[`docs/development/初期マスタを変更したい場合.md`](docs/development/初期マスタを変更したい場合.md) を参照してください。
 
 > **参考：起動する3つの箱**
 >
@@ -252,6 +254,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`README_SIMPLE.md`](README_SIMPLE.md) | ローカル環境構築の最小手順（初めての方向け） |
 | [`docs/development/プロジェクトの導入手順.md`](docs/development/プロジェクトの導入手順.md) | ローカル環境構築手順の正本（非エンジニア向け・トラブルシューティング含む） |
 | [`docs/development/プロジェクト実行手順.md`](docs/development/プロジェクト実行手順.md) | 導入済みの環境を2回目以降に起動・終了する手順 |
+| [`docs/development/初期マスタを変更したい場合.md`](docs/development/初期マスタを変更したい場合.md) | 初期お知らせ・マスタ分類などの初期データを変更する手順 |
 | [`AGENTS.md`](AGENTS.md) | 開発方針の正本（全エージェント共通 / Codex が読み込む） |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code 向けの入口（`AGENTS.md` + Claude 固有の補足） |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot 向けの入口（`AGENTS.md` + Copilot 固有の補足） |
