@@ -61,6 +61,14 @@ export function LoginForm({ entraEnabled }: { entraEnabled: boolean }) {
         >
           パスワードを忘れた場合はこちら
         </Link>
+        <Link
+          href="/about"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+        >
+          システム紹介
+        </Link>
       </form>
     </div>
   );
