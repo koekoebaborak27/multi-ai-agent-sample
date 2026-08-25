@@ -81,8 +81,8 @@ const LP_STYLE = `
     .lp-root .recap-row{flex-direction:column;align-items:stretch;}
     .lp-root .footer-row{flex-direction:column;gap:10px;text-align:center;}
     .lp-root .workflow-row{flex-direction:column;}
-    .lp-root .workflow-rail{flex-direction:row !important;width:100% !important;padding-bottom:8px;}
-    .lp-root .workflow-cards{padding-left:0 !important;padding-top:16px;}
+    .lp-root .workflow-rail{display:none !important;}
+    .lp-root .workflow-cards{padding-left:0 !important;}
   }
 `;
 
