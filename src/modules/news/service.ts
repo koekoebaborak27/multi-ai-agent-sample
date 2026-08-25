@@ -136,6 +136,16 @@ export const newsService = {
     });
   },
 
+  // 更新対象が存在し、ポップアップを開いた時点から他の利用者に更新されていないかを確認する。
+  // 更新Actionが入力検証より先に呼び、古い内容のまま確認を続けさせないようにする。
+  async assertNewsUnchanged(newsId: string, updatedAt: Date): Promise<void> {
+    const existing = await newsRepository.findById(newsId);
+    if (!existing) throw newsNotFound(newsId);
+    if (existing.updatedAt.getTime() !== updatedAt.getTime()) {
+      throw newsConcurrentUpdate(newsId);
+    }
+  },
+
   // お知らせを更新する（§22.1.4）。
   // 検証の順序は「存在 → 同時更新 → 入力検証」（設計書の順序どおり。入力検証はvalidation.ts側で完了済み）。
   async updateNews(input: UpdateNewsInput, userId: string): Promise<void> {
