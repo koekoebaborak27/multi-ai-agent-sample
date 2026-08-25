@@ -4,7 +4,7 @@ import { ROLES, type Role } from "@/shared/constants/roles";
 export const PASSWORD_CHANGE_PATH = "/settings/password";
 
 /** ログインしていなくても開ける画面のパス（前方一致で判定する） */
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/about"];
 
 /** 移動先を決めるために必要な、リクエスト1件分の情報 */
 export interface RouteGuardInput {
