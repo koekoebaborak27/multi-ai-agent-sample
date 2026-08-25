@@ -63,6 +63,7 @@ const LP_STYLE = `
   .lp-root .workflow-row{display:flex;margin-top:44px;}
 
   @media (max-width:680px){
+    .lp-root .heading{white-space:normal;}
     .lp-root .nav-links{display:none;}
     .lp-root .hero-diagram-desktop{display:none;}
     .lp-root .hero-diagram-mobile{display:block;}
