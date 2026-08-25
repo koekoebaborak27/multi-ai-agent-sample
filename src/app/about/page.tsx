@@ -29,8 +29,8 @@ const LP_STYLE = `
     --coral:#FF6B4A; --coral-soft:#FFEEE8;
   }
   .lp-root, .lp-root *{box-sizing:border-box;}
-  .lp-root{background:var(--bg);color:var(--ink);font-family:'Noto Sans JP','Space Grotesk',sans-serif;overflow-x:hidden;}
-  .lp-root .heading{font-family:'Zen Maru Gothic','Space Grotesk',sans-serif;font-weight:900;color:var(--ink);margin:0;text-wrap:balance;}
+  .lp-root{background:var(--bg);color:var(--ink);font-family:'Noto Sans JP','Space Grotesk',sans-serif;}
+  .lp-root .heading{font-family:'Zen Maru Gothic','Space Grotesk',sans-serif;font-weight:900;color:var(--ink);margin:0;white-space:nowrap;}
   .lp-root a{color:var(--indigo);text-decoration:none;}
   .lp-root a:hover{color:#3B32C4;}
   .lp-root img,.lp-root svg{max-width:100%;}
@@ -189,7 +189,7 @@ const LP_BODY = `
   <div style="background:var(--bg-soft);padding:clamp(48px,9vw,88px) 0;">
     <div class="container">
       <div class="kicker">CONCEPT</div>
-      <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;max-width:680px;line-height:1.6;">共通基盤は残す。業務部分だけを、案件ごとに置き換える。</h2>
+      <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;line-height:1.6;">共通基盤は残す。業務部分だけを、案件ごとに置き換える。</h2>
       <p style="font-size:clamp(14px,2vw,15.5px);line-height:1.9;color:var(--muted);max-width:640px;margin-top:18px;">
         Claude Code・Codex・GitHub Copilot のどれでも使える、AI エージェント対応の開発テンプレートです。契約管理システムはサンプルであり、目的は共通基盤の再利用にあります。
       </p>
@@ -228,7 +228,7 @@ const LP_BODY = `
   <!-- FEATURES -->
   <div class="container" style="padding-top:clamp(48px,9vw,88px);padding-bottom:clamp(48px,9vw,88px);">
     <div class="kicker">FEATURES</div>
-    <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;max-width:680px;line-height:1.6;">検索一覧・登録・詳細・更新・削除。一式をあらかじめ揃えています。</h2>
+    <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;line-height:1.6;">検索一覧・登録・詳細・更新・削除。一式をあらかじめ揃えています。</h2>
     <p style="font-size:clamp(14px,2vw,15.5px);line-height:1.9;color:var(--muted);max-width:640px;margin-top:18px;">契約管理システムは説明用のサンプルではなく「業務モジュールの実装例」です。</p>
 
     <div class="features-grid">
@@ -268,7 +268,7 @@ const LP_BODY = `
   <div style="background:var(--bg-soft);padding:clamp(48px,9vw,88px) 0;">
     <div class="container">
       <div class="kicker">COMMON RULES</div>
-      <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;max-width:680px;line-height:1.6;">入口ファイルが違うだけ。守るルールは、ひとつ。</h2>
+      <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;line-height:1.6;">入口ファイルが違うだけ。守るルールは、ひとつ。</h2>
       <p style="font-size:clamp(14px,2vw,15.5px);line-height:1.9;color:var(--muted);max-width:640px;margin-top:18px;">
         Claude Code・Codex・GitHub Copilot は、読み込む設定ファイルの場所や形式が異なります。共通ルールを参照する形にしているため、どれを使っても同じ方針で開発できます。
       </p>
@@ -372,7 +372,7 @@ const LP_BODY = `
   <!-- WORKFLOW -->
   <div class="container" style="padding-top:clamp(48px,9vw,88px);padding-bottom:clamp(48px,9vw,88px);">
     <div class="kicker">WORKFLOW</div>
-    <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;max-width:680px;line-height:1.6;">要件が決まる前に、AI は自由に実装しません。</h2>
+    <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;line-height:1.6;">要件が決まる前に、AI は自由に実装しません。</h2>
     <p style="font-size:clamp(14px,2vw,15.5px);line-height:1.9;color:var(--muted);max-width:640px;margin-top:18px;">人が要件や設計を整理し、AI はそれをもとに支援します。</p>
 
     <div class="workflow-row">
@@ -407,7 +407,7 @@ const LP_BODY = `
   <div style="background:var(--bg-soft);padding:clamp(48px,9vw,88px) 0;">
     <div class="container">
       <div class="kicker">QUALITY GATES</div>
-      <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;max-width:680px;line-height:1.6;">AIの回答が正しいかではなく、コードが壊れていないかを確認する。</h2>
+      <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;line-height:1.6;">AIの回答が正しいかではなく、コードが壊れていないかを確認する。</h2>
       <p style="font-size:clamp(14px,2vw,15.5px);line-height:1.9;color:var(--muted);max-width:640px;margin-top:18px;">AI エージェントは、実装後に次の確認を自動で実行します。</p>
 
       <div class="quality-row">
@@ -450,7 +450,7 @@ const LP_BODY = `
   <!-- ROLES -->
   <div class="container" style="padding-top:clamp(48px,9vw,88px);padding-bottom:clamp(48px,9vw,88px);">
     <div class="kicker">ROLES</div>
-    <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;max-width:680px;line-height:1.6;">作業速度はAIに。データとリリースの判断は人に。</h2>
+    <h2 class="heading" style="font-size:clamp(22px,4.6vw,32px);margin-top:14px;line-height:1.6;">作業速度はAIに。データとリリースの判断は人に。</h2>
     <p style="font-size:clamp(14px,2vw,15.5px);line-height:1.9;color:var(--muted);max-width:640px;margin-top:18px;">AI エージェントは、調査・実装・テスト・記録を支援します。一方で、影響が大きい操作は人が判断します。</p>
 
     <div class="roles-row">
