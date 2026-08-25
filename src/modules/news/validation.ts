@@ -60,6 +60,13 @@ const newsBodySchema = z
 
 const newsCategorySchema = z.enum(NEWS_CATEGORIES);
 
+// 日時入力の空欄を未指定として扱う。datetime-local は空欄でも空文字列を送るため、
+// そのまま日付へ変換すると入力エラーになってしまう。
+const optionalDateSchema = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z.coerce.date().optional(),
+);
+
 // 公開終了日時が公開開始日時より前でないことを確認する（§21.3）。
 // 両方空欄、または片方だけが指定されている場合はこの検証を行わない（同時刻は許可する）。
 function refineNewsPeriod(data: { startAt?: Date; endAt?: Date }, ctx: z.RefinementCtx): void {
@@ -78,8 +85,8 @@ export const createNewsSchema = z
     title: newsTitleSchema,
     category: newsCategorySchema,
     body: newsBodySchema,
-    startAt: z.coerce.date().optional(),
-    endAt: z.coerce.date().optional(),
+    startAt: optionalDateSchema,
+    endAt: optionalDateSchema,
     // 未送信（HTMLのswitchが未チェックのとき）はOFFとして扱う
     published: z.boolean().default(true),
   })
@@ -98,8 +105,8 @@ export const updateNewsSchema = z
     title: newsTitleSchema,
     category: newsCategorySchema,
     body: newsBodySchema,
-    startAt: z.coerce.date().optional(),
-    endAt: z.coerce.date().optional(),
+    startAt: optionalDateSchema,
+    endAt: optionalDateSchema,
     published: z.boolean(),
     updatedAt: z.coerce.date(),
   })

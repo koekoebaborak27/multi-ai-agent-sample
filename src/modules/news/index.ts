@@ -1,6 +1,11 @@
 // このモジュールを外部へ公開する窓口。
 // 他の機能や画面はここに書かれているものだけを使い、service.ts などモジュール内部のファイルを直接使わない。
 export { newsService } from "@/modules/news/service";
+export { NewsSearchForm } from "@/modules/news/ui/news-search-form";
+export { NewsTable } from "@/modules/news/ui/news-table";
+export { NewsCreateDialog } from "@/modules/news/ui/news-create-dialog";
+export { NewsEditDialog } from "@/modules/news/ui/news-edit-dialog";
+export { NewsDeleteDialog } from "@/modules/news/ui/news-delete-dialog";
 export {
   createNewsSchema,
   deleteNewsSchema,
