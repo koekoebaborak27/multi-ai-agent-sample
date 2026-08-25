@@ -45,7 +45,6 @@ const LP_STYLE = `
   /* ---- structural blocks (layout only; typography is fluid via clamp) ---- */
   .lp-root .nav-wrap{display:flex;align-items:center;justify-content:space-between;padding:clamp(16px,3vw,26px) clamp(20px,6vw,64px);}
   .lp-root .nav-links{display:flex;align-items:center;gap:36px;}
-  .lp-root .hero-cta-row{display:flex;gap:16px;justify-content:center;margin-top:clamp(24px,4vw,36px);flex-wrap:wrap;}
   .lp-root .hero-diagram-mobile{display:none;}
   .lp-root .split-wrap{display:flex;}
   .lp-root .split-divider-wrap{width:0;position:relative;}
@@ -65,7 +64,6 @@ const LP_STYLE = `
 
   @media (max-width:680px){
     .lp-root .nav-links{display:none;}
-    .lp-root .hero-cta-row{flex-direction:column;align-items:stretch;}
     .lp-root .hero-diagram-desktop{display:none;}
     .lp-root .hero-diagram-mobile{display:block;}
     .lp-root .split-wrap{flex-direction:column;}
@@ -119,10 +117,6 @@ const LP_BODY = `
     <p style="font-size:clamp(14.5px,2.4vw,17px);line-height:1.9;color:var(--muted);max-width:620px;margin:26px auto 0;">
       契約管理システムは実装サンプル。本当の価値は、認証・DB・テスト・CI/CD をそのまま流用できる「共通開発基盤」にあります。業務部分だけ差し替えれば、次の案件にすぐ使えます。
     </p>
-    <div class="hero-cta-row">
-      <div class="btn-primary">テンプレート構成を見る</div>
-      <div class="btn-secondary">お問い合わせ</div>
-    </div>
 
     <!-- hero diagram card -->
     <div class="card" style="margin-top:clamp(36px,7vw,64px);padding:clamp(20px,5vw,48px);text-align:left;">
