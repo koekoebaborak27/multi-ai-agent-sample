@@ -102,6 +102,23 @@ describe("auth/route-guard decideRedirect", () => {
     });
   });
 
+  describe("/news 配下に VIEWER がアクセスしたとき", () => {
+    it("/ へ戻す", () => {
+      expect(decideRedirect(input({ path: "/news", role: ROLES.VIEWER }))).toBe("/");
+    });
+
+    it("Server Action でも / へ戻す（認可は緩めない）", () => {
+      expect(
+        decideRedirect(input({ path: "/news", role: ROLES.VIEWER, isServerAction: true })),
+      ).toBe("/");
+    });
+
+    it("ADMIN と OPERATOR は通す", () => {
+      expect(decideRedirect(input({ path: "/news", role: ROLES.ADMIN }))).toBeNull();
+      expect(decideRedirect(input({ path: "/news", role: ROLES.OPERATOR }))).toBeNull();
+    });
+  });
+
   describe("いずれの条件にも当たらないとき", () => {
     it("誘導せず null を返す", () => {
       expect(decideRedirect(input({ path: "/contracts" }))).toBeNull();

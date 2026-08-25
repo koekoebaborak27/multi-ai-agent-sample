@@ -12,8 +12,12 @@ import { cn } from "@/shared/ui/utils";
  */
 export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () => void }) {
   const pathname = usePathname();
-  // 管理者向けの項目は、管理者以外には表示しない
-  const items = NAV_ITEMS.filter((i) => !i.adminOnly || role === ROLES.ADMIN);
+  // 管理者だけの項目と、閲覧者には見せない項目を権限に合わせて除く。
+  // お知らせ管理は担当者にも使わせるため、管理者だけの項目とは別に判定する。
+  const items = NAV_ITEMS.filter(
+    (item) =>
+      (!item.adminOnly || role === ROLES.ADMIN) && (!item.hideForViewer || role !== ROLES.VIEWER),
+  );
 
   return (
     <>
