@@ -55,7 +55,12 @@ services:
     # 起動のたびに 部品を最新化 → Prisma Client を最新化 → マイグレーション適用 → dev サーバ起動
     # node_modules はイメージを作った時点の中身のまま固定される保存領域のため、
     # package.json に部品を追加・更新しても起動時に pnpm install しないと反映されない
-    command: sh -c "pnpm install && pnpm prisma generate && pnpm prisma migrate deploy && pnpm exec next dev --webpack"
+    #
+    # confirm-modules-purge=false は必須。pnpm は node_modules を作り直す必要があると判断すると
+    # 「作り直していいですか (Y/n)」と人に質問するが、この起動方法ではキーボードが繋がっておらず
+    # 誰も答えられないため、質問したまま永久に止まる（画面にも何も出ない）。そうなると後ろの
+    # マイグレーションと dev サーバ起動に到達せず、localhost:3000 が無応答になる。
+    command: sh -c "pnpm install --config.confirm-modules-purge=false && pnpm prisma generate && pnpm prisma migrate deploy && pnpm exec next dev --webpack"
 
   worker:
     build:
@@ -86,7 +91,10 @@ services:
     #
     # node_modules はイメージを作った時点の中身のまま固定される保存領域のため、
     # package.json に部品を追加・更新しても起動時に pnpm install しないと反映されない
-    command: sh -c "pnpm install && pnpm prisma generate && pnpm exec tsx watch --inspect=0.0.0.0:9229 --env-file-if-exists=.env src/worker/index.ts"
+    #
+    # confirm-modules-purge=false が必要な理由は app 側のコメントを参照（キーボードが繋がって
+    # いない起動方法で pnpm が人に質問し、永久に止まるのを防ぐ）
+    command: sh -c "pnpm install --config.confirm-modules-purge=false && pnpm prisma generate && pnpm exec tsx watch --inspect=0.0.0.0:9229 --env-file-if-exists=.env src/worker/index.ts"
 
 volumes:
   db-data:
