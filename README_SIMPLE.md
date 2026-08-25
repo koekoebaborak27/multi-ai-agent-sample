@@ -1,122 +1,10 @@
 # ローカル環境構築（シンプル版）
 
-このプロジェクトを初めて自分のPCで動かすための、最小限の手順です。
+このプロジェクトを初めて自分のPCで動かす手順は [`docs/development/プロジェクトの導入手順.md`](docs/development/プロジェクトの導入手順.md) にまとめています。非エンジニアの方でも迷わないよう、用語の説明を含めて手順化してあるので、まずはこちらを参照してください。
 
-アプリ・ジョブワーカー・データベースの3つをすべてDockerで起動します。PCへNext.jsやPostgreSQLを直接インストールする必要はありません。
+導入済みの状態で、2回目以降にこのプロジェクトを使う（起動してログインする・作業を終える）手順は [`docs/development/プロジェクト実行手順.md`](docs/development/プロジェクト実行手順.md) を参照してください。
 
-詳しい説明やトラブルへの対処方法は、[`README.md`](README.md)を参照してください。
-
-## 1. 必要なソフトウェア
-
-事前に以下をインストールしてください。
-
-- [Git](https://git-scm.com/downloads)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [Node.js](https://nodejs.org/) 22（LTS）
-- pnpm 10.15.1
-
-Node.jsをインストールした後、次のコマンドでpnpmを有効にします。
-
-```bash
-corepack enable
-corepack prepare pnpm@10.15.1 --activate
-```
-
-> アプリ自体はDockerの中で動くため、Node.jsとpnpmは「エディタの入力補完」と「`pnpm lint`などの検査コマンドをPC上で実行するため」に使います。
-
-## 2. 依存パッケージをインストールする
-
-この`README_SIMPLE.md`や`package.json`があるディレクトリで実行します。
-
-```bash
-pnpm install
-```
-
-> **依存パッケージ**とは、アプリケーションが利用するNext.jsやPrismaなどの外部ライブラリです。
-
-## 3. 環境変数を用意する
-
-Windows PowerShellの場合:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-macOSまたはLinuxの場合:
-
-```bash
-cp .env.example .env
-```
-
-ローカルで動かすだけなら、作成した`.env`は初期値のままで構いません。
-
-> **環境変数**とは、データベースの接続先や認証用の秘密情報など、実行環境ごとに変わる設定値です。本番用の値はこのファイルではなく、デプロイ先（Google Cloud Run）の設定画面に登録します。
-
-## 4. すべてを起動する
-
-Docker Desktopを起動してから実行します。
-
-```bash
-docker compose -f docker/docker-compose.yml up -d
-```
-
-このコマンドで次の3つが起動します。
-
-| サービス | 役割 |
-|---|---|
-| `db` | PostgreSQL（データベース） |
-| `app` | Next.jsの開発サーバ（http://localhost:3000） |
-| `worker` | ジョブワーカー |
-
-`app`は起動時に、データベースのテーブル作成（マイグレーション）まで自動で実行します。
-
-> **ジョブワーカー**とは、画面処理とは別に、時間のかかる処理や後で実行する処理を担当するプログラムです。
-
-初回はDockerイメージのビルドとパッケージの取得のため、数分かかります。次のコマンドで起動状況を確認できます。
-
-```bash
-docker compose -f docker/docker-compose.yml ps
-docker compose -f docker/docker-compose.yml logs -f app
-```
-
-`app`のログに`Ready`と表示されれば、起動完了です（`Ctrl+C`でログ表示を終了できます。アプリは停止しません）。
-
-## 5. 初期データを投入する
-
-初回のみ実行します。
-
-```bash
-docker compose -f docker/docker-compose.yml exec app pnpm prisma:seed
-```
-
-> **seed（シード）**とは、動作確認に必要な初期データを登録する処理です。
-
-初期管理者は次の内容で作成されます。
-
-- ログインID: `admin`
-- 初期パスワード: `Admin@123`
-
-## 6. アプリケーションを開く
-
-ブラウザで[http://localhost:3000](http://localhost:3000)を開き、初期管理者でログインしてください。
-
-初回ログイン後は、パスワード変更画面へ自動的に移動します。パスワードを変更するまで他の画面は利用できません。
-
-## 7. 停止する
-
-開発を終了するときに実行します。
-
-```bash
-docker compose -f docker/docker-compose.yml stop
-```
-
-再開するときは、手順4の`up -d`を実行します。この方法で停止しても、登録したデータは削除されません。
-
-データベースを含めて完全に作り直したい場合のみ、次を実行します（**登録したデータはすべて削除されます**）。
-
-```bash
-docker compose -f docker/docker-compose.yml down -v
-```
+より詳しい機能一覧やアーキテクチャなど、プロジェクト全体については [`README.md`](README.md) を参照してください。
 
 ## よく使うコマンド
 
@@ -148,7 +36,7 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset        # DB�
 - `PC:`で始まる構成 … VSCodeがプログラムを起動します（普段はこちら）
 - `Docker:`で始まる構成 … `docker compose`で起動中のコンテナへ接続します
 
-詳しい手順とうまく動かないときの対処は[`README.md`の「VSCodeでステップイン実行する（デバッグ）」](README.md#vscodeでステップイン実行するデバッグ)を参照してください。
+詳しい手順とうまく動かないときの対処は[`docs/development/VSCodeでデバッグする.md`](docs/development/VSCodeでデバッグする.md)を参照してください。
 
 ## 本番環境を構築する
 
@@ -181,4 +69,4 @@ docker compose -f docker/docker-compose.yml exec app pnpm db:reset        # DB�
 
 ## うまく動かないときは
 
-[`README.md`の「セットアップ時によくある問題」](README.md#セットアップ時によくある問題)を参照してください。
+[`docs/development/プロジェクトの導入手順.md`のトラブルシューティング](docs/development/プロジェクトの導入手順.md#トラブルシューティング)を参照してください。

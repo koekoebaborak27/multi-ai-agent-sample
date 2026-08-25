@@ -13,7 +13,9 @@
 | 設定値・落とし穴・実測値 | [`docs/todo/notes/`](notes/README.md)（冒頭に節ごとの目次がある） |
 | 何をやったか・なぜ・どこで詰まったか | [`docs/todo/history/`](history/README.md)（古い順。新しい記録は末尾へ） |
 | UI / デザイン規約 | [`DESIGN.md`](../../DESIGN.md)（一覧テーブル・検索条件を含む） |
-| セットアップ・開発フロー・デバッグ手順 | [`README.md`](../../README.md) |
+| セットアップ手順 | [`docs/development/プロジェクトの導入手順.md`](../development/プロジェクトの導入手順.md) |
+| 開発フロー概要・コマンド一覧 | [`README.md`](../../README.md) |
+| デバッグ手順 | [`docs/development/VSCodeでデバッグする.md`](../development/VSCodeでデバッグする.md) |
 | Prisma マイグレーションの運用 | [`prisma_operations.md`](../prisma_operations.md) |
 
 このファイルの更新手順は [`docs/skills/update-todo.md`](../skills/update-todo.md)（`/update-todo` の正本）。
@@ -34,7 +36,7 @@
 | **マスタ分類の編集・削除に警告アラートを追加する**                                   | **4 / 4**   |
 | **お知らせ管理機能（設計1＋実装9＋テスト仕様書1＋テスト実施1）**                          | **3 / 12**  |
 | **公開用テンプレートの切り出し**                                            | **0 / 8**   |
-| 残っているタスク（期限なしの宿題）                                             | 未対応 11 件    |
+| 残っているタスク（期限なしの宿題）                                             | 未対応 10 件    |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
 
@@ -92,8 +94,6 @@ git status --porcelain                                   # 未コミット差分
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 - [ ] **Vitestサブエージェント（`create-vitest-test`）の効果を確認し、画面テスト仕様書作成・画面テスト実行にも同じ形でサブエージェントを広げるか判断する** — 2026-08-23に3ツール（Claude Code / Codex / GitHub Copilot）向けに試作済み。トークン削減効果が確実なのはClaude Codeのみで、Codexはスキル形式での妥協。詳細は [履歴](history/2026-08-w3.md#2026-08-23-vitestサブエージェントcreate-vitest-testを3ツール向けに新規作成)
 - [ ] **Prismaのマイグレーション履歴を1本に統合するか検討する** — 今のこの本番運用中プロジェクトでは統合しない（本番DBの`_prisma_migrations`の記録とファイルの中身が食い違い、次回の`prisma migrate deploy`が失敗するため。[`prisma_operations.md`](../prisma_operations.md) §1-6「やってはいけないこと」参照）。次にこのリポジトリを新しい案件のテンプレートとして複製する際（[`foundation_plan.md`](../foundation_plan.md) §9、Supabase/Google Cloudのプロジェクトを新規作成するタイミング）、真っさらなDBに対して `migrations` を1本の初期マイグレーションへ作り直すことを検討する
-- [ ] **[`docs/development/プロジェクトの導入手順.md`](../development/プロジェクトの導入手順.md) と [`README.md`](../../README.md) の内容重複を整理し、構成をシンプルにすることを検討する** — 2026-08-25、ローカル環境構築のトラブル対応中に、セットアップ手順（Docker起動・seed・ログイン確認等）が両方のファイルに重複して書かれていることに気付いた。書き分け方針（対象読者で分けるか、片方から参照する形にするか）を決めて統合または住み分けを検討する
-
 ## 現在の状態
 
 事実のみ。予定・経緯・仕様は書かない。
@@ -135,6 +135,6 @@ git status --porcelain                                   # 未コミット差分
 | マスタ分類コードの表示廃止 | 1 | [検索・新規登録・更新画面の選択肢からコード表示を除去](history/2026-08-w3.md#2026-08-23-マスタ分類コードの表示廃止を実装) |
 | マスタ分類の編集・削除に警告アラートを追加する | 4 | [設計・実装・テスト更新（1〜3番）](history/2026-08-w3.md#2026-08-23-マスタ分類の警告アラートを設計実装1〜3番)・[本番反映（4番）](history/2026-08-w3.md#2026-08-23-マスタ分類の警告アラートを本番へ反映4番完了)（[PR #28](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/28)） |
 | 一覧 UI の共通化 | 3 | [スクロールと固定ヘッダー](history/2026-08-w2.md#2026-08-10-一覧テーブルのスクロールと固定ヘッダーを共通化)・[検索条件アコーディオン](history/2026-08-w2.md#2026-08-10-検索条件アコーディオンと一覧規約を共通化)・[ヘッダーソート](history/2026-08-w2.md#2026-08-10-全一覧のヘッダーソートとマスタ初期分類を実装)（規約は [`DESIGN.md`](../../DESIGN.md)） |
-| 宿題から片づけたもの | 4 | `onlyBuiltDependencies` の検証、`paths-ignore` の実機確認、Storage の疎通（PR #6）、GitHub Actions の更新（PR #2） |
+| 宿題から片づけたもの | 5 | `onlyBuiltDependencies` の検証、`paths-ignore` の実機確認、Storage の疎通（PR #6）、GitHub Actions の更新（PR #2）、[README/導入手順書の重複整理](history/2026-08-w4.md#2026-08-25-readmeとreadme_simpleを整理し導入手順書への誘導に統一) |
 
 関連ドキュメントの一覧は冒頭の[書き分け表](#todo)にある。
