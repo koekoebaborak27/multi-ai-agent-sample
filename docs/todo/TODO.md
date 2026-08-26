@@ -37,7 +37,7 @@
 | **お知らせ管理機能（設計1＋実装9＋テスト仕様書1＋テスト実施1）**                          | **12 / 12** |
 | **不足ドキュメントの作成（棚卸し1＋要件定義・基本設計4＋単体テスト仕様書1＋テスト実施1）**             | **0 / 7**   |
 | **公開用テンプレートの切り出し**                                            | **0 / 8**   |
-| 残っているタスク（期限なしの宿題）                                             | 未対応 12 件    |
+| 残っているタスク（期限なしの宿題）                                             | 未対応 7 件     |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
 
@@ -90,8 +90,8 @@ git status --porcelain                                   # 未コミット差分
 - [ ] **`/update-todo` が GitHub Copilot Chat で起動するか確認する**（`chat.promptFiles` が有効なこと）— Claude Code と Codex では確認済み
 - [ ] **Vitestサブエージェント（`create-vitest-test`）の効果を確認し、画面テスト仕様書作成・画面テスト実行にも同じ形でサブエージェントを広げるか判断する** — 2026-08-23に3ツール（Claude Code / Codex / GitHub Copilot）向けに試作済み。トークン削減効果が確実なのはClaude Codeのみで、Codexはスキル形式での妥協。詳細は [履歴](history/2026-08-w3.md#2026-08-23-vitestサブエージェントcreate-vitest-testを3ツール向けに新規作成)
 - [ ] **Prismaのマイグレーション履歴を1本に統合するか検討する** — 今のこの本番運用中プロジェクトでは統合しない（本番DBの`_prisma_migrations`の記録とファイルの中身が食い違い、次回の`prisma migrate deploy`が失敗するため。[`prisma_operations.md`](../prisma_operations.md) §1-6「やってはいけないこと」参照）。次にこのリポジトリを新しい案件のテンプレートとして複製する際（[`foundation_plan.md`](../foundation_plan.md) §9、Supabase/Google Cloudのプロジェクトを新規作成するタイミング）、真っさらなDBに対して `migrations` を1本の初期マイグレーションへ作り直すことを検討する
-- [ ] **お知らせ管理機能のDBマイグレーション（`Announcement`→`News`）を本番へ適用し、機能を本番反映する** — 2026-08-24にローカルへ適用済みだが本番は未適用。マスタ・契約先契約・パスワード再発行と同様、`prisma migrate deploy`の実行とCloud Buildの反映確認が必要
-- [ ] **`prisma/seed.ts`にOPERATOR/VIEWERの初期アカウント作成を追加するか検討する** — `.env.example`は`SEED_OPERATOR_*`/`SEED_VIEWER_*`を「自動テスト用アカウント」として定義しているが、`seed.ts`は`admin`しか作成しない。2026-08-27時点のローカルDBには両アカウントが無く、お知らせ管理機能の画面操作テスト（UT_20 TC-010）実行前に一時スクリプトで追加して対処した（→ [履歴](history/2026-08-w4.md#2026-08-27-お知らせ管理機能の単体テスト画面操作テスト工程12を完了)）
+- [x] **お知らせ管理機能のDBマイグレーション（`Announcement`→`News`）を本番へ適用し、機能を本番反映する**（2026-08-27）→ [履歴](history/2026-08-w4.md#2026-08-27-お知らせ管理機能のprをmainへマージし残タスク2件を決着)
+- [x] **`prisma/seed.ts`にOPERATOR/VIEWERの初期アカウント作成を追加するか検討する**（2026-08-27、検討の結果対応しないことに決定）→ [履歴](history/2026-08-w4.md#2026-08-27-お知らせ管理機能のprをmainへマージし残タスク2件を決着)
 
 ## 現在の状態
 
@@ -99,9 +99,9 @@ git status --porcelain                                   # 未コミット差分
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `main`（[PR #28](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/28)は2026-08-23にマージ済み）。`git log --oneline -1`で最新の反映内容を確認できる |
-| 本番 DB | マスタ分類の見直し（工程1〜4）とパスワード再発行機能（`User.email`の一意制約、`PasswordResetToken`・`EmailChangeToken`）のマイグレーションまで**適用済み**（2026-08-22、`/api/health?check=db`で疎通確認済み） |
-| ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類は本来の3件に加え、契約先分類・契約分類とその配下のマスタ4件（検証用、`CORP`/`INDIV`/`GYOMU`/`HOSYU`）が入っている。契約先・契約にも検証用データが1件ずつ入っている。`User.email`の一意制約、`PasswordResetToken`・`EmailChangeToken`テーブルも**追加済み**（2026-08-21。本番へも2026-08-22に適用済み）。`Announcement`テーブルは`News`へリネーム済み（`category`/`startAt`/`endAt`/`createdBy`/`updatedBy`追加、`deleted`削除。2026-08-24。**本番へは未適用**）。`prisma/seed.ts`も`News`向けに修正し再seed済み（seed由来の2行は`category="NEWS"`で復元済み）。OPERATOR/VIEWER のテスト用アカウント（`opeTest`/`viwTest`）を2026-08-27に追加済み（`prisma/seed.ts`は`admin`しか作成しないため、一時スクリプトで直接追加。→ [残っているタスク](#残っているタスク)） |
+| 作業ブランチ | `main`（[PR #42](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/42)は2026-08-27にマージ済み）。`git log --oneline -1`で最新の反映内容を確認できる |
+| 本番 DB | お知らせ管理機能のマイグレーション（`Announcement`→`News`）まで**適用済み**（`prisma migrate deploy`で11件全て適用確認。2026-08-27、`/api/health?check=db`で疎通確認済み） |
+| ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類は本来の3件に加え、契約先分類・契約分類とその配下のマスタ4件（検証用、`CORP`/`INDIV`/`GYOMU`/`HOSYU`）が入っている。契約先・契約にも検証用データが1件ずつ入っている。`User.email`の一意制約、`PasswordResetToken`・`EmailChangeToken`テーブルも**追加済み**（2026-08-21。本番へも2026-08-22に適用済み）。`Announcement`テーブルは`News`へリネーム済み（`category`/`startAt`/`endAt`/`createdBy`/`updatedBy`追加、`deleted`削除。2026-08-24。本番へも2026-08-27に適用済み）。`prisma/seed.ts`も`News`向けに修正し再seed済み（seed由来の2行は`category="NEWS"`で復元済み）。OPERATOR/VIEWER のテスト用アカウント（`opeTest`/`viwTest`）を2026-08-27に一時スクリプトで追加済み（`prisma/seed.ts`への恒久追加は本番への波及リスクを理由に見送り済み） |
 | ローカル開発環境 | Docker Composeで`db`・`app`・`worker`全部を起動する方法と、DBだけDockerで起動してアプリをパソコン上で直接動かす方法の両方に対応。パスワード処理はOS専用の追加部品を必要としないWASM版Argon2idへ変更済み（2026-08-26） |
 | ローカル `.env` | **`DATABASE_URL` が本番Supabaseを指す設定になっている**（2026-08-19判明。経緯は [`docs/todo/notes/supabase.md`](notes/supabase.md#2026-08-19-envのdatabase_urlが本番を指したまま残っていた)）。ローカル作業は `.env.local`（Git管理外）で `DATABASE_URL` / `STORAGE_TYPE=local` / `WORKER_INVOKE_MODE=none` を上書きして行うこと。**Prisma CLI（`prisma migrate` 系）は `.env.local` を読まないため、`DATABASE_URL=<ローカル接続文字列>` を明示指定して実行する** |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし）。マスタ情報Excel取得（MST-11）はUT_30（2026-08-19）でローカルのPlaywright実機確認（全11ケース）を完了済み。マスタ分類の見直し（工程1〜4）は2026-08-19にローカルで手動のブラウザ確認済み（Playwright仕様書は未作成）。契約先（PTY-01〜05）はUT_10〜14（2026-08-20）でローカルのPlaywright実機確認（48ケース中47件成功・1件は技術的制約によりスキップ）を完了済み。契約（CTR-01〜05）はUT_20〜24（2026-08-20）でローカルのPlaywright実機確認（54ケース中53件成功・1件は技術的制約により未実施）を完了済み。マスタ分類の警告アラート（MST-07・MST-09）は2026-08-23にローカル・本番の両方で手動のブラウザ確認済み（既存の`e2e/master`のPrisma不具合によりPlaywright実行は次回対応）。お知らせ管理機能（NEWS-01・NEWS-02、登録・更新・削除）はUT_10〜UT_23（2026-08-27）でローカルのPlaywright実機確認（40ケース中37件成功・3件はVIEWERによるServer Action直接実行のため対象外）を完了済み |
