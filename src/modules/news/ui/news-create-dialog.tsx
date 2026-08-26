@@ -65,9 +65,9 @@ function NewsCreateDialogForm({ onClose }: NewsCreateDialogFormProps) {
         <p className="text-sm text-muted-foreground">1文字以上200文字以内で入力してください。</p>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="news-category">カテゴリ</Label>
+        <Label htmlFor="news-create-category">カテゴリ</Label>
         <select
-          id="news-category"
+          id="news-create-category"
           name="category"
           defaultValue={state.category ?? ""}
           required

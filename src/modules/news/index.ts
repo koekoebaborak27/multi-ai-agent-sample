@@ -6,6 +6,7 @@ export { NewsTable } from "@/modules/news/ui/news-table";
 export { NewsCreateDialog } from "@/modules/news/ui/news-create-dialog";
 export { NewsEditDialog } from "@/modules/news/ui/news-edit-dialog";
 export { NewsDeleteDialog } from "@/modules/news/ui/news-delete-dialog";
+export { NewsDeletedToast } from "@/modules/news/ui/news-deleted-toast";
 export {
   createNewsSchema,
   deleteNewsSchema,
