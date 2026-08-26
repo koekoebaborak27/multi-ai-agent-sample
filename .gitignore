@@ -1,5 +1,6 @@
 # === Dependencies ===
 node_modules/
+.pnpm-store/
 
 # === Next.js ===
 .next/
@@ -69,4 +70,3 @@ uploads/
 # === Project-specific ===
 current_system/*
 doc/todo*.txt
-

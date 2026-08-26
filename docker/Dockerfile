@@ -52,7 +52,7 @@ RUN rm -rf node_modules/.pnpm/*musl*
 
 # ── runner: 実行環境（app / worker 共用の土台。CMD は下の runner / worker で分ける）──
 # NOTE: node_modules は build ステージで devDependencies を落としたものを持ち込み、
-#       app=next / worker=tsx の両立を保つ（tsx / pg-boss / @node-rs/argon2 は dependencies 側）。
+#       app=next / worker=tsx の両立を保つ（tsx / pg-boss は dependencies 側）。
 #       `output: "standalone"` によるさらなるスリム化は現状見送っている（docs/todo/TODO.md）。
 FROM base AS runner-base
 ENV NODE_ENV=production

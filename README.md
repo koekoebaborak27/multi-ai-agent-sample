@@ -58,7 +58,7 @@ Docker を使わずホスト上で直接動かす方法は [`docs/development/Do
 ## 認証と権限（RBAC）
 
 - 認証は Auth.js v5。**Credentials（ID/PW）が必須**、Microsoft Entra ID は `AUTH_MICROSOFT_ENTRA_ID_*` が3つとも設定されている場合のみ有効化される任意プロバイダです。
-- パスワードは Argon2id（`@node-rs/argon2`）でハッシュ化します。ログイン失敗が`MAX_ATTEMPTS`回（既定 **20 回**）に達したアカウントはロックされます。**ロックは自動解除されません**（`lockedAt`が立ったままになります）。解除するには管理画面から操作するか、DBの`users`テーブルで`lockedAt`を`null`・`failedAttempts`を`0`に戻してください。
+- パスワードは、OS専用の追加部品を必要としないWASM版のArgon2id（`hash-wasm`）でハッシュ化します。ログイン失敗が`MAX_ATTEMPTS`回（既定 **20 回**）に達したアカウントはロックされます。**ロックは自動解除されません**（`lockedAt`が立ったままになります）。解除するには管理画面から操作するか、DBの`users`テーブルで`lockedAt`を`null`・`failedAttempts`を`0`に戻してください。
 - 認証ガードと認可は [`src/proxy.ts`](src/proxy.ts) が担当します（Next.js 16 で `middleware.ts` から改名。Node.js ランタイムで動作）。ロール判定は JWT クレームのみで完結し、DB アクセスは行いません。判定そのものは [`src/modules/auth/route-guard.ts`](src/modules/auth/route-guard.ts) の純粋関数`decideRedirect`にあります。
 - **middlewareからServer ActionのPOSTをリダイレクトしてはいけません。** リダイレクトするとPOSTが転送先へ再送され、誘導先との間で往復し続けます（実際にログイン直後の無限ループを起こしました）。ログイン済みユーザーの誘導は画面遷移（GET）でのみ行い、未ログイン時のガードと`/admin/*`の認可はメソッドを問わず適用します。
 - ロールは `ADMIN` / `OPERATOR` / `VIEWER` の3種類（[`src/shared/constants/roles.ts`](src/shared/constants/roles.ts)）。`VIEWER`は閲覧のみ、`/admin/*`は`ADMIN`限定です。

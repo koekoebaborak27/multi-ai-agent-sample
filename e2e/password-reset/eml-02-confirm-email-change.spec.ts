@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { hash } from "@node-rs/argon2";
+import { hashPassword } from "../../src/shared/security/password";
 import { test, expect, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { createToken, hashToken } from "../../src/modules/password-reset/token";
@@ -16,7 +16,6 @@ function evidence(name: string) {
 }
 
 const PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "Admin@123";
-const ARGON2_OPTS = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
 const TTL_MS = 30 * 60 * 1000;
 
 const USER_A_ID = "e2eEmlConfirmA";
@@ -50,7 +49,7 @@ async function createEmailChangeToken(userId: string, newEmail: string, expiresI
 test.describe.serial("メールアドレス変更確認（EML-02）", () => {
   test.beforeAll(async () => {
     fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
-    const passwordHash = await hash(PASSWORD, ARGON2_OPTS);
+    const passwordHash = await hashPassword(PASSWORD);
 
     await prisma.user.createMany({
       data: ALL_USER_IDS.map((id) => ({

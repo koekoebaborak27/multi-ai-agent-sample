@@ -72,7 +72,7 @@ docker run -d --name app-verify -p 3100:3000 `
 | 1 | `/api/health` | `{"status":"ok"}` |
 | 2 | `/api/health?check=db` | `{"status":"ok","db":"up"}`（**Prisma のクエリエンジンが prune 後も残っている**） |
 | 3 | `/login` と参照する CSS | ともに 200（静的アセットの漏れなし） |
-| 4 | 使い捨てユーザーでの Credentials ログイン | 成功（`authjs.session-token` 発行）／誤パスワードは拒否（**`@node-rs/argon2` のネイティブバインディングが動作**） |
+| 4 | 使い捨てユーザーでの Credentials ログイン | 成功（`authjs.session-token` 発行）／誤パスワードは拒否（**WASM版Argon2idの作成・照合が動作**） |
 | 5 | 同イメージからの worker 起動 | pg-boss 待受まで到達 |
 
 4 番目は Auth.js の Server Action ではなく **`/api/auth/csrf` → `/api/auth/callback/credentials`** を直接叩いて確認した（CSRF トークンを取ってから POST する）。使い捨てユーザーは検証後に削除すること。
@@ -171,7 +171,7 @@ command: sh -c "pnpm install && pnpm prisma generate && pnpm prisma migrate depl
 2. **`public/` と `.next/static/` は自動で入らない。** standalone 出力に含まれないため、Dockerfile 側で明示的にコピーする。忘れると CSS / JS / 画像が 404 になり、**画面は表示されるがスタイルが当たらない**という分かりにくい壊れ方をする
 3. **`HOSTNAME=0.0.0.0` を設定する。** 既定でループバックに束縛されると、Cloud Run のヘルスチェックがコンテナ外から到達できずデプロイが失敗する。`PORT` は Cloud Run が `8080` を注入する（→ [本番の環境変数](cloud-run.md#本番の環境変数)）
 4. **Prisma の query engine がトレースから漏れることがある。** ネイティブバイナリはトレースで拾えない場合があるため、`.prisma/client` 配下を明示コピーする必要が出る可能性がある。DB へ接続した瞬間に落ちるので、ローカル検証では**必ず DB 接続を伴う画面まで開く**こと
-5. **`serverExternalPackages` の扱い。** [`next.config.ts`](../../../next.config.ts#L8) で `pino` / `pg-boss` / `@node-rs/argon2` を外部化しているが、外部化したパッケージはバンドルされないぶんトレースに依存する。`@node-rs/argon2` はネイティブバインディングのため、**ログイン（パスワード照合）まで実際に通す**こと
+5. **WASM版Argon2idの同梱。** `hash-wasm`はアプリへまとめて組み込まれるため、成果物から漏れていないことを**ログイン（パスワード照合）まで実際に通して**確認すること
 
 **ローカルでの検証手順**（PR に含める。未検証の構成をいきなり本番へ出さないこと）:
 
@@ -185,4 +185,3 @@ command: sh -c "pnpm install && pnpm prisma generate && pnpm prisma migrate depl
 | イメージサイズが縮んでいる（`docker images` で before/after を比較） | そもそもの目的 |
 
 **比較の基準は 1.31GB**（2026-08-02 の軽量化後）。これを下回らなければ standalone 化の意味はない。
-
