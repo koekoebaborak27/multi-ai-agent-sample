@@ -125,3 +125,14 @@ export const deleteNewsSchema = z.object({
 });
 
 export type DeleteNewsInput = z.infer<typeof deleteNewsSchema>;
+
+const NEWS_LIST_PATH = "/news";
+
+// 削除後に戻る一覧画面のURL（検索条件付き）を検証する。
+// 外部サイトへ転送させられないよう、お知らせ一覧のURL以外は既定の一覧へ戻す。
+export function parseNewsReturnTo(value: string | null | undefined): string {
+  if (!value) return NEWS_LIST_PATH;
+  return value === NEWS_LIST_PATH || value.startsWith(`${NEWS_LIST_PATH}?`)
+    ? value
+    : NEWS_LIST_PATH;
+}

@@ -1,8 +1,7 @@
 "use client";
 
 import { TriangleAlert } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import { deleteNewsAction, type DeleteNewsFormState } from "@/modules/news/actions";
 import type { NewsSummary } from "@/modules/news/types";
 import {
@@ -16,40 +15,34 @@ import {
   AlertDialogTitle,
 } from "@/shared/ui/alert-dialog";
 import { Button } from "@/shared/ui/button";
-import { toast } from "@/shared/ui/toaster";
 
 interface NewsDeleteDialogProps {
   news: NewsSummary;
+  returnTo: string;
 }
 
 // 一覧の1行を削除確認ダイアログの初期状態へ変換する。開くときにサーバーへ問い合わせないため、一覧が持つ値だけを使う。
-function toInitialState(news: NewsSummary): DeleteNewsFormState {
+function toInitialState(news: NewsSummary, returnTo: string): DeleteNewsFormState {
   return {
     newsId: news.id,
     title: news.title,
     categoryLabel: news.categoryLabel,
     updatedAt: news.updatedAt.toISOString(),
+    returnTo,
   };
 }
 
 // 一覧の「削除」ボタンと削除確認ダイアログ。処理中は閉じる操作と二重送信を受け付けない。
-export function NewsDeleteDialog({ news }: NewsDeleteDialogProps) {
-  const router = useRouter();
-  const initialState = toInitialState(news);
+// 削除成功後はServer Action側で一覧画面（検索条件付き）へ遷移するため、
+// ここでは成功後の後始末を持たない。
+export function NewsDeleteDialog({ news, returnTo }: NewsDeleteDialogProps) {
+  const initialState = toInitialState(news, returnTo);
   const [state, formAction, pending] = useActionState(deleteNewsAction, initialState);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (!state.success) return;
-    toast.success("お知らせを削除しました");
-    // URLの検索条件・ページ・並び順を保ったまま、一覧を再読み込みする。
-    router.refresh();
-  }, [router, state.success]);
-
   return (
     <AlertDialog
-      // 成功後はstateから開いていない状態を導くため、Effect内で状態を変更せずに閉じられる。
-      open={open && !state.success}
+      open={open}
       onOpenChange={(next) => {
         // 削除処理が始まった後は、キャンセルやEscapeキーで閉じないようにする。
         if (pending) return;
@@ -82,6 +75,7 @@ export function NewsDeleteDialog({ news }: NewsDeleteDialogProps) {
           {/* 物理削除後にも何を削除したかを成功ログで追えるよう、表示したタイトルを一緒に送る。 */}
           <input type="hidden" name="title" value={state.title} />
           <input type="hidden" name="updatedAt" value={state.updatedAt} />
+          <input type="hidden" name="returnTo" value={state.returnTo} />
           {state.error ? (
             <p role="alert" className="mb-4 text-sm text-destructive">
               {state.error}

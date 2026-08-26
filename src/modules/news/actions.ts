@@ -1,9 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { newsService } from "@/modules/news/service";
 import type { NewsFeedPage } from "@/modules/news/types";
-import { createNewsSchema, deleteNewsSchema, updateNewsSchema } from "@/modules/news/validation";
+import {
+  createNewsSchema,
+  deleteNewsSchema,
+  parseNewsReturnTo,
+  updateNewsSchema,
+} from "@/modules/news/validation";
 import { getCurrentUser } from "@/shared/auth/session";
 import { canWrite } from "@/shared/constants/roles";
 import { Errors, isAppError } from "@/shared/errors/app-error";
@@ -37,14 +43,21 @@ export interface NewsEditFormState extends NewsFormStateBase {
 /** 登録・更新の確認画面で共通に使うフォーム状態。 */
 export type NewsFormState = NewsCreateFormState | NewsEditFormState;
 
-/** お知らせ削除ダイアログの状態。削除対象の表示内容と実行結果を画面とServer Actionの間で保つ。 */
+/** お知らせ削除ダイアログの状態。削除対象の表示内容と、削除後に戻る一覧のURLを画面とServer Actionの間で保つ。 */
 export interface DeleteNewsFormState {
   newsId: string;
   title: string;
   categoryLabel: string;
   updatedAt: string;
+  returnTo: string;
   error?: string;
-  success?: boolean;
+}
+
+// 削除完了を一覧画面へ伝えるための印をURLに付け加える。
+// 検索条件には含めないため、一覧画面側はこの印だけを見てトーストを表示し、条件には引き継がない。
+function appendDeletedFlag(returnTo: string): string {
+  const separator = returnTo.includes("?") ? "&" : "?";
+  return `${returnTo}${separator}deleted=1`;
 }
 
 // お知らせを書き込める利用者かを確認して返す。
@@ -188,6 +201,7 @@ export const deleteNewsAction = withOp(
   "news.delete",
   async (prev: DeleteNewsFormState, formData: FormData): Promise<DeleteNewsFormState> => {
     await requireWriter();
+    const returnTo = parseNewsReturnTo(String(formData.get("returnTo") ?? prev.returnTo));
     const parsed = deleteNewsSchema.safeParse({
       newsId: formData.get("newsId"),
       updatedAt: formData.get("updatedAt"),
@@ -196,12 +210,14 @@ export const deleteNewsAction = withOp(
     if (!parsed.success) {
       return {
         ...prev,
+        returnTo,
         error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
       };
     }
 
     const nextState: DeleteNewsFormState = {
       ...prev,
+      returnTo,
       newsId: parsed.data.newsId,
       updatedAt: parsed.data.updatedAt.toISOString(),
     };
@@ -211,7 +227,10 @@ export const deleteNewsAction = withOp(
       // 削除後に管理一覧とトップ画面の両方から対象を消すため、表示を最新化する。
       revalidatePath("/news");
       revalidatePath("/");
-      return { ...nextState, success: true };
+      // 行ごとのダイアログがある一覧画面のまま削除完了を伝えようとすると、
+      // 一覧の再取得でその行ごと消えてしまい、トースト表示が間に合わないことがある。
+      // 一覧画面へ改めて移動することで、削除完了の印を確実に届ける。
+      redirect(appendDeletedFlag(returnTo));
     } catch (error) {
       if (isAppError(error)) return { ...nextState, error: error.userMessage };
       throw error;

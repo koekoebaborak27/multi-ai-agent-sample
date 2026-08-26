@@ -102,7 +102,7 @@ export function NewsTable({ news, baseUrl, sort, order }: NewsTableProps) {
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <NewsEditDialog news={item} />
-                  <NewsDeleteDialog news={item} />
+                  <NewsDeleteDialog news={item} returnTo={baseUrl} />
                 </div>
               </TableCell>
             </TableRow>

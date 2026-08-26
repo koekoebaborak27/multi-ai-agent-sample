@@ -4,6 +4,7 @@ import {
   NewsSearchForm,
   NewsTable,
   NewsCreateDialog,
+  NewsDeletedToast,
   newsSearchQuerySchema,
   newsService,
   type NewsCategory,
@@ -69,6 +70,7 @@ export default async function NewsPage({
 
   return (
     <div className="space-y-6">
+      <NewsDeletedToast />
       <h1 className="text-3xl font-semibold tracking-tight">お知らせ管理</h1>
 
       <NewsSearchForm
