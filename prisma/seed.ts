@@ -1,15 +1,12 @@
 import { PrismaClient } from "@prisma/client";
-import { hash } from "@node-rs/argon2";
+import { hashPassword } from "../src/shared/security/password";
 
 const prisma = new PrismaClient();
-
-// Argon2id の推奨パラメータ（OWASP 準拠の控えめな設定）
-const ARGON2_OPTS = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
 
 async function main() {
   const adminId = "admin";
   const initialPassword = process.env.SEED_ADMIN_PASSWORD ?? "Admin@123";
-  const passwordHash = await hash(initialPassword, ARGON2_OPTS);
+  const passwordHash = await hashPassword(initialPassword);
 
   await prisma.user.upsert({
     where: { id: adminId },

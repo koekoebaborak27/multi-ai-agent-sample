@@ -13,7 +13,10 @@ const { hashMock, verifyMock } = vi.hoisted(() => ({
   hashMock: vi.fn(),
   verifyMock: vi.fn(),
 }));
-vi.mock("@node-rs/argon2", () => ({ hash: hashMock, verify: verifyMock }));
+vi.mock("@/shared/security/password", () => ({
+  hashPassword: hashMock,
+  verifyPassword: verifyMock,
+}));
 
 vi.mock("@/shared/config/env", () => ({ env: { MAX_ATTEMPTS: 5 } }));
 
@@ -62,10 +65,7 @@ describe("auth/service hashPassword", () => {
 
       const result = await authService.hashPassword("plain-password");
 
-      expect(hashMock).toHaveBeenCalledWith(
-        "plain-password",
-        expect.objectContaining({ memoryCost: 19456, timeCost: 2, parallelism: 1 }),
-      );
+      expect(hashMock).toHaveBeenCalledWith("plain-password");
       expect(result).toBe("hashed-password");
     });
   });

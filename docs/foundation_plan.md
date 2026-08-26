@@ -33,7 +33,7 @@
 - Pino（構造化ログ）
 - Vitest（単体）+ Playwright（E2E 雛形）
 - lint/format: ESLint + Prettier
-- Credentials 用ハッシュは `@node-rs/argon2`（Argon2id）
+- Credentials 用ハッシュは `hash-wasm`（WASM版Argon2id。OS専用の追加部品は不要）
 
 ## 3. 認証・認可
 

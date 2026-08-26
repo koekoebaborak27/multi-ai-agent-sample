@@ -1,16 +1,11 @@
-import { hash, verify } from "@node-rs/argon2";
 import { authRepository } from "@/modules/auth/repository";
 import type { AuthenticatedUser } from "@/modules/auth/types";
 import { env } from "@/shared/config/env";
 import { AppError, Errors } from "@/shared/errors/app-error";
 import { MESSAGES } from "@/shared/constants/messages";
 import { isRole, type Role } from "@/shared/constants/roles";
+import { hashPassword, verifyPassword } from "@/shared/security/password";
 import type { User } from "@prisma/client";
-
-// パスワードを変換して保存するときの設定値。
-// わざと計算に時間とメモリを使わせることで、万一保存内容が流出しても
-// 総当たりで元のパスワードを割り出しにくくしている。
-const ARGON2_OPTS = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
 
 /**
  * データベースの利用者情報を、ログイン状態として持ち回る形に詰め替える。
@@ -30,7 +25,7 @@ function toAuthUser(u: User, authMethod: "entra" | "credentials"): Authenticated
 export const authService = {
   /** パスワードを、そのままでは元に戻せない形に変換する（保存前に必ず通す） */
   hashPassword(plain: string): Promise<string> {
-    return hash(plain, ARGON2_OPTS);
+    return hashPassword(plain);
   },
 
   /**
@@ -53,7 +48,7 @@ export const authService = {
       throw Errors.unauthorized(MESSAGES.auth.invalidCredentials);
     }
 
-    const okPassword = await verify(user.passwordHash, password).catch(() => false);
+    const okPassword = await verifyPassword(user.passwordHash, password).catch(() => false);
     if (!okPassword) {
       // パスワードの総当たりを防ぐため、失敗のたびに回数を数え、上限に達したら利用停止にする
       const attempts = await authRepository.incrementFailedAttempts(userId);
@@ -103,11 +98,11 @@ export const authService = {
     if (!user.passwordHash) {
       throw Errors.forbidden("このアカウントはパスワード変更の対象外です");
     }
-    const okCurrent = await verify(user.passwordHash, currentPassword).catch(() => false);
+    const okCurrent = await verifyPassword(user.passwordHash, currentPassword).catch(() => false);
     if (!okCurrent) {
       throw Errors.unauthorized(MESSAGES.auth.invalidCredentials);
     }
-    const newHash = await hash(newPassword, ARGON2_OPTS);
+    const newHash = await hashPassword(newPassword);
     await authRepository.updatePassword(userId, newHash);
   },
 };

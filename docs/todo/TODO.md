@@ -26,7 +26,7 @@
 
 | 区分                                                            | 進捗          |
 | ------------------------------------------------------------- | ----------- |
-| 土台（ローカル環境 / Git / Supabase / 署名 URL / Docker 軽量化 / Cloud Run） | 48 / 48     |
+| 土台（ローカル環境 / Git / Supabase / 署名 URL / Docker 軽量化 / Cloud Run） | 49 / 49     |
 | マスタ機能（設計）                                                     | 6 / 6       |
 | **マスタ機能（製造。工程1〜18＋第5段階1〜4）**                                  | **22 / 22** |
 | **workerサンプル一式（Cloud Run Jobs本番構成の構築7＋マスタ情報Excel取得機能9）**      | **16 / 16** |
@@ -103,10 +103,10 @@ git status --porcelain                                   # 未コミット差分
 | 作業ブランチ | `main`（[PR #28](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/28)は2026-08-23にマージ済み）。`git log --oneline -1`で最新の反映内容を確認できる |
 | 本番 DB | マスタ分類の見直し（工程1〜4）とパスワード再発行機能（`User.email`の一意制約、`PasswordResetToken`・`EmailChangeToken`）のマイグレーションまで**適用済み**（2026-08-22、`/api/health?check=db`で疎通確認済み） |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類は本来の3件に加え、契約先分類・契約分類とその配下のマスタ4件（検証用、`CORP`/`INDIV`/`GYOMU`/`HOSYU`）が入っている。契約先・契約にも検証用データが1件ずつ入っている。`User.email`の一意制約、`PasswordResetToken`・`EmailChangeToken`テーブルも**追加済み**（2026-08-21。本番へも2026-08-22に適用済み）。`Announcement`テーブルは`News`へリネーム済み（`category`/`startAt`/`endAt`/`createdBy`/`updatedBy`追加、`deleted`削除。2026-08-24）。`prisma/seed.ts`も`News`向けに修正し再seed済み（seed由来の2行は`category="NEWS"`で復元済み） |
-| ローカル開発環境 | Docker Compose で `db`・`app`・`worker` 全部を起動する運用に統一（2026-08-22）。`app`/`worker` の起動コマンドに `pnpm install` を追加し依存関係を自動反映させた。経緯は [`docker-image.md`](notes/docker-image.md#2026-08-22-ローカルのdocker全部入れ運用でnode_modulesが古いまま固定される) |
+| ローカル開発環境 | Docker Composeで`db`・`app`・`worker`全部を起動する方法と、DBだけDockerで起動してアプリをパソコン上で直接動かす方法の両方に対応。パスワード処理はOS専用の追加部品を必要としないWASM版Argon2idへ変更済み（2026-08-26） |
 | ローカル `.env` | **`DATABASE_URL` が本番Supabaseを指す設定になっている**（2026-08-19判明。経緯は [`docs/todo/notes/supabase.md`](notes/supabase.md#2026-08-19-envのdatabase_urlが本番を指したまま残っていた)）。ローカル作業は `.env.local`（Git管理外）で `DATABASE_URL` / `STORAGE_TYPE=local` / `WORKER_INVOKE_MODE=none` を上書きして行うこと。**Prisma CLI（`prisma migrate` 系）は `.env.local` を読まないため、`DATABASE_URL=<ローカル接続文字列>` を明示指定して実行する** |
 | ブラウザ検証 | 工程 18（18-1〜18-10）でマスタ分類一覧・新規登録・詳細・更新・削除（MST-06〜10）とマスタ検索一覧・新規登録・詳細・更新・削除（MST-01〜05）を ADMIN/OPERATOR/VIEWER の各ロールで Playwright により実機確認済み。CSV同期方式への変更後は、ローカル・本番の両方でマスタ・マスタ分類双方のCSVダウンロードをブラウザで確認済み（待ち時間なし）。マスタ情報Excel取得（MST-11）はUT_30（2026-08-19）でローカルのPlaywright実機確認（全11ケース）を完了済み。マスタ分類の見直し（工程1〜4）は2026-08-19にローカルで手動のブラウザ確認済み（Playwright仕様書は未作成）。契約先（PTY-01〜05）はUT_10〜14（2026-08-20）でローカルのPlaywright実機確認（48ケース中47件成功・1件は技術的制約によりスキップ）を完了済み。契約（CTR-01〜05）はUT_20〜24（2026-08-20）でローカルのPlaywright実機確認（54ケース中53件成功・1件は技術的制約により未実施）を完了済み。マスタ分類の警告アラート（MST-07・MST-09）は2026-08-23にローカル・本番の両方で手動のブラウザ確認済み（既存の`e2e/master`のPrisma不具合によりPlaywright実行は次回対応） |
-| 直近の検証 | 2026-08-25、お知らせ管理機能の工程10で`pnpm lint`・`pnpm typecheck`・`pnpm format:check`が成功 |
+| 直近の検証 | 2026-08-26、WASM版Argon2idへの変更で単体テスト全389件・型チェック・本番ビルドが成功。Lintは既存警告1件のみ。Turbopackで`/login`がHTTP 200になることも確認 |
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1、`https://contract-app-24516671242.us-central1.run.app`）。Cloud Run Jobs `contract-worker`（us-central1）は worker専用サービスアカウント `contract-worker-runner` で稼働（Secret Manager の `database-url` / `supabase-service-role-key` への参照権限のみ付与）。タスクのタイムアウトは900秒。Cloud Buildはapp・worker両方のイメージを自動でビルド・反映する設定済み。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | メール送信 | 送信の共通窓口 `src/shared/mail/`（`sendMail`）を実装済み（2026-08-21）。再発行申請画面・パスワード再設定画面・メールアドレス変更申し込みと確定から呼び出され、4種類すべての文面を使い切っている。ローカル・本番とも送信専用のGmailアカウントとアプリパスワードを設定し、実送信を確認済み（本番は2026-08-22、[`infra_design_09_メール送信.md` §09.1.7](../specs/99_infra/infra_design_09_メール送信.md#0917-本番cloud-runに設定する)）。`.env.example` の既定は `MAIL_TRANSPORT=console`（送らずログへ出すだけ）のため、設定なしでも開発できる |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
@@ -117,7 +117,7 @@ git status --porcelain                                   # 未コミット差分
 
 | 区分 | 件数 | 記録 |
 | ---------------------- | ---- | ---------------------------------------------------------------------------------------- |
-| ローカル環境 | 10 | [Git の初期化](history/2026-07.md#2026-07-28-git-の初期化とコミット前チェック)・[VSCode デバッグ](history/2026-08-w1.md#2026-08-03-vscode-デバッグ環境の整備) |
+| ローカル環境 | 11 | [Git の初期化](history/2026-07.md#2026-07-28-git-の初期化とコミット前チェック)・[VSCode デバッグ](history/2026-08-w1.md#2026-08-03-vscode-デバッグ環境の整備)・[パスワード処理のWASM化](history/2026-08-w4.md#2026-08-26-パスワード処理をosに依存しないwasm版へ変更) |
 | Git と GitHub | 13 | [GitHub と CI](history/2026-08-w1.md#2026-08-01-github-と-ci)・[PR 運用の開始](history/2026-08-w1.md#2026-08-02-pr-運用の開始と-ci-の順序バグ修正)・[CI のスキップ設定](history/2026-08-w1.md#2026-08-02-開発フローの-readme-化と-ci-のスキップ設定) |
 | Supabase（本番 DB / Storage） | 6 | [Supabase セットアップ](history/2026-08-w1.md#2026-08-01-supabase-セットアップ)・[本番 DB の構築と疎通確認](history/2026-08-w1.md#2026-08-02-本番-db-の構築と-storage-の疎通確認) |
 | 1. 署名 URL 化（PR #7） | 5 | [署名 URL 化](history/2026-08-w1.md#2026-08-02-署名-url-化) |
