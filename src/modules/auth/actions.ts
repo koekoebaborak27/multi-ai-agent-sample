@@ -9,6 +9,13 @@ import { withOp } from "@/shared/observability/with-op";
 import { isAppError } from "@/shared/errors/app-error";
 import { MESSAGES } from "@/shared/constants/messages";
 
+// Auth.jsはログイン処理中に起きたエラーを、内容を問わず同じ形（AuthError）へ包み直す。
+// 包む前の本来のエラー（業務上のAppError）は cause.err に入っているため、そこから取り出す。
+function unwrapAuthErrorCause(e: AuthError): unknown {
+  const cause = e.cause as { err?: unknown } | undefined;
+  return cause?.err;
+}
+
 /** ログイン・パスワード変更フォームの状態。エラーがあればメッセージを入れて画面へ返す */
 export interface FormState {
   error?: string;
@@ -35,9 +42,14 @@ export const loginWithCredentials = withOp(
       });
       return {};
     } catch (e) {
-      // ID やパスワードの誤りは、どちらが違うのかを伝えず同じメッセージで返す。
-      // どちらなのかを伝えると、存在する ID を探り当てる手がかりを与えてしまうため。
       if (e instanceof AuthError) {
+        // ロック済みの場合だけは、管理者へ問い合わせるよう案内する専用の文言を返す。
+        // それ以外（ID・パスワードの誤り）は、どちらが違うのかを伝えず同じメッセージで返す。
+        // どちらなのかを伝えると、存在する ID を探り当てる手がかりを与えてしまうため。
+        const cause = unwrapAuthErrorCause(e);
+        if (isAppError(cause) && cause.code === "ACCOUNT_LOCKED") {
+          return { error: cause.userMessage };
+        }
         return { error: MESSAGES.auth.invalidCredentials };
       }
       // 画面移動の指示もエラーと同じ仕組みで通知されるため、ここで止めずにそのまま渡す
