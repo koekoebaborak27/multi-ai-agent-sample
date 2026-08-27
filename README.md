@@ -264,6 +264,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |
 | [`docs/development/gitの操作ルール.md`](docs/development/gitの操作ルール.md) | **開発フロー**（ブランチ → Pull Request → CI → マージ。`main` へ直接 push する例外を含む） |
+| [`docs/development/本番リリース手順.md`](docs/development/本番リリース手順.md) | **本番リリース手順**（マージ後、自動デプロイとDBマイグレーション適用が本番へ届くまでの全体像） |
 | [`docs/todo/TODO.md`](docs/todo/TODO.md) | 残タスク一覧・進捗・現在の状態 |
 | [`docs/todo/notes/`](docs/todo/notes/README.md) | 残タスクの補足（Supabase / Cloud Run の設定値・手順・落とし穴） |
 | [`docs/todo/history/`](docs/todo/history/README.md) | セッションごとの作業記録（引き継ぎメモ） |
