@@ -19,5 +19,7 @@ export default defineConfig({
     trace: "on",
     video: "on",
   },
+  // Argon2idによるパスワード検証に時間がかかるため、既定の5秒より長めに待つ
+  expect: { timeout: 15000 },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });
