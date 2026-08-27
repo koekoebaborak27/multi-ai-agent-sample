@@ -62,6 +62,12 @@ describe("auth/route-guard decideRedirect", () => {
     it("/about はそのまま通す", () => {
       expect(decideRedirect(input({ isLoggedIn: false, role: null, path: "/about" }))).toBeNull();
     });
+
+    it("/introduction はそのまま通す", () => {
+      expect(
+        decideRedirect(input({ isLoggedIn: false, role: null, path: "/introduction" })),
+      ).toBeNull();
+    });
   });
 
   describe("ログイン済みで /login に来たとき", () => {
