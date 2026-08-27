@@ -30,5 +30,5 @@ export default auth((req) => {
 
 export const config = {
   // 画像やスタイルなどのファイルと、外部連携用の窓口は確認の対象外にする
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|images|favicon.ico).*)"],
 };
