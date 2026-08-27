@@ -108,9 +108,9 @@ test.describe.serial("ログイン画面（LGN-01）", () => {
     page,
   }) => {
     await page.goto("/login");
-    await expect(
-      page.getByRole("button", { name: "Microsoft Entra ID でログイン" }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Microsoft Entra ID でログイン" })).toHaveCount(
+      0,
+    );
     await expect(page.getByLabel("ユーザーID")).toBeVisible();
     await page.screenshot({ path: evidence("002_Entraボタン非表示.png"), fullPage: true });
   });

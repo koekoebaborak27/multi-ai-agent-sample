@@ -121,7 +121,9 @@ test.describe.serial("パスワード変更画面（LGN-02）", () => {
     await removeRequired(page, "currentPassword");
     await fillChangeForm(page, { next: "NewPass99", confirm: "NewPass99" });
     await page.getByRole("button", { name: "パスワードを変更" }).click();
-    await expect(page.getByText("現在のパスワードを入力してください", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("現在のパスワードを入力してください", { exact: true }),
+    ).toBeVisible();
     await page.screenshot({ path: evidence("003_現在パスワード未入力.png"), fullPage: true });
   });
 
