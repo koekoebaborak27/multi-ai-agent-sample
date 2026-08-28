@@ -96,3 +96,4 @@ docker run --rm -v ${PWD}:/data minlag/mermaid-cli:11.12.0 -i docs/foundation_pl
 | エッジラベルがノードに重なる | `rankSpacing` を広げる。関連ノードを `subgraph` でグルーピングして段を分けると交差が減る |
 | `docker: command not found` / 接続エラー | Docker Desktop が起動しているか確認する |
 | `-i`/`-o` で指定したファイルが見つからない | プロジェクトのルートフォルダで実行しているか、パスが `docs/xxx.mmd` のようにルートからの相対パスになっているか確認する |
+| Git Bash（MSYS）でコンテナの中が空に見える／`-i` で指定したファイルが見つからない（PowerShell では起きない） | Git Bash は `-v ${PWD}:/data` のようなパスを Windows 形式へ自動変換し、`-v` の対象を壊すことがある。`docker run` の前に `MSYS_NO_PATHCONV=1` を付けて実行する（例: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/data minlag/mermaid-cli:11.12.0 -i docs/xxx.mmd -o docs/xxx.svg`） |

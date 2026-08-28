@@ -262,6 +262,7 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot 向けの入口（`AGENTS.md` + Copilot 固有の補足） |
 | [`docs/foundation_plan.md`](docs/foundation_plan.md) | 設計・確定方針（設計の正本） |
 | [`docs/specs/98_db/db_spec.md`](docs/specs/98_db/db_spec.md) | データベース仕様（テーブル一覧・ER図） |
+| [`docs/specs/02_basic-design/画面遷移図.md`](docs/specs/02_basic-design/画面遷移図.md) | 画面遷移図（システム全体の画面遷移） |
 | [`docs/specs/99_infra/`](docs/specs/99_infra/README.md) | **インフラ構築手順書**（本番環境をゼロから構築する手順の正本） |
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |

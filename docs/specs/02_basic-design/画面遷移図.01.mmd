@@ -1,0 +1,40 @@
+%%{init: {'theme':'default','themeVariables':{'fontFamily':"'Noto Sans CJK JP', sans-serif"},'flowchart':{'nodeSpacing':60,'rankSpacing':130,'padding':12}}}%%
+flowchart TB
+  subgraph PUBLIC["未ログインでも開ける画面"]
+    LGN01["ログイン画面<br/>LGN-01　/login"]
+    INTRO["システム紹介<br/>/introduction（別タブ）"]
+    ABOUT["システムの詳細<br/>/about（別タブ）"]
+    PWR01["パスワード再発行の申請<br/>PWR-01　/forgot-password"]
+    PWR02["パスワードの再設定<br/>PWR-02　/reset-password/[token]"]
+  end
+
+  subgraph MAIN["ログイン後の主要画面"]
+    DASH["トップ画面（ダッシュボード）<br/>/"]
+    MST01["マスタ検索一覧画面<br/>MST-01　/master"]
+    PTY01["契約先検索一覧画面<br/>PTY-01　/parties"]
+    CTR01["契約検索一覧画面<br/>CTR-01　/contracts"]
+    NEWS02["お知らせ管理画面<br/>NEWS-02　/news<br/>（ADMIN・OPERATORのみ表示）"]
+    ADMU["利用者管理画面<br/>/admin/users<br/>（ADMINのみ表示）"]
+  end
+
+  subgraph SELF["個人設定"]
+    LGN02["パスワード変更画面<br/>LGN-02　/settings/password"]
+    EML01["メールアドレスの変更<br/>EML-01　/settings/email"]
+    EML02["メールアドレス変更の確認<br/>EML-02　/settings/email/confirm/[token]"]
+  end
+
+  LGN01 -- "認証成功" --> DASH
+  DASH -. "初回ログイン時（ルートガード）" .-> LGN02
+  LGN02 -- "変更成功（自動ログアウト）" --> LGN01
+  LGN01 -- "「パスワードを忘れた場合はこちら」" --> PWR01
+  PWR01 -- "申請メールを送信" --> PWR02
+  PWR02 -- "再設定完了" --> LGN01
+  LGN01 -- "「システム紹介」" --> INTRO
+  LGN01 -- "「システムの詳細はこちら」" --> ABOUT
+
+  DASH -- "マスタ" --> MST01
+  DASH -- "契約先" --> PTY01
+  DASH -- "契約" --> CTR01
+  DASH -- "お知らせ管理" --> NEWS02
+  DASH -- "ユーザー管理" --> ADMU
+  EML01 -- "確認メールのリンクを開く" --> EML02
