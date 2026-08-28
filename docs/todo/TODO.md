@@ -88,7 +88,7 @@ git status --porcelain                                   # 未コミット差分
 
 | 項目 | 状態 |
 | ------------ | ----------------------------------------------------------------------------------------------- |
-| 作業ブランチ | `main`（[PR #42](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/42)は2026-08-27にマージ済み）。`git log --oneline -1`で最新の反映内容を確認できる |
+| 作業ブランチ | `main`（[PR #46](https://github.com/koekoebaborak27/multi-ai-agent-sample/pull/46)は2026-08-28にマージ済み）。`git log --oneline -1`で最新の反映内容を確認できる |
 | 本番 DB | お知らせ管理機能のマイグレーション（`Announcement`→`News`）まで**適用済み**（`prisma migrate deploy`で11件全て適用確認。2026-08-27、`/api/health?check=db`で疎通確認済み） |
 | ローカル DB | Docker Compose の PostgreSQL 16 は**起動中**。マスタ分類は本来の3件に加え、契約先分類・契約分類とその配下のマスタ4件（検証用、`CORP`/`INDIV`/`GYOMU`/`HOSYU`）が入っている。契約先・契約にも検証用データが1件ずつ入っている。`User.email`の一意制約、`PasswordResetToken`・`EmailChangeToken`テーブルも**追加済み**（2026-08-21。本番へも2026-08-22に適用済み）。`Announcement`テーブルは`News`へリネーム済み（`category`/`startAt`/`endAt`/`createdBy`/`updatedBy`追加、`deleted`削除。2026-08-24。本番へも2026-08-27に適用済み）。`prisma/seed.ts`も`News`向けに修正し再seed済み（seed由来の2行は`category="NEWS"`で復元済み）。OPERATOR/VIEWER のテスト用アカウント（`opeTest`/`viwTest`）を2026-08-27に一時スクリプトで追加済み（`prisma/seed.ts`への恒久追加は本番への波及リスクを理由に見送り済み） |
 | ローカル開発環境 | Docker Composeで`db`・`app`・`worker`全部を起動する方法と、DBだけDockerで起動してアプリをパソコン上で直接動かす方法の両方に対応。パスワード処理はOS専用の追加部品を必要としないWASM版Argon2idへ変更済み（2026-08-26） |
