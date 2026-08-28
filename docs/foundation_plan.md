@@ -49,16 +49,9 @@
 
 ## 4. データベース
 
-Prisma の標準的な命名規約に従う（テーブル名・カラム名ともに `@@map` / `@map` は使わず、モデル定義どおりの camelCase を採用）。
+Prisma の標準的な命名規約に従う（テーブル名・カラム名ともに `@@map` / `@map` は使わず、モデル定義どおりの camelCase を採用）。土台として `User`（認証）・`News`（お知らせ）に加え、汎用契約管理ドメインの最小雛形（`Party` / `Contract` / `ContractItem`）を用意する。案件ごとに業務テーブルを `src/modules/<機能>/` と合わせて追加していく。
 
-- `User`: 認証に必要な最小モデル（`id`, `role`, `passwordHash`, `failedAttempts`, `lockedAt`, `mustChangePassword`, `externalId`, `email`, `displayName` 等）。
-- `Announcement`: ダッシュボード用お知らせ（任意機能）。
-- 汎用契約管理ドメイン（最小雛形）:
-  - `Party`（契約先）: 契約の相手方。
-  - `Contract`（契約）: `Party` に紐づく契約本体。
-  - `ContractItem`（契約条項/構成要素）: `Contract` に紐づく明細・金額計算対象。
-
-案件ごとに業務テーブルを `src/modules/<機能>/` と合わせて追加していく。マイグレーション運用は [`docs/prisma_operations.md`](prisma_operations.md)、命名規約は [`prisma/AGENTS.md`](../prisma/AGENTS.md)。
+テーブル一覧・ER図・各モデルの定義は [`docs/specs/98_db/db_spec.md`](specs/98_db/db_spec.md) を参照。マイグレーション運用は [`docs/prisma_operations.md`](prisma_operations.md)、命名規約は [`prisma/AGENTS.md`](../prisma/AGENTS.md)。
 
 ## 5. コンテナ構成（ローカル開発）
 
@@ -142,6 +135,7 @@ SMTP_PASSWORD=                       # Gmailはアプリパスワード16文字�
 
 ## 参照
 
+- データベース仕様（テーブル一覧・ER図）: [`docs/specs/98_db/db_spec.md`](specs/98_db/db_spec.md)
 - Prisma マイグレーション運用: [`docs/prisma_operations.md`](prisma_operations.md)
 - 残タスクと進捗: [`docs/todo/TODO.md`](todo/TODO.md)
 - アーキテクチャ規約: [`src/AGENTS.md`](../src/AGENTS.md)

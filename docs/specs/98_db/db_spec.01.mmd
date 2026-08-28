@@ -1,0 +1,125 @@
+%%{init: {'theme':'default','themeVariables':{'fontFamily':"'Noto Sans CJK JP', sans-serif"}}}%%
+erDiagram
+    USER["User（利用者）"] {
+        string id PK "利用者ID（ログインID）"
+        string role "権限（ADMIN/OPERATOR/VIEWER）"
+        string passwordHash "パスワードハッシュ"
+        int failedAttempts "ログイン連続失敗回数"
+        datetime lockedAt "ロック日時"
+        boolean mustChangePassword "次回ログイン時パスワード変更要否"
+        string externalId "Entra oid（突合キー）"
+        string email "メールアドレス"
+        string displayName "表示名"
+        boolean deleted "削除フラグ"
+        datetime createdAt "登録日時"
+        datetime updatedAt "更新日時"
+    }
+
+    PASSWORD_RESET_TOKEN["PasswordResetToken（パスワード再設定トークン）"] {
+        string id PK "ID"
+        string userId "対象利用者ID"
+        string tokenHash "合言葉の要約値"
+        datetime expiresAt "有効期限"
+        datetime usedAt "使用日時"
+        datetime createdAt "発行日時"
+    }
+
+    EMAIL_CHANGE_TOKEN["EmailChangeToken（メールアドレス変更トークン）"] {
+        string id PK "ID"
+        string userId "申込利用者ID"
+        string newEmail "変更先メールアドレス"
+        string tokenHash "合言葉の要約値"
+        datetime expiresAt "有効期限"
+        datetime usedAt "使用日時"
+        datetime createdAt "申込日時"
+    }
+
+    NEWS["News（お知らせ）"] {
+        string id PK "ID"
+        string title "タイトル"
+        string body "本文"
+        string category "分類（INCIDENT/MAINTENANCE/NEWS）"
+        boolean published "公開フラグ"
+        datetime startAt "掲載開始日時"
+        datetime endAt "掲載終了日時"
+        datetime createdAt "登録日時"
+        string createdBy "登録者ID"
+        datetime updatedAt "更新日時"
+        string updatedBy "更新者ID"
+    }
+
+    MASTER_CATEGORY["MasterCategory（マスタ分類）"] {
+        int id PK "ID"
+        string code "分類コード"
+        string name "分類名"
+        datetime createdAt "登録日時"
+        string createdBy "登録者ID"
+        datetime updatedAt "更新日時"
+        string updatedBy "更新者ID"
+    }
+
+    MASTER["Master（マスタ）"] {
+        int id PK "ID"
+        int categoryId FK "マスタ分類ID"
+        string code "マスタコード"
+        string content "マスタ内容"
+        datetime createdAt "登録日時"
+        string createdBy "登録者ID"
+        datetime updatedAt "更新日時"
+        string updatedBy "更新者ID"
+    }
+
+    PARTY["Party（契約先）"] {
+        string id PK "ID"
+        string name "契約先名称"
+        int companyTypeMasterId "契約先分類マスタID"
+        string contactInfo "連絡先"
+        datetime createdAt "登録日時"
+        string createdBy "登録者ID"
+        datetime updatedAt "更新日時"
+        string updatedBy "更新者ID"
+    }
+
+    CONTRACT["Contract（契約）"] {
+        string id PK "ID"
+        string partyId FK "契約先ID"
+        string title "契約名"
+        datetime startDate "開始日"
+        datetime endDate "終了日"
+        string status "状態（DRAFT/ACTIVE/TERMINATED）"
+        int categoryMasterId "契約分類マスタID"
+        datetime createdAt "登録日時"
+        string createdBy "登録者ID"
+        datetime updatedAt "更新日時"
+        string updatedBy "更新者ID"
+    }
+
+    CONTRACT_ITEM["ContractItem（契約条項）"] {
+        string id PK "ID"
+        string contractId FK "契約ID"
+        string label "項目名"
+        string calculationRule "金額計算ルール"
+        decimal amount "金額"
+        datetime createdAt "登録日時"
+        datetime updatedAt "更新日時"
+    }
+
+    MASTER_EXCEL_EXPORT["MasterExcelExport（マスタ情報Excel取得履歴）"] {
+        string id PK "ID"
+        string status "状態（QUEUED/RUNNING/READY/FAILED）"
+        string filePath "保存先パス"
+        string fileName "ファイル名"
+        int categoryRowCount "マスタ分類行数"
+        int masterRowCount "マスタ行数"
+        string errorCode "エラーコード"
+        string requestedBy "依頼者ID"
+        datetime startedAt "処理開始日時"
+        datetime finishedAt "処理終了日時"
+        datetime expiresAt "ファイル保持期限"
+        datetime createdAt "登録日時"
+        datetime updatedAt "更新日時"
+    }
+
+    MASTER_CATEGORY ||--o{ MASTER : "分類する"
+    PARTY ||--o{ CONTRACT : "締結する"
+    CONTRACT ||--o{ CONTRACT_ITEM : "含む"

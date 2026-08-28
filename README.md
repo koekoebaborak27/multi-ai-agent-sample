@@ -37,7 +37,7 @@
 
 導入済みの状態で、2回目以降にこのプロジェクトを使う（起動してログインする・作業を終える）手順は [`docs/development/プロジェクト実行手順.md`](docs/development/プロジェクト実行手順.md) を参照してください。
 
-初期お知らせやマスタ分類などの初期データを変更する手順は、[`docs/development/初期マスタを変更したい場合.md`](docs/development/初期マスタを変更したい場合.md) を参照してください。
+初期お知らせやマスタ分類などの初期データを変更する手順は、[`docs/development/初期マスタを変更したい場合.md`](docs/development/初期マスタを変更したい場合.md) を参照してください。テーブル定義（DB定義）自体を変更したい場合は、[`docs/development/DB定義を変更したい場合.md`](docs/development/DB定義を変更したい場合.md) を参照してください。
 
 > **参考：起動する3つの箱**
 >
@@ -256,10 +256,12 @@ PostgreSQL 16 をサービスコンテナとして起動し、実際にマイグ
 | [`docs/development/プロジェクトの導入手順.md`](docs/development/プロジェクトの導入手順.md) | ローカル環境構築手順の正本（非エンジニア向け・トラブルシューティング含む） |
 | [`docs/development/プロジェクト実行手順.md`](docs/development/プロジェクト実行手順.md) | 導入済みの環境を2回目以降に起動・終了する手順 |
 | [`docs/development/初期マスタを変更したい場合.md`](docs/development/初期マスタを変更したい場合.md) | 初期お知らせ・マスタ分類などの初期データを変更する手順 |
+| [`docs/development/DB定義を変更したい場合.md`](docs/development/DB定義を変更したい場合.md) | テーブル定義（`prisma/schema.prisma`）を変更するときの、マイグレーション作成からドキュメント更新までの流れ |
 | [`AGENTS.md`](AGENTS.md) | 開発方針の正本（全エージェント共通 / Codex が読み込む） |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code 向けの入口（`AGENTS.md` + Claude 固有の補足） |
 | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | GitHub Copilot 向けの入口（`AGENTS.md` + Copilot 固有の補足） |
 | [`docs/foundation_plan.md`](docs/foundation_plan.md) | 設計・確定方針（設計の正本） |
+| [`docs/specs/98_db/db_spec.md`](docs/specs/98_db/db_spec.md) | データベース仕様（テーブル一覧・ER図） |
 | [`docs/specs/99_infra/`](docs/specs/99_infra/README.md) | **インフラ構築手順書**（本番環境をゼロから構築する手順の正本） |
 | [`docs/diagrams.md`](docs/diagrams.md) | 構成図・フロー図 |
 | [`docs/prisma_operations.md`](docs/prisma_operations.md) | Prisma マイグレーション運用フロー |

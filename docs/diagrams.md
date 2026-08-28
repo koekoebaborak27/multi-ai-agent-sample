@@ -2,7 +2,7 @@
 
 ドキュメントに埋め込む構成図・フロー図は **mermaid を別ファイル（`.mmd`）で管理し、SVG に変換して `.md` から画像参照する**。`.md` に mermaid ブロックを直接埋め込まない。
 
-> 理由: ブラウザネイティブの mermaid 描画は環境差（フォント・バージョン）で**日本語が文字切れ**しやすい。`.mmd` をローカル（mmdc）で SVG 化して固定すれば、どこで見ても同じ図になり、差分レビューも `.mmd` で追える。
+> 理由: ブラウザネイティブの mermaid 描画は環境差（フォント・バージョン）で**日本語が文字切れ**しやすい。`.mmd` を固定の Docker イメージで SVG 化すれば、誰のパソコン（Windows / Mac / Linux / CI）で変換しても同じ図になり、差分レビューも `.mmd` で追える。
 
 ## 1. 命名規約
 
@@ -26,53 +26,25 @@
 
 ## 2. 前提ツール
 
-- **mmdc**（`@mermaid-js/mermaid-cli`）をグローバルインストール:
-  ```sh
-  npm install -g @mermaid-js/mermaid-cli
-  ```
-- **日本語フォント**が「**mmdc を実行するマシン**」に入っていること（描画は headless Chromium が行うため、図を閲覧する側ではなく**変換する側**の環境に依存する）。フォントは環境差の影響が大きく、未導入だと日本語が豆腐（□）になったり、別フォントで幅がずれて文字が切れる。
-- WSL / CI など**サンドボックス制約のある環境**では puppeteer に `--no-sandbox` が必要。次の 1 行で設定ファイルを `/tmp` に作り、mmdc 実行時に `-p` で渡す（サンドボックスが効く環境でも無害なので常に付けてよい）:
-  ```sh
-  printf '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' > /tmp/mmdc-puppeteer.json
-  ```
-
-### OS 別の日本語フォント事情
-
-| OS | デフォルトの日本語フォント | 対応 |
-|---|---|---|
-| **macOS** | Hiragino Sans（ヒラギノ角ゴ）が標準で入っている | 追加インストール不要 |
-| **Windows** | Yu Gothic（游ゴシック）/ Meiryo が標準で入っている | 追加インストール不要 |
-| **Linux（素の Ubuntu/Debian 等）/ WSL** | **既定では日本語フォントが入っていない**ことが多い | 下記でインストールが必要 |
-| **CI コンテナ** | ベースイメージ次第。多くは未導入 | ジョブ内で下記をインストール |
-
-WSL / Linux / CI でのインストール例（Debian/Ubuntu 系）:
-
-```sh
-sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
-fc-list | grep -i "noto sans cjk jp"   # 入ったか確認
-```
-
-> `.mmd` の `fontFamily` は **複数フォントのフォールバックチェーン**で書き、どの OS でも当たるようにする（§3）。チェーン先頭から「実行マシンに存在する最初のフォント」が使われる。
+- **Docker Desktop**（このプロジェクトの通常の開発で既に使っているもの。追加インストール不要）。`docker --version` で確認できる。
+- 変換には **mermaid-cli の公式 Docker イメージ**（`minlag/mermaid-cli`）を使う。`npm install -g` によるローカルインストールは不要。
+  - このイメージには**日本語フォント（Noto Sans CJK JP）が同梱済み**なので、Windows / Mac / Linux / CI のどれで実行しても同じ見た目になる。OS ごとのフォント導入は不要。
+  - **タグ（バージョン）を固定して使う**（`:latest` は使わない）。バージョンが変わると描画エンジンごとレイアウトが微妙に変わり、`.mmd` が同じでも `.svg` の見た目がズレることがあるため。現在の固定バージョンは `11.12.0`。上げる場合は [Docker Hub のタグ一覧](https://hub.docker.com/r/minlag/mermaid-cli/tags)で安定版（ベータでないもの）を確認して置き換える。
+  - `--no-sandbox` 等の puppeteer 設定はこのイメージの中に既定で組み込まれているため、自前で設定ファイルを用意する必要はない。
 
 ## 3. `.mmd` テンプレート
 
 **先頭に init ディレクティブを必ず入れる**。これがないと描画フォントと計測フォントが食い違い、ボックス幅が足りず文字が切れる。
 
 ```
-%%{init: {'theme':'default','themeVariables':{'fontFamily':"'Noto Sans CJK JP','Hiragino Sans','Yu Gothic',sans-serif"},'flowchart':{'nodeSpacing':50,'rankSpacing':85,'padding':12}}}%%
+%%{init: {'theme':'default','themeVariables':{'fontFamily':"'Noto Sans CJK JP', sans-serif"},'flowchart':{'nodeSpacing':50,'rankSpacing':85,'padding':12}}}%%
 flowchart TB
   %% ここに図の定義
 ```
 
-- `fontFamily` … mermaid のテキスト幅計測を実フォントに合わせ、**文字切れを防ぐ**最重要設定。OS 差を吸収するため**フォールバックチェーン**で書く（先頭から実行マシンに存在する最初のものが使われる）:
-  - `Noto Sans CJK JP` … Linux / WSL / CI（要インストール、§2）
-  - `Hiragino Sans` … macOS 標準
-  - `Yu Gothic` … Windows 標準
-  - 末尾の `sans-serif` … 最終フォールバック
+- `fontFamily` … mermaid のテキスト幅計測を実フォントに合わせ、**文字切れを防ぐ**最重要設定。Docker イメージに `Noto Sans CJK JP` が同梱されているため、これを固定で指定すればよい（OS ごとのフォールバックチェーンは不要）: `'Noto Sans CJK JP', sans-serif`
 - `nodeSpacing` / `rankSpacing` … ノード/段の間隔。**エッジラベルがノードに重なる**ときは `rankSpacing` を広げる（80〜100 程度）。
 - 設定を `.mmd` に内包しておくことで、変換時に追加オプション（`-c`）が不要になり再現性が高い。
-
-> 図の `.svg` を**最終的に生成するマシンは統一する**のが望ましい（OS が違うと選ばれるフォントが変わり、`.svg` の差分が出るため）。本リポジトリでは Linux/WSL（Noto Sans CJK JP）を基準とする。
 
 ## 4. 新しい図を追加する
 
@@ -82,13 +54,12 @@ flowchart TB
    ```markdown
    ![図のタイトル](./<doc>.<NN>.svg)
 
-   > 図のソースは [`<doc>.<NN>.mmd`](./<doc>.<NN>.mmd)（mermaid）。編集後は次で再生成する:
+   > 図のソースは [`<doc>.<NN>.mmd`](./<doc>.<NN>.mmd)（mermaid）。編集後は次で再生成する（プロジェクトのルートフォルダで実行。要 Docker Desktop 起動）:
    >
-   > ```sh
-   > mmdc -i <doc>.<NN>.mmd -o <doc>.<NN>.svg -p /tmp/mmdc-puppeteer.json
+   > ```powershell
+   > docker run --rm -v ${PWD}:/data minlag/mermaid-cli:11.12.0 -i docs/<doc>.<NN>.mmd -o docs/<doc>.<NN>.svg
    > ```
    ```
-   （`/tmp/mmdc-puppeteer.json` は §2 の 1 行コマンドで事前に作る）
 4. `.mmd` / `.svg` / `.md` を一緒にコミット。
 
 ## 5. 既存の図を更新する
@@ -99,27 +70,29 @@ flowchart TB
 
 ## 6. 変換コマンド
 
-`.mmd` → `.svg`（1 ファイル）。出力名を `.<NN>.svg` に合わせる:
+`.mmd` → `.svg`（1 ファイル）。**プロジェクトのルートフォルダ**（`docker-compose.yml` がある場所ではなく、リポジトリ直下）で実行する。出力名を `.<NN>.svg` に合わせる:
 
-```sh
-printf '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' > /tmp/mmdc-puppeteer.json
-cd docs   # .mmd のあるディレクトリ
-mmdc -i foundation_plan.01.mmd -o foundation_plan.01.svg -p /tmp/mmdc-puppeteer.json
+```powershell
+docker run --rm -v ${PWD}:/data minlag/mermaid-cli:11.12.0 -i docs/foundation_plan.01.mmd -o docs/foundation_plan.01.svg
 ```
+
+- `-v ${PWD}:/data` … 今いるフォルダ（プロジェクト直下）をコンテナの `/data` として見せる。`-i` / `-o` のパスはプロジェクト直下からの相対パスで指定する。
+- macOS / Linux（bash/zsh）では `${PWD}` の代わりに `$(pwd)` を使う。
+- 初回はイメージのダウンロードで数十秒〜数分かかるが、2 回目以降はローカルにキャッシュされるため速い。
 
 ### 仕上がり確認（任意）
 
 SVG は端末で直接見られないため、確認したいときは PNG を一時出力して目視する（PNG はコミットしない）:
 
-```sh
-mmdc -i foundation_plan.01.mmd -o /tmp/preview.png -e png -s 2 -b white -p /tmp/mmdc-puppeteer.json
+```powershell
+docker run --rm -v ${PWD}:/data minlag/mermaid-cli:11.12.0 -i docs/foundation_plan.01.mmd -o docs/preview.png -e png -s 2 -b white
 ```
 
 ## 7. レイアウト崩れの対処
 
 | 症状 | 対処 |
 |---|---|
-| 日本語が切れる / はみ出す | `.mmd` 先頭の init ディレクティブで `fontFamily` を指定（§3）。**mmdc 実行マシン**に CJK フォントが入っているか確認（§2 の OS 別表） |
+| 日本語が切れる / はみ出す | `.mmd` 先頭の init ディレクティブで `fontFamily` に `'Noto Sans CJK JP'` を指定しているか確認（§3） |
 | エッジラベルがノードに重なる | `rankSpacing` を広げる。関連ノードを `subgraph` でグルーピングして段を分けると交差が減る |
-| 日本語が □（豆腐）になる | mmdc 実行マシンに CJK フォント未導入。Linux/WSL/CI は `fonts-noto-cjk` を入れる（macOS/Windows は標準で同梱、§2） |
-| WSL/CI で描画が落ちる | `-p /tmp/mmdc-puppeteer.json`（`--no-sandbox`、§2 の 1 行コマンドで作成）を付ける。`libnss3` 等の不足ライブラリ導入も検討 |
+| `docker: command not found` / 接続エラー | Docker Desktop が起動しているか確認する |
+| `-i`/`-o` で指定したファイルが見つからない | プロジェクトのルートフォルダで実行しているか、パスが `docs/xxx.mmd` のようにルートからの相対パスになっているか確認する |

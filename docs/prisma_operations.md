@@ -1,6 +1,6 @@
 # Prisma マイグレーション運用フロー（prisma_operations.md）
 
-Prisma スキーマ変更〜DB 反映の**運用手順の正本**。スキーマの命名規約は [`prisma/AGENTS.md`](../prisma/AGENTS.md)、本番構成全体は [`foundation_plan.md`](./foundation_plan.md) §6 を参照。
+Prisma スキーマ変更〜DB 反映の**運用手順の正本**。スキーマの命名規約は [`prisma/AGENTS.md`](../prisma/AGENTS.md)、本番構成全体は [`foundation_plan.md`](./foundation_plan.md) §6 を参照。マイグレーション適用後にドキュメント（基本設計書・データベース仕様書・ER図）まで一通り更新したい場合は [`docs/development/DB定義を変更したい場合.md`](development/DB定義を変更したい場合.md) を参照。
 
 ## 環境ごとのコマンド一覧
 
