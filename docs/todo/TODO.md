@@ -38,14 +38,14 @@
 | **不足ドキュメントの作成（棚卸し1＋要件定義・基本設計4＋単体テスト仕様書1＋テスト実施1）**             | **7 / 7**   |
 | **公開用テンプレート切り出し前の準備**                                         | **2 / 2**   |
 | **公開用テンプレートの切り出し前準備（ER図・画面遷移図・セキュリティテスト）**                     | **4 / 4**   |
-| **公開用テンプレートの切り出し**                                            | **0 / 8**   |
+| **公開用テンプレートの切り出し**                                            | **2 / 5**   |
 | 残っているタスク（期限なしの宿題）                                             | 未対応 5 件     |
 
 土台は 2026-08-04 に本番稼働へ到達した。内訳は [完了済みの作業](#完了済みの作業)。
 
 ## 次にやること
 
-**公開用テンプレート切り出し前準備は2026-08-28に4番とも完了した**（→ [完了済みの作業](#完了済みの作業)）。**次のセッションでは、[公開用テンプレートの切り出し](#公開用テンプレートの切り出し)の1番（今のフォルダを別の場所へコピーする）から着手する。** 最初に `git status --porcelain` で未コミット差分を確認する。
+**2026-08-31に[公開用テンプレートの切り出し](#公開用テンプレートの切り出し)の方針を変更し、AI開発基盤だけを抽出した `ai-dev-template` を作成した**（→ [履歴](history/2026-08-w4.md#2026-08-31-ai開発基盤だけを抽出した汎用テンプレートを作成)）。**次のセッションでは、同節の3番（3ツールでテンプレートを開いて動作確認する）から着手する。** 作成先はこのリポジトリと同じ `kojin_learn` フォルダ配下の `ai-dev-template`（このリポジトリの外）なので、そちらへ移動して Claude Code / Codex / GitHub Copilot を順に起動する。
 
 **作業前に必ず確認すること。** ローカルの `.env` が一時的に本番Supabase（`DATABASE_URL`）を指す設定になっていることが2026-08-19に判明した（経緯・対処は [`docs/todo/notes/supabase.md`](notes/supabase.md#2026-08-19-envのdatabase_urlが本番を指したまま残っていた) を参照）。`pnpm dev` / `pnpm worker` / Prismaスクリプトを実行する前に、接続先がローカルであることを確認するか、`.env.local` でローカルDBへ上書きすること。**Prisma CLI（`prisma migrate` 系コマンド）は `.env.local` を読まない**（Next.jsのランタイムだけが優先読み込みする）ため、`DATABASE_URL=<ローカル接続文字列>` を明示的に指定してコマンドを実行すること。
 
@@ -58,16 +58,14 @@ git status --porcelain                                   # 未コミット差分
 
 ## 公開用テンプレートの切り出し
 
-このリポジトリを、履歴を含まない汎用テンプレートとして、別の GitHub 公開リポジトリ `koekoebaborak27/multi-agent-contract-template`（public）へ切り出す。方針は 2026-08-23 にユーザーとの壁打ちで確定した（→ [履歴](history/2026-08-w3.md#2026-08-23-公開用テンプレートの切り出し方針を確定)）。今の `koekoebaborak27/multi-ai-agent-sample`（private）はこのまま開発継続用に残す。
+**2026-08-31に方針を変更した。** 契約管理システムを丸ごと公開する案（`multi-agent-contract-template`）ではなく、**AI開発基盤（3ツール共通のルール・スキル・権限ポリシー）だけを抽出した汎用テンプレート `ai-dev-template`** を切り出す。新規アプリの土台として使い回すことが目的で、業務機能は持たせない（→ [履歴](history/2026-08-w4.md#2026-08-31-ai開発基盤だけを抽出した汎用テンプレートを作成)）。今の `koekoebaborak27/multi-ai-agent-sample`（private）はこのまま開発継続用に残す。
 
-- [ ] 1. 今のフォルダを別の場所へコピーする（Git 履歴なしの新品状態にする）
-- [ ] 2. コピー先で `docs/todo` フォルダ（本編・notes・history）を丸ごと削除する
-- [ ] 3. コピー先の全ファイル（`docs/specs` を含む）を対象に、本番 URL・GCP プロジェクト番号など個別データが残っていないか洗い出す
-- [ ] 4. 3 で見つかった実データをプレースホルダーへ置き換える
-- [ ] 5. `LICENSE`（MIT。著作権者名は個人名ではなく `multi-agent-contract-template`）を追加する
-- [ ] 6. `README.md` / `README_SIMPLE.md` を最終確認する
-- [ ] 7. GitHub 上に新しい public リポジトリ `koekoebaborak27/multi-agent-contract-template` を作成する
-- [ ] 8. コピー先を初回コミットとして、7 のリポジトリへ push する
+作成先はこのリポジトリと同じ `kojin_learn` フォルダ配下の `ai-dev-template`（このリポジトリの外。既存ファイルは 1 つも変更・移動していない）。
+
+- [x] 1. AI開発基盤だけを抽出したテンプレートを作成する（2026-08-31、72ファイル）→ [履歴](history/2026-08-w4.md#2026-08-31-ai開発基盤だけを抽出した汎用テンプレートを作成)
+- [x] 2. テンプレート単体で `pnpm install` / `lint` / `format:check` / `typecheck` / `test` が通ることと、`.md` のリンク切れが無いことを確認する（2026-08-31）
+- [ ] 3. 3ツール（Claude Code / Codex / GitHub Copilot）でテンプレートを開き、ルール読み込み・スキル起動・権限設定が効くことを確認する
+- [ ] 4. GitHub に public リポジトリを作成し、初回コミット（`d7f3b2f`）を push する
 
 ## 残っているタスク
 
@@ -98,6 +96,7 @@ git status --porcelain                                   # 未コミット差分
 | 本番 | **稼働中**（Cloud Run `contract-app` / us-central1、`https://contract-app-<プロジェクト番号>.us-central1.run.app`）。Cloud Run Jobs `contract-worker`（us-central1）は worker専用サービスアカウント `contract-worker-runner` で稼働（Secret Manager の `database-url` / `supabase-service-role-key` への参照権限のみ付与）。タスクのタイムアウトは900秒。Cloud Buildはapp・worker両方のイメージを自動でビルド・反映する設定済み。構成・設定値・URL は [`docs/specs/99_infra/`](../specs/99_infra/README.md) |
 | メール送信 | 送信の共通窓口 `src/shared/mail/`（`sendMail`）を実装済み（2026-08-21）。再発行申請画面・パスワード再設定画面・メールアドレス変更申し込みと確定から呼び出され、4種類すべての文面を使い切っている。ローカル・本番とも送信専用のGmailアカウントとアプリパスワードを設定し、実送信を確認済み（本番は2026-08-22、[`infra_design_09_メール送信.md` §09.1.7](../specs/99_infra/infra_design_09_メール送信.md#0917-本番cloud-runに設定する)）。`.env.example` の既定は `MAIL_TRANSPORT=console`（送らずログへ出すだけ）のため、設定なしでも開発できる |
 | ブランチ保護 | **かかっていない**。PR 運用は運用ルールで守っている（→ [残っているタスク](#残っているタスク)） |
+| AI開発テンプレート | `kojin_learn` フォルダ配下の `ai-dev-template` に作成済み（2026-08-31、初回コミット `d7f3b2f`）。GitHubへは未push。このリポジトリからはコピーのみで、既存ファイルは変更していない |
 
 ## 完了済みの作業
 
