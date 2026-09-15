@@ -141,3 +141,17 @@ git push
 | ローカル開発用の PostgreSQL | [`docker/docker-compose.yml`](../../../docker/docker-compose.yml) の `db` は開発専用です。本番は Supabase を使います |
 
 > **本番コンテナ内でワーカーを起動する場合**、`pnpm worker` は使えません。本番用のイメージには pnpm 本体が含まれていないためです。`./node_modules/.bin/tsx src/worker/index.ts` を使ってください。
+
+## 10.1.8 Supabaseの自動一時停止を防ぐ
+
+**Supabaseの無料プランは、一定期間（目安1週間）データベースへのアクセスが無いと、プロジェクトを自動的に一時停止（Paused）します。** 一時停止されると、アプリからの問い合わせがすべて失敗し、ログイン・パスワード再発行など画面全体が動かなくなります（症状は [12.1.2](infra_design_12_トラブルシュート.md#1212-起動接続の問題) を参照）。
+
+**対策として、[`.github/workflows/keep-supabase-awake.yml`](../../../.github/workflows/keep-supabase-awake.yml) が2日おきに本番の `/api/health?check=db`（データベースへ実際に問い合わせるヘルスチェック）を自動で呼び出します。** GitHub Actions の定期実行はリポジトリに含まれるため、複製したテンプレートでもそのまま使えますが、**呼び出し先のURLだけは案件ごとに設定が必要**です。
+
+1. GitHub リポジトリの **Settings → Secrets and variables → Actions → Variables** を開く
+2. **`PROD_HEALTH_URL`** という名前で、本番のベースURL（例: `https://contract-app-24516671242.us-central1.run.app`）を登録する
+3. **Actions タブ → Keep Supabase Awake → Run workflow** で手動実行し、成功することを確認する
+
+> **このワークフローが失敗する（赤い×が付く）と、GitHub がリポジトリの管理者へ通知します。** これ自体が「データベースに問題が起きている」という簡易的な死活監視にもなります。実際に一時停止していた場合は Supabase のダッシュボードで **Resume** してください。
+>
+> **1週間より長く本番を触らないことが分かっている場合**（長期休暇など）は、このワークフローだけでは足りません。Supabase のダッシュボードで直接確認してください。

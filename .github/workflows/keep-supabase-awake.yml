@@ -1,0 +1,20 @@
+name: Keep Supabase Awake
+
+# Supabase の無料プランは、一定期間（目安1週間）データベースへのアクセスが無いと
+# プロジェクトを自動的に一時停止する。それより十分短い間隔で本番の
+# /api/health?check=db（データベースへ実際に問い合わせるヘルスチェック）を呼び、
+# 一時停止を防ぐ。あわせて、この呼び出し自体が簡易的な死活監視にもなる
+# （失敗するとこのワークフローが失敗し、GitHub がリポジトリの管理者へ通知する）。
+#
+# 手順・設定方法の正本: docs/specs/99_infra/infra_design_10_構築後の運用.md 10.1.8
+on:
+  schedule:
+    - cron: "0 3 */2 * *" # 2日おき（UTC 3時 = JST 12時）
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/health?check=db
+        run: curl --fail --silent --show-error "${{ vars.PROD_HEALTH_URL }}?check=db"
