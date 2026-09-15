@@ -24,6 +24,7 @@
 | データベースへの接続がタイムアウトする                               | Direct connection の接続文字列を使っている            | Session pooler へ変更する。Direct connection は Cloud Run から到達できない                        |
 | `prisma migrate deploy` が失敗する                     | Transaction pooler（ポート 6543）の接続文字列を使っている  | Session pooler（ポート 5432）へ変更する                                                      |
 | 認証エラーで接続できない                                      | パスワードの置換漏れ、または PowerShell のダブルクォートによる変数展開 | `[YOUR-PASSWORD]` を角かっこごと置換し、**シングルクォート**で囲む（[04.1.2](infra_design_04_本番データベース初期化.md#0412-接続先を設定する)）                  |
+| ログに `tenant/user ... not found` と出て、ログイン・パスワード再発行など DB を使う画面がすべて失敗する | Supabase の無料枠の自動一時停止で、プロジェクトが Paused になっている | Supabase ダッシュボードでプロジェクトを **Resume** する。再発防止は [10.1.8](infra_design_10_構築後の運用.md#1018-supabaseの自動一時停止を防ぐ) |
 
 ## 12.1.3 画面・ログインの問題
 
