@@ -17,4 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping /api/health?check=db
-        run: curl --fail --silent --show-error "${{ vars.PROD_HEALTH_URL }}?check=db"
+        env:
+          BASE_URL: ${{ vars.PROD_HEALTH_URL }}
+        run: |
+          # PROD_HEALTH_URL は本番のベースURL（末尾のスラッシュはあってもなくてもよい）。
+          # リダイレクト（3xx）を成功と誤判定しないよう、HTTP 200 のときだけ成功とする。
+          url="${BASE_URL%/}/api/health?check=db"
+          status=$(curl --silent --show-error --output response.json --write-out '%{http_code}' "$url")
+          cat response.json
+          test "$status" = "200"
